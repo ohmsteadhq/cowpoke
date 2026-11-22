@@ -22,7 +22,7 @@ use serde_json::{Value, json};
 use crate::manager::Ctx;
 use crate::model::DataType;
 use crate::tags::{Origin, Quality};
-use decode::{Action, Obs, Proto};
+pub use decode::{Action, Obs, Proto};
 use packet::{Frame, Link, Streams};
 
 /// The tags a monitor service publishes. A monitor's `tags` may list any of these.
@@ -118,12 +118,14 @@ pub struct Talker {
     /// Response time percentiles over recent requests (Modbus, EtherNet/IP, S7).
     pub latency_p50_ms: Option<f64>,
     pub latency_p95_ms: Option<f64>,
+    /// Writes, program and control actions by hour of day (UTC), to learn when they normally happen.
+    pub action_hours: Vec<u64>,
     #[serde(skip)]
     latencies: Vec<f64>,
 }
 
 impl Talker {
-    fn new(client: String, server: String, protocol: Proto, ts: DateTime<Utc>) -> Self {
+    pub fn new(client: String, server: String, protocol: Proto, ts: DateTime<Utc>) -> Self {
         Self {
             client,
             server,
@@ -142,6 +144,7 @@ impl Talker {
             timeouts: 0,
             latency_p50_ms: None,
             latency_p95_ms: None,
+            action_hours: vec![0; 24],
             latencies: vec![],
         }
     }
@@ -203,6 +206,11 @@ pub fn health() -> Vec<(String, Vec<Talker>, Vec<AddressConflict>)> {
             (e.key().clone(), st.talkers.values().cloned().collect(), st.conflicts.clone())
         })
         .collect()
+}
+
+/// Every running monitor's recent events (oldest first).
+pub fn recent_events() -> Vec<Event> {
+    MONITORS.iter().flat_map(|e| e.value().lock().events.iter().cloned().collect::<Vec<_>>()).collect()
 }
 
 fn mac_text(m: &[u8; 6]) -> String {
@@ -457,6 +465,10 @@ impl Monitor {
         let mut seen: Vec<Action> = vec![];
         for o in found {
             seen.push(o.action);
+            if matches!(o.action, Action::Write | Action::Program | Action::Control) {
+                use chrono::Timelike;
+                t.action_hours[ts.hour() as usize] += 1;
+            }
             *t.counts.entry(action_key(o.action).into()).or_default() += 1;
             t.last = o.what.clone();
             let notable = match o.action {
@@ -827,7 +839,7 @@ mod tests {
         let (tags, svcs, states, names) = (HashMap::new(), HashMap::new(), HashMap::new(), HashMap::new());
         let snap = crate::insights::Snapshot {
             now: Utc::now(), cfg: &cfg, tags: &tags, services: &svcs, alarm_log: &[], alarm_states: &states,
-            alarm_names: &names, monitors: &mons, alarm_defs: &[], pairs: &[],
+            alarm_names: &names, monitors: &mons, alarm_defs: &[], pairs: &[], changes: &[], monitor_events: &[],
         };
         let out = crate::insights::analyze(&snap, &crate::insights::Tuning::default());
         let ids: Vec<&str> = out.iter().map(|i| i.id.as_str()).collect();

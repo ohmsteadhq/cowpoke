@@ -360,6 +360,23 @@ pub struct Snapshot<'a> {
     pub alarm_defs: &'a [crate::alarms::AlarmDef],
     /// Command/feedback pairs and what has happened to each.
     pub pairs: &'a [(Pair, PairState)],
+    /// Changes made to devices: writes through Cowpoke, program and run/stop actions seen on the wire.
+    pub changes: &'a [Change],
+    /// The traffic monitors' recent events.
+    pub monitor_events: &'a [crate::monitor::Event],
+}
+
+/// A change made to a device, to compare what happened before and after.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Change {
+    pub ts: DateTime<Utc>,
+    /// Who made it: "Cowpoke" for writes through Cowpoke, else the client's address.
+    pub by: String,
+    /// The Cowpoke service it concerns, when known.
+    pub service: Option<String>,
+    /// The device address (`ip:port`), for changes seen on the wire.
+    pub device: Option<String>,
+    pub what: String,
 }
 
 // ------------------------------------------------------------------ configuration
@@ -470,6 +487,8 @@ pub fn analyze(s: &Snapshot, t: &Tuning) -> Vec<Insight> {
     equipment(s, t, &mut out);
     process(s, t, &mut out);
     pairs(s, &mut out);
+    effects(s, &mut out);
+    off_hours(s, &mut out);
     historian(s, t, &mut out);
     alarms(s, t, &mut out);
     out.sort_by(|a, b| b.level.cmp(&a.level).then(a.area.cmp(&b.area)).then(a.id.cmp(&b.id)));
@@ -854,6 +873,108 @@ fn process(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
     }
 }
 
+/// The Cowpoke client services that read the device at `addr` (`ip:port`).
+fn services_at<'a>(s: &'a Snapshot, addr: &str) -> Vec<&'a ServiceDef> {
+    let Some((ip, port)) = addr.rsplit_once(':') else { return vec![] };
+    s.cfg
+        .services
+        .iter()
+        .filter(|d| d.mode == Mode::Client)
+        .filter(|d| {
+            let host = d.settings.get("host").and_then(|h| h.as_str()).unwrap_or("");
+            let p = d.settings.get("port").and_then(|p| p.as_u64()).or_else(|| crate::services::listen_port(&ServiceDef { mode: Mode::Server, ..(*d).clone() }).map(u64::from));
+            host == ip && p.map(|p| p.to_string()).as_deref() == Some(port)
+        })
+        .collect()
+}
+
+/// Did the tags a change could affect behave differently afterwards?
+fn effects(s: &Snapshot, out: &mut Vec<Insight>) {
+    let now_hour = s.now.timestamp().div_euclid(3600);
+    for c in s.changes {
+        let hour = c.ts.timestamp().div_euclid(3600);
+        // Two complete hours on each side.
+        if now_hour - hour < 3 || s.now - c.ts > TimeDelta::days(3) {
+            continue;
+        }
+        let mut targets: Vec<&ServiceDef> = vec![];
+        if let Some(sv) = c.service.as_ref().and_then(|id| s.cfg.services.iter().find(|d| &d.id == id)) {
+            targets.push(sv);
+        }
+        if let Some(dev) = &c.device {
+            targets.extend(services_at(s, dev));
+        }
+        let mut shifts = vec![];
+        for def in targets {
+            for tg in &def.tags {
+                let Some(st) = s.tags.get(&(def.id.clone(), tg.name.clone())) else { continue };
+                let before: Vec<&Bucket> = st.hours.iter().filter(|b| b.hour < hour && b.hour >= hour - 6 && b.n >= 10).collect();
+                let after: Vec<&Bucket> = st.hours.iter().filter(|b| b.hour > hour && b.hour < now_hour && b.n >= 10).collect();
+                if before.len() < 2 || after.len() < 2 {
+                    continue;
+                }
+                let mean = |v: &[&Bucket]| v.iter().map(|b| b.mean).sum::<f64>() / v.len() as f64;
+                let (a, b) = (mean(&before), mean(&after));
+                let noise = median(&before.iter().chain(after.iter()).map(|b| b.std()).collect::<Vec<_>>()).unwrap_or(0.0);
+                if (b - a).abs() >= 3.0 * noise.max(1e-9) && (b - a).abs() >= 0.02 * a.abs().max(1e-9) {
+                    shifts.push(format!("{} · {}: {a:.3} → {b:.3} (average)", def.name_or_id(), tg.name));
+                }
+            }
+        }
+        if shifts.is_empty() {
+            continue;
+        }
+        out.push(Insight {
+            id: id(&["effect", &c.ts.timestamp().to_string(), &c.what]),
+            area: Area::Process,
+            level: Level::Suggest,
+            title: format!("After “{}” ({} by {}), {} tag{} changed", c.what, c.ts.format("%b %d %H:%M"), c.by, shifts.len(), if shifts.len() > 1 { "s" } else { "" }),
+            detail: "These tags averaged differently in the hours after the change than in the hours before. It may be the intended effect, or a side effect worth knowing about.".into(),
+            evidence: shifts.into_iter().take(8).collect(),
+            suggestion: "Confirm the change did what was meant; if a shift wasn't intended, start with this change.".into(),
+            service: c.service.clone(),
+            tag: None,
+            fix: None,
+        });
+    }
+}
+
+/// Writes and program or control actions at hours a client has never been active.
+fn off_hours(s: &Snapshot, out: &mut Vec<Insight>) {
+    use chrono::Timelike;
+    use crate::monitor::Action;
+    let since = s.now - TimeDelta::hours(24);
+    for (mon, talkers, _) in s.monitors {
+        for tk in talkers {
+            let total: u64 = tk.action_hours.iter().sum();
+            if total < 100 {
+                continue;
+            }
+            let odd: Vec<&crate::monitor::Event> = s
+                .monitor_events
+                .iter()
+                .filter(|e| e.ts >= since && e.client == tk.client && e.server == tk.server)
+                .filter(|e| matches!(e.action, Action::Write | Action::Program | Action::Control))
+                .filter(|e| (tk.action_hours[e.ts.hour() as usize] as f64) < 0.01 * total as f64)
+                .collect();
+            let Some(last) = odd.last() else { continue };
+            let program = odd.iter().any(|e| e.action == Action::Program);
+            out.push(Insight {
+                id: id(&["offhours", mon, &format!("{}>{}", tk.client, tk.server)]),
+                area: Area::Network,
+                level: if program { Level::Warn } else { Level::Suggest },
+                title: format!("{} → {}: {} action{} at an unusual hour", tk.client, tk.server, odd.len(), if odd.len() > 1 { "s" } else { "" }),
+                detail: format!("This client normally writes to the device at other times of day ({total} actions learned). Off-hours changes are often maintenance, but they're also how mistakes and intrusions show up."),
+                evidence: odd.iter().rev().take(5).map(|e| format!("{} UTC: {}", e.ts.format("%H:%M"), e.what)).collect(),
+                suggestion: format!("Check who was connected from {} at {} UTC and why.", tk.client, last.ts.format("%H:%M")),
+                service: Some(mon.clone()),
+                tag: None,
+                fix: None,
+            });
+        }
+    }
+}
+
 fn pairs(s: &Snapshot, out: &mut Vec<Insight>) {
     for (p, st) in s.pairs {
         let current = st.mismatch_since.filter(|m| (s.now - *m).num_seconds() >= p.delay_s as i64);
@@ -1057,6 +1178,8 @@ struct Saved {
     dismissed: HashSet<String>,
     #[serde(default)]
     pairs: HashMap<String, PairState>,
+    #[serde(default)]
+    changes: Vec<Change>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -1076,6 +1199,7 @@ pub struct Insights {
     pair_states: Mutex<HashMap<String, PairState>>,
     /// Latest value per (service, tag), for pair checks.
     latest: Mutex<HashMap<(String, String), Value>>,
+    changes: Mutex<Vec<Change>>,
     tags: Mutex<HashMap<(String, String), TagStats>>,
     services: Mutex<HashMap<String, ServiceStats>>,
     dismissed: Mutex<HashSet<String>>,
@@ -1100,6 +1224,7 @@ impl Insights {
             config: Mutex::new(config),
             pair_states: Mutex::new(saved.pairs),
             latest: Mutex::new(HashMap::new()),
+            changes: Mutex::new(saved.changes),
             tags: Mutex::new(saved.tags.into_iter().collect()),
             services: Mutex::new(saved.services),
             dismissed: Mutex::new(saved.dismissed),
@@ -1131,6 +1256,25 @@ impl Insights {
             if let (Some(cv), Some(fv)) = (latest.get(&c), latest.get(&f)) {
                 check_pair(p, states.entry(p.name.clone()).or_default(), e.state.ts, cv, fv);
             }
+        }
+    }
+
+    /// Note a change: a value written through Cowpoke, or a program or control action on the wire.
+    pub fn note_change(&self, c: Change) {
+        let mut v = self.changes.lock();
+        // A burst of writes to one tag is one change.
+        if let Some(last) = v.last_mut() {
+            if last.service == c.service && last.device == c.device && last.by == c.by && c.ts - last.ts < TimeDelta::minutes(10) && last.what.split(' ').next() == c.what.split(' ').next() {
+                *last = c;
+                return;
+            }
+        }
+        v.push(c);
+        let cutoff = Utc::now() - TimeDelta::days(7);
+        v.retain(|x| x.ts >= cutoff);
+        if v.len() > 500 {
+            let n = v.len() - 500;
+            v.drain(..n);
         }
     }
 
@@ -1226,9 +1370,17 @@ impl Insights {
             .iter()
             .map(|p| (p.clone(), states.get(&p.name).cloned().unwrap_or_default()))
             .collect();
+        let events = crate::monitor::recent_events();
+        for e in events.iter().filter(|e| matches!(e.action, crate::monitor::Action::Program | crate::monitor::Action::Control)) {
+            let c = Change { ts: e.ts, by: e.client.clone(), service: None, device: Some(e.server.clone()), what: e.what.clone() };
+            if !self.changes.lock().contains(&c) {
+                self.note_change(c);
+            }
+        }
+        let changes = self.changes.lock().clone();
         let snap = Snapshot {
             now: Utc::now(), cfg, tags: &tags, services: &services, alarm_log, alarm_states, alarm_names,
-            monitors: &monitors, alarm_defs, pairs: &pairs,
+            monitors: &monitors, alarm_defs, pairs: &pairs, changes: &changes, monitor_events: &events,
         };
         let all = analyze(&snap, &self.tuning);
         let dismissed = self.dismissed.lock().clone();
@@ -1260,6 +1412,7 @@ impl Insights {
             services: self.services.lock().clone(),
             dismissed: self.dismissed.lock().clone(),
             pairs: self.pair_states.lock().clone(),
+            changes: self.changes.lock().clone(),
         };
         if let Ok(b) = serde_json::to_vec(&saved) {
             let tmp = self.path.with_extension("tmp");
@@ -1279,6 +1432,14 @@ pub async fn run(ins: Arc<Insights>, app: crate::web::App, engine: Arc<crate::al
             e = events.recv() => match e {
                 // Values typed in the UI or generated by simulators aren't the process.
                 Ok(e) if e.origin == crate::tags::Origin::Service => ins.observe(&e),
+                // Someone set a value through Cowpoke: a change whose effect is worth watching.
+                Ok(e) if e.origin == crate::tags::Origin::User => ins.note_change(Change {
+                    ts: e.state.ts,
+                    by: "Cowpoke".into(),
+                    service: Some(e.service.clone()),
+                    device: None,
+                    what: format!("{} set to {}", e.tag, e.state.value),
+                }),
                 Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
                 Err(_) => return,
             },
@@ -1326,7 +1487,7 @@ mod tests {
         let services = HashMap::new();
         let states = HashMap::new();
         let names = HashMap::new();
-        let s = Snapshot { now: Utc::now(), cfg, tags, services: &services, alarm_log: log, alarm_states: &states, alarm_names: &names, monitors: &[], alarm_defs: &[], pairs: &[] };
+        let s = Snapshot { now: Utc::now(), cfg, tags, services: &services, alarm_log: log, alarm_states: &states, alarm_names: &names, monitors: &[], alarm_defs: &[], pairs: &[], changes: &[], monitor_events: &[] };
         analyze(&s, &Tuning::default())
     }
 
@@ -1417,7 +1578,7 @@ mod tests {
 
     fn snap_with(cfg: &Config, tags: &HashMap<(String, String), TagStats>, defs: &[crate::alarms::AlarmDef], pairs: &[(Pair, PairState)]) -> Vec<Insight> {
         let (services, states, names) = (HashMap::new(), HashMap::new(), HashMap::new());
-        let s = Snapshot { now: Utc::now(), cfg, tags, services: &services, alarm_log: &[], alarm_states: &states, alarm_names: &names, monitors: &[], alarm_defs: defs, pairs };
+        let s = Snapshot { now: Utc::now(), cfg, tags, services: &services, alarm_log: &[], alarm_states: &states, alarm_names: &names, monitors: &[], alarm_defs: defs, pairs, changes: &[], monitor_events: &[] };
         analyze(&s, &Tuning::default())
     }
 
@@ -1517,6 +1678,47 @@ mod tests {
         let cfg = Config::default();
         let out = snap_with(&cfg, &HashMap::new(), &[], &[(p, st)]);
         assert!(out.iter().any(|i| i.id == "pair:Feed pump" && i.title.contains("at times")), "{out:#?}");
+    }
+
+    #[test]
+    fn change_and_its_effect() {
+        let cfg = plc("  - { name: temp, datatype: float32, register: 0 }\n");
+        let start = (Utc::now() - TimeDelta::hours(8)).duration_trunc(TimeDelta::hours(1)).unwrap();
+        let change_at = start + TimeDelta::hours(4) + TimeDelta::minutes(1);
+        let mut st = TagStats::default();
+        // 50 before the change, 60 after (noise ±0.1).
+        feed(&mut st, start, 30, 8 * 120, |i| json!(if i < 4 * 120 { 50.0 } else { 60.0 } + if i % 2 == 0 { 0.1 } else { -0.1 }));
+        let mut tags = HashMap::new();
+        tags.insert(("plc".to_string(), "temp".to_string()), st);
+        let changes = vec![Change { ts: change_at, by: "Cowpoke".into(), service: Some("plc".into()), device: None, what: "setpoint set to 60".into() }];
+        let (services, states, names) = (HashMap::new(), HashMap::new(), HashMap::new());
+        let s = Snapshot { now: Utc::now(), cfg: &cfg, tags: &tags, services: &services, alarm_log: &[], alarm_states: &states, alarm_names: &names,
+            monitors: &[], alarm_defs: &[], pairs: &[], changes: &changes, monitor_events: &[] };
+        let out = analyze(&s, &Tuning::default());
+        let e = out.iter().find(|i| i.id.starts_with("effect:")).expect("effect insight");
+        assert!(e.evidence[0].contains("50.000 → 60.000"), "{:?}", e.evidence);
+    }
+
+    #[test]
+    fn writes_at_an_unusual_hour() {
+        use chrono::Timelike;
+        let now = Utc::now();
+        let odd_hour = (now.hour() as usize + 12) % 24;
+        let usual = (odd_hour + 6) % 24;
+        let mut tk = crate::monitor::Talker::new("10.0.0.9".into(), "10.0.0.20:102".into(), crate::monitor::Proto::S7, now - TimeDelta::days(5));
+        tk.action_hours[usual] = 300;
+        let ts = (now - TimeDelta::hours(12)).with_minute(5).unwrap();
+        let ev = crate::monitor::Event { ts, protocol: crate::monitor::Proto::S7, client: "10.0.0.9".into(), server: "10.0.0.20:102".into(),
+            action: crate::monitor::Action::Program, what: "download block".into(), new_talker: false };
+        let mons = vec![("mon".to_string(), vec![tk], vec![])];
+        let events = vec![ev];
+        let cfg = Config::default();
+        let (tags, services, states, names) = (HashMap::new(), HashMap::new(), HashMap::new(), HashMap::new());
+        let s = Snapshot { now, cfg: &cfg, tags: &tags, services: &services, alarm_log: &[], alarm_states: &states, alarm_names: &names,
+            monitors: &mons, alarm_defs: &[], pairs: &[], changes: &[], monitor_events: &events };
+        let out = analyze(&s, &Tuning::default());
+        let o = out.iter().find(|i| i.id.starts_with("offhours:")).expect("off-hours insight");
+        assert_eq!(o.level, Level::Warn, "a program download");
     }
 
     #[test]

@@ -12,10 +12,15 @@ settings:
   retain: true            # new subscribers get the last value at once
   # username: cowpoke     # require these credentials from every client
   # password: change-me-please
+  # sparkplug:            # also be a Sparkplug B edge node on this broker
+  #   group_id: Plant
+  #   edge_node: Line1
+  #   device: Tank1       # optional: publish the metrics as a device under the node
 tags:
   - name: temperature
     datatype: float64
     initial: 21.5
+    # metric: Line1/Temperature    # Sparkplug metric name; default: the tag name
     simulate: { kind: walk, min: 18, max: 26, step: 0.2 }
   - name: running
     datatype: bool

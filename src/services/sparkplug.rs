@@ -34,7 +34,8 @@ pub struct Config {
     /// Read a device under the edge node (DBIRTH/DDATA/DCMD) instead of the node itself.
     #[serde(default)]
     pub device: Option<String>,
-    /// Send `Node Control/Rebirth` on connect, so the node republishes its births (and aliases).
+    /// Client: send `Node Control/Rebirth` on connect, so the node republishes its births
+    /// (and aliases). Ignored in server mode.
     #[serde(default = "yes")]
     pub rebirth: bool,
 }
@@ -55,7 +56,7 @@ impl Config {
         Ok(())
     }
 
-    fn topic(&self, kind: &str, device: bool) -> String {
+    pub fn topic(&self, kind: &str, device: bool) -> String {
         let mut t = format!("spBv1.0/{}/{kind}/{}", self.group_id, self.edge_node);
         if device {
             if let Some(d) = &self.device {

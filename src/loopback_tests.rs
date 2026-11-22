@@ -629,3 +629,71 @@ tags:
     assert_eq!(rig2.tags.get("cli", "level").map(|s| s.quality), Some(Quality::Bad));
     rig2.stop().await;
 }
+
+/// Cowpoke's broker as a Sparkplug B edge node (once as the node, once as a device under
+/// it), read and written by Cowpoke's Sparkplug client.
+#[tokio::test(flavor = "multi_thread")]
+async fn mqtt_sparkplug_edge_node() {
+    let (p1, p2) = (free_port(), free_port());
+    let server = |id: &str, p: u16, device: &str| {
+        svc(&format!(
+            r#"
+id: {id}
+kind: mqtt
+mode: server
+settings: {{ bind: 127.0.0.1, port: {p}, sparkplug: {{ group_id: Plant, edge_node: Line1{device} }} }}
+tags:
+  - {{ name: level, datatype: float32, metric: Tank/Level, initial: 42.5 }}
+  - {{ name: count, datatype: int64, initial: -9000000000 }}
+  - {{ name: run, datatype: bool }}
+  - {{ name: label, datatype: string, initial: "Cow1" }}
+  - {{ name: locked, datatype: int16, initial: 3, writable: false }}
+"#
+        ))
+    };
+    let client = |id: &str, p: u16, device: &str| {
+        svc(&format!(
+            r#"
+id: {id}
+kind: mqtt
+mode: client
+settings: {{ host: 127.0.0.1, port: {p}, sparkplug: {{ group_id: Plant, edge_node: Line1{device} }} }}
+tags:
+  - {{ name: level, datatype: float64, metric: Tank/Level }}
+  - {{ name: count, datatype: int64 }}
+  - {{ name: run, datatype: bool }}
+  - {{ name: label, datatype: string }}
+  - {{ name: locked, datatype: int16 }}
+"#
+        ))
+    };
+    let dev = ", device: Tank1";
+    let rig = Rig::start(vec![
+        server("node", p1, ""),
+        client("host", p1, ""),
+        server("dnode", p2, dev),
+        client("dhost", p2, dev),
+    ])
+    .await;
+    for (srv, cli) in [("node", "host"), ("dnode", "dhost")] {
+        rig.wait_running(srv).await;
+        // Births (asked for with a rebirth on connect) bring every value...
+        rig.wait_value(cli, "level", json!(42.5)).await;
+        rig.wait_value(cli, "count", json!(-9_000_000_000i64)).await;
+        rig.wait_value(cli, "label", json!("Cow1")).await;
+        rig.wait_value(cli, "run", json!(false)).await;
+        // ...changes arrive as data by alias...
+        rig.write(srv, "level", json!(7.25)).await;
+        rig.wait_value(cli, "level", json!(7.25)).await;
+        // ...and NCMD/DCMD writes set the node's tags.
+        rig.write(cli, "run", json!(true)).await;
+        rig.wait_value(srv, "run", json!(true)).await;
+        rig.wait_value(cli, "run", json!(true)).await;
+        rig.write(cli, "label", json!("Cow2")).await;
+        rig.wait_value(srv, "label", json!("Cow2")).await;
+        rig.write(cli, "locked", json!(9)).await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert_eq!(rig.tags.value(srv, "locked"), Some(json!(3)));
+    }
+    rig.stop().await;
+}

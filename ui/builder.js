@@ -104,6 +104,11 @@ const SCHEMAS = {
     { k: "retain", label: "Publish retained", type: "bool", dflt: true, help: "New subscribers get each tag's last value at once." },
     { k: "username", label: "Username", type: "text", ph: "none: anyone can connect", adv: true },
     { k: "password", label: "Password", type: "password", adv: true },
+    { k: "sparkplug", label: "Sparkplug B edge node", type: "object", help: "Also publish the tags as a Sparkplug B edge node (or a device under it): births, data on change, writes and rebirths by NCMD/DCMD.", fields: [
+      { k: "group_id", label: "Group id", type: "text", ph: "Plant", required: true },
+      { k: "edge_node", label: "Edge node id", type: "text", ph: "Line1", required: true },
+      { k: "device", label: "Device id", type: "text", ph: "none: metrics on the node" },
+    ] },
     BIND,
   ],
   "mqtt/client": [
@@ -157,6 +162,10 @@ function tagColumns(kind, mode, settings) {
     case "api": return mode === "client" ? [{ k: "pointer", label: "JSON pointer", type: "text", ph: "/<tag name>", w: 180 }] : [];
     case "mqtt":
       if (mode === "client" && settings?.sparkplug) return [{ k: "metric", label: "Metric", type: "text", ph: "the tag name", w: 220 }];
+      if (mode === "server" && settings?.sparkplug) return [
+        { k: "topic", label: "Topic (optional)", type: "text", ph: "<prefix>/<tag name>", w: 180 },
+        { k: "metric", label: "Metric (optional)", type: "text", ph: "the tag name", w: 160 },
+      ];
       return [
       { k: "topic", label: mode === "client" ? "Topic" : "Topic (optional)", type: "text", ph: mode === "client" ? "plant/tank1/state" : "<prefix>/<tag name>", w: 200 },
       ...(mode === "client" ? [{ k: "pointer", label: "JSON pointer", type: "text", ph: "whole payload", w: 140 }] : []),

@@ -262,6 +262,10 @@ struct ServerSettings {
     username: Option<String>,
     #[serde(default)]
     password: Option<String>,
+    /// Also be a Sparkplug B edge node (or a device under one) on this broker:
+    /// births, data on change, NDEATH, and writes and rebirths through NCMD/DCMD.
+    #[serde(default)]
+    sparkplug: Option<super::sparkplug::Config>,
 }
 
 fn default_broker_port() -> u16 {
@@ -324,6 +328,140 @@ impl Broker {
     }
 }
 
+/// The broker's own Sparkplug B edge node: publishes the service's tags as metrics.
+struct EdgeNode {
+    cfg: super::sparkplug::Config,
+    def: Arc<ServiceDef>,
+    store: crate::tags::TagStore,
+    broker: Arc<Broker>,
+    /// Message sequence number, 0-255, reset by each NBIRTH.
+    seq: Mutex<u8>,
+    bd_seq: u64,
+}
+
+impl EdgeNode {
+    fn metric<'a>(t: &'a TagDef) -> &'a str {
+        t.metric.as_deref().unwrap_or(&t.name)
+    }
+
+    fn alias(&self, t: &TagDef) -> u64 {
+        // Alias 0 is left out so a zero default never matches a tag.
+        self.def.tags.iter().position(|x| x.name == t.name).unwrap_or(0) as u64 + 1
+    }
+
+    fn tag_metric(&self, t: &TagDef, v: &Value, with_name: bool, ts: u64) -> Option<Vec<u8>> {
+        use super::sparkplug as spb;
+        let dt = spb::datatype_for(t.datatype);
+        let name = with_name.then(|| Self::metric(t));
+        spb::encode_metric(name, Some(self.alias(t)), dt, v, ts)
+            .or_else(|_| spb::encode_metric(name, Some(self.alias(t)), dt, &crate::tags::zero(t.datatype), ts))
+            .ok()
+    }
+
+    fn publish(&self, kind: &str, device: bool, metrics: &[Vec<u8>], ts: u64, reset: bool) {
+        let seq = {
+            let mut s = self.seq.lock();
+            if reset {
+                *s = 0;
+            }
+            let n = *s;
+            *s = s.wrapping_add(1);
+            n
+        };
+        let payload = super::sparkplug::encode(ts, Some(seq as u64), metrics);
+        self.broker.route(&Publish::new(self.cfg.topic(kind, device), QoS::AtMostOnce, payload));
+    }
+
+    /// NBIRTH (and DBIRTH for a device) with every tag's current value.
+    fn births(&self) {
+        use super::sparkplug as spb;
+        let ts = spb::now_ms();
+        let mut node = vec![
+            spb::encode_metric(Some("bdSeq"), None, spb::UINT64, &json_u64(self.bd_seq), ts).unwrap(),
+            spb::encode_metric(Some("Node Control/Rebirth"), None, spb::BOOLEAN, &Value::Bool(false), ts).unwrap(),
+        ];
+        let tags: Vec<Vec<u8>> = self
+            .def
+            .tags
+            .iter()
+            .filter_map(|t| {
+                let v = self.store.value(&self.def.id, &t.name).unwrap_or(Value::Null);
+                self.tag_metric(t, &v, true, ts)
+            })
+            .collect();
+        if self.cfg.device.is_none() {
+            node.extend(tags);
+            self.publish("NBIRTH", false, &node, ts, true);
+        } else {
+            self.publish("NBIRTH", false, &node, ts, true);
+            self.publish("DBIRTH", true, &tags, ts, false);
+        }
+    }
+
+    fn data(&self, t: &TagDef, v: &Value) {
+        let ts = super::sparkplug::now_ms();
+        if let Some(m) = self.tag_metric(t, v, false, ts) {
+            let device = self.cfg.device.is_some();
+            self.publish(if device { "DDATA" } else { "NDATA" }, device, &[m], ts, false);
+        }
+    }
+
+    fn death(&self) {
+        use super::sparkplug as spb;
+        let ts = spb::now_ms();
+        let m = spb::encode_metric(Some("bdSeq"), None, spb::UINT64, &json_u64(self.bd_seq), ts).unwrap();
+        // NDEATH carries no seq.
+        let payload = spb::encode(ts, None, &[m]);
+        self.broker.route(&Publish::new(self.cfg.topic("NDEATH", false), QoS::AtMostOnce, payload));
+    }
+
+    /// An NCMD or DCMD: a rebirth request, or writes to tags. Returns false if the topic isn't ours.
+    fn command(&self, topic: &str, payload: &[u8]) -> bool {
+        let node_cmd = topic == self.cfg.ncmd();
+        if !node_cmd && topic != self.cfg.cmd() {
+            return false;
+        }
+        let p = match super::sparkplug::decode(payload) {
+            Ok(p) => p,
+            Err(e) => {
+                tracing::debug!("bad Sparkplug command on {topic}: {e}");
+                return true;
+            }
+        };
+        for m in &p.metrics {
+            if node_cmd && m.name.as_deref() == Some("Node Control/Rebirth") {
+                if m.value == Some(Value::Bool(true)) {
+                    self.births();
+                }
+                continue;
+            }
+            // Tag metrics live on the device when there is one, else on the node.
+            if node_cmd != self.cfg.device.is_none() {
+                continue;
+            }
+            let t = self.def.tags.iter().find(|t| match (&m.name, m.alias) {
+                (Some(n), _) => Self::metric(t) == n,
+                (None, Some(a)) => self.alias(t) == a,
+                _ => false,
+            });
+            let (Some(t), Some(v)) = (t, &m.value) else { continue };
+            if !t.writable {
+                tracing::debug!(tag = %t.name, "Sparkplug write to a read-only tag ignored");
+                continue;
+            }
+            match coerce_tag(t, v) {
+                Ok(v) => self.store.set(&self.def.id, &t.name, v, Quality::Good, Origin::Service),
+                Err(e) => tracing::debug!(tag = %t.name, "bad Sparkplug write: {e}"),
+            }
+        }
+        true
+    }
+}
+
+fn json_u64(n: u64) -> Value {
+    Value::from(n)
+}
+
 pub async fn server(ctx: &mut Ctx) -> Result<()> {
     let s: ServerSettings = ctx.settings()?;
     let def = Arc::new(ctx.def.clone());
@@ -344,12 +482,33 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
         }
     }
 
+    let node = s.sparkplug.clone().map(|cfg| {
+        // bdSeq goes up with every start, so hosts can tell births and deaths of each session apart.
+        let path = ctx.dir.join("sparkplug-bdseq");
+        let bd_seq = std::fs::read_to_string(&path).ok().and_then(|t| t.trim().parse::<u64>().ok()).map_or(0, |n| (n + 1) % 256);
+        let _ = std::fs::create_dir_all(&ctx.dir);
+        let _ = std::fs::write(&path, bd_seq.to_string());
+        Arc::new(EdgeNode { cfg, def: def.clone(), store: ctx.tags.clone(), broker: broker.clone(), seq: Mutex::new(0), bd_seq })
+    });
+    if let Some(n) = &node {
+        n.births();
+    }
+
     let listener = crate::services::listen(&s.bind, s.port).await?;
-    ctx.status.running(format!("broker on {}", listener.local_addr()?));
+    ctx.status.running(match &node {
+        Some(n) => format!(
+            "broker on {}, Sparkplug node {}/{}{}",
+            listener.local_addr()?,
+            n.cfg.group_id,
+            n.cfg.edge_node,
+            n.cfg.device.as_ref().map(|d| format!("/{d}")).unwrap_or_default()
+        ),
+        None => format!("broker on {}", listener.local_addr()?),
+    });
 
     let auth = s.username.clone().map(|u| (u, s.password.clone().unwrap_or_default()));
     let accept = {
-        let (broker, def, store, topics) = (broker.clone(), def.clone(), ctx.tags.clone(), topics.clone());
+        let (broker, def, store, topics, node) = (broker.clone(), def.clone(), ctx.tags.clone(), topics.clone(), node.clone());
         async move {
             let mut next = 0u64;
             loop {
@@ -362,6 +521,7 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
                     store: store.clone(),
                     topics: topics.clone(),
                     auth: auth.clone(),
+                    node: node.clone(),
                 };
                 tokio::spawn(async move {
                     if let Err(e) = conn.run(sock).await {
@@ -375,7 +535,7 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
     };
 
     let follow = {
-        let (broker, def) = (broker.clone(), def.clone());
+        let (broker, def, node) = (broker.clone(), def.clone(), node.clone());
         let retain = s.retain;
         async move {
             loop {
@@ -385,6 +545,9 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
                             let mut p = Publish::new(server_topic(&def, t), QoS::AtMostOnce, payload_of(&e.state.value));
                             p.retain = retain;
                             broker.route(&p);
+                            if let Some(n) = &node {
+                                n.data(t, &e.state.value);
+                            }
                         }
                     }
                     Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
@@ -399,6 +562,9 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
         _ = follow => {}
         _ = crate::services::idle_until_cancelled(ctx) => {}
     }
+    if let Some(n) = &node {
+        n.death();
+    }
     broker.sessions.lock().clear();
     Ok(())
 }
@@ -411,6 +577,7 @@ struct Conn {
     /// Server topic → tag name.
     topics: HashMap<String, String>,
     auth: Option<(String, String)>,
+    node: Option<Arc<EdgeNode>>,
 }
 
 impl Drop for Conn {
@@ -526,6 +693,13 @@ impl Conn {
 
     /// A client published: `<tag topic>/set` writes the tag; everything is forwarded.
     fn incoming(&self, p: Publish) {
+        if let Some(n) = &self.node {
+            if n.command(&p.topic, &p.payload) {
+                // Still forwarded, so other hosts see the command.
+                self.broker.route(&p);
+                return;
+            }
+        }
         if let Some(base) = p.topic.strip_suffix("/set") {
             if let Some(t) = self.topics.get(base).and_then(|n| self.def.tag(n)) {
                 if !t.writable {
@@ -549,7 +723,10 @@ impl Conn {
 /// Check settings without running the service.
 pub fn check_settings(mode: Mode, v: &Value) -> Result<(), String> {
     let r = match mode {
-        Mode::Server => serde_json::from_value::<ServerSettings>(v.clone()).map(|_| ()),
+        Mode::Server => serde_json::from_value::<ServerSettings>(v.clone()).and_then(|s| match &s.sparkplug {
+            Some(c) => c.validate().map_err(serde::de::Error::custom),
+            None => Ok(()),
+        }),
         Mode::Client => serde_json::from_value::<ClientSettings>(v.clone()).and_then(|s| {
             if s.qos > 1 {
                 return Err(serde::de::Error::custom("qos is 0 or 1"));

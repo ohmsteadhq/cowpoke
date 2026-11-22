@@ -171,7 +171,7 @@ pub struct TagDef {
     /// Server: where it is published; defaults to `<prefix>/<tag name>`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub topic: Option<String>,
-    /// Sparkplug B client: the metric name. Defaults to the tag name.
+    /// Sparkplug B (client, or server as an edge node): the metric name. Defaults to the tag name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metric: Option<String>,
 

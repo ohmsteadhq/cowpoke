@@ -1,0 +1,283 @@
+{
+ "summary": {
+  "model": "qwen3:4b",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 9,
+  "service_ok": 10,
+  "cause_ok": 11,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 5.7,
+  "avg_tok_s": 27.8
+ },
+ "results": [
+  {
+   "id": "f1",
+   "expected": {
+    "service": "f1-cli",
+    "cause": "address_offset"
+   },
+   "report": {
+    "service": "f1-cli",
+    "cause": "address_offset",
+    "explanation": "The client is reading from register 1, but the server's level tag is at register 0. This mismatch causes the client to read a different value (0.0) instead of the correct tank level (42.5).",
+    "fix": "Change the client's register address from 1 to 0 to match the server's level tag register."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 8.3,
+   "tok_s": 26.6,
+   "trace": []
+  },
+  {
+   "id": "f2",
+   "expected": {
+    "service": "f2-cli",
+    "cause": "word_order"
+   },
+   "report": {
+    "service": "f2-cli",
+    "cause": "word_order",
+    "explanation": "The client (f2-cli) is using big-endian word order (\"big\"), while the server (f2-srv) uses little-endian (\"little\"). This mismatch causes the float value to be interpreted incorrectly, resulting in an extremely small number (2.3735e-41) instead of the expected 42.5.",
+    "fix": "Change the client's word_order setting from \"big\" to \"little\" to match the server's little-endian configuration."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.6,
+   "tok_s": 26.1,
+   "trace": []
+  },
+  {
+   "id": "f3",
+   "expected": {
+    "service": "f3-cli",
+    "cause": "unit_id"
+   },
+   "report": {
+    "service": "f3-cli",
+    "cause": "unit_id",
+    "explanation": "The client (f3-cli) is configured to use unit ID 2 (unit: 2), but the server (f3-srv) is only listening for unit ID 1. Modbus requires both client and server to agree on the unit ID to communicate correctly. The client's unit ID 2 does not match the server's unit ID 1, causing the client to not receive the level tag data.",
+    "fix": "Change the client's unit ID to match the server's unit ID (1)."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.1,
+   "tok_s": 28.4,
+   "trace": []
+  },
+  {
+   "id": "f4",
+   "expected": {
+    "service": "f4-cli",
+    "cause": "scaling"
+   },
+   "report": {
+    "service": "f4-srv",
+    "cause": "scaling",
+    "explanation": "The server's temperature tag has a scale of 0.1, meaning 21.5 * 10 = 215. The client is reading the raw value without applying the scale.",
+    "fix": "The client should apply the scale factor of 0.1 when converting the raw value to temperature."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.8,
+   "tok_s": 28.6,
+   "trace": []
+  },
+  {
+   "id": "f5",
+   "expected": {
+    "service": "f5-cli",
+    "cause": "tag_name"
+   },
+   "report": {
+    "service": "f5-cli",
+    "cause": "tag_name",
+    "explanation": "The client is trying to read a tag named 'Program:Main.Levl' but the server has 'Program:Main.Level'. The client's tag name has a typo (L vs. e).",
+    "fix": "Change the client's tag name from 'Program:Main.Levl' to 'Program:Main.Level' to match the server's tag name."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.1,
+   "tok_s": 28.3,
+   "trace": []
+  },
+  {
+   "id": "f6",
+   "expected": {
+    "service": "f6-cli",
+    "cause": "port_or_host"
+   },
+   "report": {
+    "service": "f6-cli",
+    "cause": "port_or_host",
+    "explanation": "The client is trying to connect to port 30116 on the Logix controller, but the server is listening on port 30106. The client's port setting (30116) does not match the server's port (30106).",
+    "fix": "Change the client's port setting from 30116 to 30106 to match the server's port."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.6,
+   "tok_s": 28.5,
+   "trace": []
+  },
+  {
+   "id": "f7",
+   "expected": {
+    "service": "f7-cli",
+    "cause": "credentials"
+   },
+   "report": {
+    "service": "f7-cli",
+    "cause": "credentials",
+    "explanation": "The client (f7-cli) is using a password 'pokee' but the server (f7-srv) expects 'poke'. The error message 'BadUserNamePassword' indicates incorrect credentials.",
+    "fix": "Change the client's password from 'pokee' to 'poke' to match the server's password."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.7,
+   "tok_s": 28.1,
+   "trace": []
+  },
+  {
+   "id": "f8",
+   "expected": {
+    "service": "f8-cli",
+    "cause": "topic"
+   },
+   "report": {
+    "service": "f8-cli",
+    "cause": "topic",
+    "explanation": "The client's topic for the level tag is misspelled as 'levle' instead of 'level'. The server's topic prefix is 'plant/line8', so the level tag should be published to 'plant/line8/level'. The client is subscribing to 'plant/line8/levle' which does not exist.",
+    "fix": "Change the client's topic for the level tag from 'plant/line8/levle' to 'plant/line8/level'"
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.2,
+   "tok_s": 28.4,
+   "trace": []
+  },
+  {
+   "id": "f9",
+   "expected": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids"
+   },
+   "report": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The client's Sparkplug edge node is set to 'Line09' (with a digit 0) while the server's edge node is 'Line9' (without the digit 0). This mismatch causes the client to not find the correct node in the Sparkplug hierarchy.",
+    "fix": "Change the client's edge_node from 'Line09' to 'Line9' in the client's settings to match the server's edge_node value."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.7,
+   "tok_s": 28.6,
+   "trace": []
+  },
+  {
+   "id": "f10",
+   "expected": {
+    "service": "f10-cli",
+    "cause": "json_pointer"
+   },
+   "report": {
+    "service": "f10-cli",
+    "cause": "tag_name",
+    "explanation": "The client is configured to read from a tag named \"/lvl\" but the server's tag is named \"level\". This mismatch causes the client to read a bad quality value.",
+    "fix": "Change the client's tag pointer from \"/lvl\" to \"level\" in the client's settings."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.4,
+   "tok_s": 28.6,
+   "trace": []
+  },
+  {
+   "id": "f11",
+   "expected": {
+    "service": "f11-cli",
+    "cause": "bit_offset"
+   },
+   "report": {
+    "service": "f11-cli",
+    "cause": "bit_offset",
+    "explanation": "The client's bit_offset is set to 4, but the server's bit_offset is 0. The sensor display shows 300 mm, but the client reads 18 mm. This indicates the client is reading the wrong register offset.",
+    "fix": "Change the client's bit_offset from 4 to 0 to match the server's bit_offset."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.2,
+   "tok_s": 28.2,
+   "trace": []
+  },
+  {
+   "id": "f12",
+   "expected": {
+    "service": "none",
+    "cause": "none"
+   },
+   "report": {
+    "service": "f12-srv",
+    "cause": "none",
+    "explanation": "The server service f12-srv is running and reporting a flow value of 12.5 m3/h. The local flow meter says 12.5 m3/h, which matches the server's live tag value. There are no discrepancies in the configuration or live data.",
+    "fix": "No fix needed"
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.3,
+   "tok_s": 25.0,
+   "trace": []
+  }
+ ]
+}

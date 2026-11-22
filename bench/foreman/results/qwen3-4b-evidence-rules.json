@@ -1,0 +1,283 @@
+{
+ "summary": {
+  "model": "qwen3:4b",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 11,
+  "service_ok": 11,
+  "cause_ok": 12,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 5.3,
+  "avg_tok_s": 26.0
+ },
+ "results": [
+  {
+   "id": "f1",
+   "expected": {
+    "service": "f1-cli",
+    "cause": "address_offset"
+   },
+   "report": {
+    "service": "f1-cli",
+    "cause": "address_offset",
+    "explanation": "The client (f1-cli) is configured to read from register 1, but the server (f1-srv) is configured to use register 0 for the 'level' tag. This mismatch in register addresses causes the client to read a different value (0.0) than what the server expects (42.5).",
+    "fix": "Change the client's register address for the 'level' tag from 1 to 0 to match the server's configuration."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.4,
+   "tok_s": 26.4,
+   "trace": []
+  },
+  {
+   "id": "f2",
+   "expected": {
+    "service": "f2-cli",
+    "cause": "word_order"
+   },
+   "report": {
+    "service": "f2-cli",
+    "cause": "word_order",
+    "explanation": "The client (f2-cli) is configured with 'big' word order while the server (f2-srv) uses 'little' word order. This mismatch causes the client to interpret the 32-bit float incorrectly, resulting in an extremely small value (2.3735e-41) instead of the expected 42.5.",
+    "fix": "Change the client's word_order setting from 'big' to 'little' to match the server's configuration."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.2,
+   "tok_s": 26.4,
+   "trace": []
+  },
+  {
+   "id": "f3",
+   "expected": {
+    "service": "f3-cli",
+    "cause": "unit_id"
+   },
+   "report": {
+    "service": "f3-cli",
+    "cause": "unit_id",
+    "explanation": "The client (f3-cli) is configured with unit_id 2, but the server (f3-srv) is configured with unit_id 1. In Modbus, the unit ID is used to identify the device, and the client must match the server's unit ID to communicate properly. Since they don't match, the client cannot read the tag correctly.",
+    "fix": "Change the client's unit_id from 2 to 1 to match the server's unit_id."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.0,
+   "tok_s": 26.5,
+   "trace": []
+  },
+  {
+   "id": "f4",
+   "expected": {
+    "service": "f4-cli",
+    "cause": "scaling"
+   },
+   "report": {
+    "service": "f4-cli",
+    "cause": "scaling",
+    "explanation": "The client (f4-cli) is using a scale of 1 for the temperature tag, while the server (f4-srv) has a scale of 0.1. This means the client is interpreting the raw value as 215 degrees, but the server expects the value to be scaled by 0.1 (so 21.5 becomes 215 in raw units).",
+    "fix": "Change the client's scale setting from 1 to 0.1 to match the server's scale."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.9,
+   "tok_s": 26.2,
+   "trace": []
+  },
+  {
+   "id": "f5",
+   "expected": {
+    "service": "f5-cli",
+    "cause": "tag_name"
+   },
+   "report": {
+    "service": "f5-cli",
+    "cause": "tag_name",
+    "explanation": "The client (f5-cli) is trying to read the tag 'Program:Main.Levl' from the server (f5-srv), but the server has the tag 'Program:Main.Level'. The client's tag name has a typo (Levl vs Level).",
+    "fix": "Change the client's tag name from 'Program:Main.Levl' to 'Program:Main.Level' to match the server's tag name."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.1,
+   "tok_s": 26.3,
+   "trace": []
+  },
+  {
+   "id": "f6",
+   "expected": {
+    "service": "f6-cli",
+    "cause": "port_or_host"
+   },
+   "report": {
+    "service": "f6-cli",
+    "cause": "port_or_host",
+    "explanation": "The client f6-cli is configured to connect to port 30116, but the server f6-srv is listening on port 30106. This mismatch causes the connection to be refused (os error 61).",
+    "fix": "Change the client's port setting from 30116 to 30106."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.3,
+   "tok_s": 26.4,
+   "trace": []
+  },
+  {
+   "id": "f7",
+   "expected": {
+    "service": "f7-cli",
+    "cause": "credentials"
+   },
+   "report": {
+    "service": "f7-cli",
+    "cause": "credentials",
+    "explanation": "The client's password 'pokee' does not match the server's password 'poke'. The client is being rejected with a 'BadUserNamePassword' error.",
+    "fix": "Change the client's password to match the server's password 'poke' in the client's settings."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.4,
+   "tok_s": 26.4,
+   "trace": []
+  },
+  {
+   "id": "f8",
+   "expected": {
+    "service": "f8-cli",
+    "cause": "topic"
+   },
+   "report": {
+    "service": "f8-cli",
+    "cause": "topic",
+    "explanation": "The client (f8-cli) is subscribing to the wrong topic (plant/line8/levle) while the server (f8-srv) is publishing the level tag on plant/line8/level. The topic name has a typo: 'levle' instead of 'level'.",
+    "fix": "Change the client's topic from 'plant/line8/levle' to 'plant/line8/level' in the client's settings."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.9,
+   "tok_s": 26.3,
+   "trace": []
+  },
+  {
+   "id": "f9",
+   "expected": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids"
+   },
+   "report": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The client (f9-cli) expects the edge_node to be 'Line09' (with a digit 0) but the server (f9-srv) publishes 'Line9' (without the digit 0). This mismatch causes the client to not receive data for line 9.",
+    "fix": "Change the client's edge_node from 'Line09' to 'Line9' in the client's settings to match the server's edge_node value."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.5,
+   "tok_s": 25.4,
+   "trace": []
+  },
+  {
+   "id": "f10",
+   "expected": {
+    "service": "f10-cli",
+    "cause": "json_pointer"
+   },
+   "report": {
+    "service": "f10-cli",
+    "cause": "json_pointer",
+    "explanation": "The client (f10-cli) is configured to read the JSON pointer '/lvl' from the server (f10-srv), but the server serves the tag at '/level'. This mismatch causes the client to read a null value with bad quality.",
+    "fix": "Change the client's json_pointer from '/lvl' to '/level' to match the server's tag path."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.5,
+   "tok_s": 26.9,
+   "trace": []
+  },
+  {
+   "id": "f11",
+   "expected": {
+    "service": "f11-cli",
+    "cause": "bit_offset"
+   },
+   "report": {
+    "service": "f11-cli",
+    "cause": "bit_offset",
+    "explanation": "The client (f11-cli) is reading the distance sensor from bit_offset 4, but the server (f11-srv) defines the sensor data at bit_offset 0. This mismatch causes the client to read a different part of the data stream, resulting in the incorrect value of 18 mm instead of 300 mm.",
+    "fix": "Adjust the client's bit_offset to match the server's bit_offset (0)."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.3,
+   "tok_s": 26.7,
+   "trace": []
+  },
+  {
+   "id": "f12",
+   "expected": {
+    "service": "none",
+    "cause": "none"
+   },
+   "report": {
+    "service": "f12-srv",
+    "cause": "none",
+    "explanation": "The server's flow tag is correctly set to 12.5 m3/h with the expected units and register address. The client matches the server's settings exactly, so there's no discrepancy.",
+    "fix": "No fix needed"
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.7,
+   "tok_s": 22.5,
+   "trace": []
+  }
+ ]
+}

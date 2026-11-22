@@ -1,0 +1,283 @@
+{
+ "summary": {
+  "model": "qwen3:1.7b",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 2,
+  "service_ok": 3,
+  "cause_ok": 8,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 2.7,
+  "avg_tok_s": 55.9
+ },
+ "results": [
+  {
+   "id": "f1",
+   "expected": {
+    "service": "f1-cli",
+    "cause": "address_offset"
+   },
+   "report": {
+    "service": "f1-srv",
+    "cause": "tag_name",
+    "explanation": "The client (f1-cli) is reading the level from register 1, but the server (f1-srv) is configured to read from register 0. This mismatch causes the client to receive a different value than what is expected, leading to the displayed nonsense number.",
+    "fix": "Configure the client to read from the same register as the server, or adjust the server's register setting to match the client's configuration."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.4,
+   "tok_s": 56.0,
+   "trace": []
+  },
+  {
+   "id": "f2",
+   "expected": {
+    "service": "f2-cli",
+    "cause": "word_order"
+   },
+   "report": {
+    "service": "f2-srv",
+    "cause": "word_order",
+    "explanation": "The client (f2-cli) is configured to use big-endian word order, while the server (f2-srv) is configured to use little-endian word order. This mismatch causes the level reading to be incorrect.",
+    "fix": "Configure the server (f2-srv) to use the same word order as the client (f2-cli), which is big-endian."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 58.1,
+   "trace": []
+  },
+  {
+   "id": "f3",
+   "expected": {
+    "service": "f3-cli",
+    "cause": "unit_id"
+   },
+   "report": {
+    "service": "f3-srv",
+    "cause": "unit_id",
+    "explanation": "The client (f3-cli) is requesting data from the device (f3-srv) using unit 2, but the device is configured to use unit 1. This mismatch causes the level value to remain unchanged, as the device does not expose data for unit 2.",
+    "fix": "Configure the client to use the same unit as the server, or adjust the server's unit configuration to match the client's expectations."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.7,
+   "tok_s": 56.5,
+   "trace": []
+  },
+  {
+   "id": "f4",
+   "expected": {
+    "service": "f4-cli",
+    "cause": "scaling"
+   },
+   "report": {
+    "service": "f4-srv",
+    "cause": "scaling",
+    "explanation": "The server (f4-srv) is configured with a scale of 0.1 (1/10th of a degree Celsius), but the client (f4-cli) is using a scale of 1 (1 degree Celsius). This discrepancy causes the temperature reading to be incorrect.",
+    "fix": "Update the client's scale setting to match the server's scale of 0.1."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 55.1,
+   "trace": []
+  },
+  {
+   "id": "f5",
+   "expected": {
+    "service": "f5-cli",
+    "cause": "tag_name"
+   },
+   "report": {
+    "service": "f5-srv",
+    "cause": "tag_name",
+    "explanation": "The client is trying to read the tag 'Program:Main.Levl', but the server has the tag 'Program:Main.Level'. This mismatch causes the client to report a 'no such tag' error.",
+    "fix": "Update the client's tag name to 'Program:Main.Level' to match the server's configuration."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 55.5,
+   "trace": []
+  },
+  {
+   "id": "f6",
+   "expected": {
+    "service": "f6-cli",
+    "cause": "port_or_host"
+   },
+   "report": {
+    "service": "f6-cli",
+    "cause": "port_or_host",
+    "explanation": "The client is attempting to connect to port 30116, but the server is listening on port 30106. This mismatch in port numbers prevents successful communication.",
+    "fix": "Modify the client's settings to use the correct port (30106) instead of 30116."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 57.4,
+   "trace": []
+  },
+  {
+   "id": "f7",
+   "expected": {
+    "service": "f7-cli",
+    "cause": "credentials"
+   },
+   "report": {
+    "service": "f7-cli",
+    "cause": "word_order",
+    "explanation": "The client's MQTT password does not match the server's requirements, leading to a 'BadUserNamePassword' error. The server requires the password 'poke', but the client uses 'pokee'. This mismatch prevents the client from connecting to the MQTT server.",
+    "fix": "Update the client's password to match the server's requirement: 'poke'"
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 56.0,
+   "trace": []
+  },
+  {
+   "id": "f8",
+   "expected": {
+    "service": "f8-cli",
+    "cause": "topic"
+   },
+   "report": {
+    "service": "f8-srv",
+    "cause": "tag_name",
+    "explanation": "The client (f8-cli) is subscribing to the topic 'plant/line8/levle', but the server (f8-srv) publishes the tag 'level' on the topic 'plant/line8/level'. The client is configured to subscribe to the wrong topic.",
+    "fix": "Update the client's subscription to match the server's publishing topic: change 'plant/line8/levle' to 'plant/line8/level'"
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.4,
+   "tok_s": 49.0,
+   "trace": []
+  },
+  {
+   "id": "f9",
+   "expected": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids"
+   },
+   "report": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The client is configured to use 'Line09' as its Sparkplug edge node, but the server is publishing under 'Line9'. This mismatch causes the client to receive no data for line 9.",
+    "fix": "Update the client's Sparkplug edge node to 'Line9' to match the server's publication."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 56.9,
+   "trace": []
+  },
+  {
+   "id": "f10",
+   "expected": {
+    "service": "f10-cli",
+    "cause": "json_pointer"
+   },
+   "report": {
+    "service": "f10-srv",
+    "cause": "json_pointer",
+    "explanation": "The client is reading the tag at JSON pointer /lvl, but the server is serving it at /level. This mismatch causes the quality to be bad.",
+    "fix": "Update the server's JSON pointer in the 'tags_config' to match the client's expected path /lvl."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.2,
+   "tok_s": 56.6,
+   "trace": []
+  },
+  {
+   "id": "f11",
+   "expected": {
+    "service": "f11-cli",
+    "cause": "bit_offset"
+   },
+   "report": {
+    "service": "f11-srv",
+    "cause": "bit_offset",
+    "explanation": "The client (f11-cli) reads the sensor's bit offset as 4, but the server (f11-srv) is configured with a bit offset of 0. This discrepancy causes the client to interpret the sensor data incorrectly, leading to the wrong reading of 18 mm instead of the expected 300 mm.",
+    "fix": "Configure the client to match the server's bit offset. Adjust the client's bit_offset setting to 0 to align with the server's configuration."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.1,
+   "tok_s": 56.3,
+   "trace": []
+  },
+  {
+   "id": "f12",
+   "expected": {
+    "service": "none",
+    "cause": "none"
+   },
+   "report": {
+    "service": "f12-srv",
+    "cause": "address_offset",
+    "explanation": "The client is configured to read from register 0, but the device's simulator is configured to read from register 1. This mismatch causes the client to read a value that does not match the actual device value.",
+    "fix": "Update the client's register setting to match the device's simulator configuration (register 1)."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 57.4,
+   "trace": []
+  }
+ ]
+}

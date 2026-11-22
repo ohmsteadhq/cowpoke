@@ -1,0 +1,283 @@
+{
+ "summary": {
+  "model": "phi4-mini",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 3,
+  "service_ok": 9,
+  "cause_ok": 5,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 5.2,
+  "avg_tok_s": 27.1
+ },
+ "results": [
+  {
+   "id": "f1",
+   "expected": {
+    "service": "f1-cli",
+    "cause": "address_offset"
+   },
+   "report": {
+    "service": "f1-cli",
+    "cause": "word_order",
+    "explanation": "The word order in the Modbus TCP configuration for the client (f1-cli) is incorrect, causing it to read the wrong register for the tank level.",
+    "fix": "Adjust the word order in the client's settings to match the register that contains the tank level data."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 7.1,
+   "tok_s": 29.8,
+   "trace": []
+  },
+  {
+   "id": "f2",
+   "expected": {
+    "service": "f2-cli",
+    "cause": "word_order"
+   },
+   "report": {
+    "service": "f2-cli",
+    "cause": "word_order",
+    "explanation": "The client is using 'big' word order while the server is using 'little' word order, causing the data to be misinterpreted.",
+    "fix": "Change the word order in the client's settings to match the server's 'little' word order."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.1,
+   "tok_s": 26.6,
+   "trace": []
+  },
+  {
+   "id": "f3",
+   "expected": {
+    "service": "f3-cli",
+    "cause": "unit_id"
+   },
+   "report": {
+    "service": "f3-cli",
+    "cause": "tag_name",
+    "explanation": "The client is configured to read from register 0 with a unit ID of 2, but the server is providing data from register 0 with a unit ID of 1. This mismatch in unit IDs is likely causing the HMI to not display the correct tank level.",
+    "fix": "Update the client's tags configuration to match the server's unit ID for the 'level' tag. Change the 'unit' setting for the 'level' tag in the client's configuration from 2 to 1."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.0,
+   "tok_s": 27.4,
+   "trace": []
+  },
+  {
+   "id": "f4",
+   "expected": {
+    "service": "f4-cli",
+    "cause": "scaling"
+   },
+   "report": {
+    "service": "f4-srv",
+    "cause": "word_order",
+    "explanation": "The discrepancy between the sensor's display and the Modbus TCP server's reported temperature could be due to a word order mismatch. Modbus TCP uses little-endian byte order for data transmission, which means that the most significant byte is sent first. If the client is expecting big-endian order, it might interpret the data incorrectly.",
+    "fix": "Check and correct the word order setting in the Modbus TCP server configuration to match the sensor's data format."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.7,
+   "tok_s": 27.3,
+   "trace": []
+  },
+  {
+   "id": "f5",
+   "expected": {
+    "service": "f5-cli",
+    "cause": "tag_name"
+   },
+   "report": {
+    "service": "f5-cli",
+    "cause": "tag_name",
+    "explanation": "The client is trying to access a tag named 'Program:Main.Levl' which does not exist on the server.",
+    "fix": "Correct the tag name in the client's configuration to match the server's tag name 'Program:Main.Level'."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.2,
+   "tok_s": 26.9,
+   "trace": []
+  },
+  {
+   "id": "f6",
+   "expected": {
+    "service": "f6-cli",
+    "cause": "port_or_host"
+   },
+   "report": {
+    "service": "f6-cli",
+    "cause": "port_or_host",
+    "explanation": "The client is trying to connect to the Logix controller on the wrong port. The server is running on 127.0.0.1:30106, but the client is configured to connect on 127.0.0.1:30116.",
+    "fix": "Update the client's settings to match the server's port. Change the 'port' setting in the client's configuration from 30116 to 30106."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.5,
+   "tok_s": 27.0,
+   "trace": []
+  },
+  {
+   "id": "f7",
+   "expected": {
+    "service": "f7-cli",
+    "cause": "credentials"
+   },
+   "report": {
+    "service": "f7-cli",
+    "cause": "port_or_host",
+    "explanation": "The client is trying to connect to the MQTT broker on the wrong port.",
+    "fix": "Update the port in the client's settings to match the broker's listening port, which is 30107."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.8,
+   "tok_s": 27.2,
+   "trace": []
+  },
+  {
+   "id": "f8",
+   "expected": {
+    "service": "f8-cli",
+    "cause": "topic"
+   },
+   "report": {
+    "service": "f8-cli",
+    "cause": "tag_name",
+    "explanation": "The MQTT client is configured to subscribe to the correct topic for the tank level ('plant/line8/level'), but the live tag shows a null value, indicating that no data is being received or reported.",
+    "fix": "Check the MQTT broker for any issues with the 'plant/line8/level' topic. Ensure that the client is correctly configured to receive data from this topic and that the server is publishing the data to this topic. Verify that the server's tag configuration for 'level' matches the client's configuration."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.6,
+   "tok_s": 26.9,
+   "trace": []
+  },
+  {
+   "id": "f9",
+   "expected": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids"
+   },
+   "report": {
+    "service": "f9-cli",
+    "cause": "topic",
+    "explanation": "The client is subscribed to the correct topic, but there is no data for line 9 because the edge_node is misspelled as 'Line09' instead of 'Line9'.",
+    "fix": "Correct the edge_node in the client's settings from 'Line09' to 'Line9'."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.7,
+   "tok_s": 25.6,
+   "trace": []
+  },
+  {
+   "id": "f10",
+   "expected": {
+    "service": "f10-cli",
+    "cause": "json_pointer"
+   },
+   "report": {
+    "service": "f10-cli",
+    "cause": "tag_name",
+    "explanation": "The client's tag configuration uses 'lvl' as the pointer for the 'level' tag, but the server's tag configuration uses 'level'. This mismatch in tag names causes the client to read the wrong data.",
+    "fix": "Update the client's tag configuration to match the server's tag configuration by changing the 'pointer' from '/lvl' to '/level'."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.8,
+   "tok_s": 27.1,
+   "trace": []
+  },
+  {
+   "id": "f11",
+   "expected": {
+    "service": "f11-cli",
+    "cause": "bit_offset"
+   },
+   "report": {
+    "service": "f11-srv",
+    "cause": "bit_offset",
+    "explanation": "The bit_offset in the server's tags configuration for the distance sensor is set to 0, but the actual sensor data is at bit offset 4 as seen in the client's tags configuration.",
+    "fix": "Update the server's tags configuration to set the bit_offset for the distance sensor to 4."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.7,
+   "tok_s": 26.7,
+   "trace": []
+  },
+  {
+   "id": "f12",
+   "expected": {
+    "service": "none",
+    "cause": "none"
+   },
+   "report": {
+    "service": "f12-srv",
+    "cause": "none",
+    "explanation": "The flow meter service (f12-srv) is configured correctly and is reporting a flow rate of 12.5 m3/h, which matches the operator's observation. The client (f12-cli) is also reporting the same value, indicating that there is no discrepancy in the flow rate measurement.",
+    "fix": "No fix required. The reported flow rate is accurate according to the service configuration and the live tags."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.7,
+   "tok_s": 26.1,
+   "trace": []
+  }
+ ]
+}

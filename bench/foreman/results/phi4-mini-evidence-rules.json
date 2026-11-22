@@ -1,0 +1,283 @@
+{
+ "summary": {
+  "model": "phi4-mini",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 4,
+  "service_ok": 5,
+  "cause_ok": 9,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 4.7,
+  "avg_tok_s": 26.5
+ },
+ "results": [
+  {
+   "id": "f1",
+   "expected": {
+    "service": "f1-cli",
+    "cause": "address_offset"
+   },
+   "report": {
+    "service": "f1-srv",
+    "cause": "word_order",
+    "explanation": "The tag level in f1-srv is configured with register 0, but f1-cli is trying to read from register 1.",
+    "fix": "Update the f1-srv settings to match the register number used by f1-cli for the level tag."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.5,
+   "tok_s": 27.0,
+   "trace": []
+  },
+  {
+   "id": "f2",
+   "expected": {
+    "service": "f2-cli",
+    "cause": "word_order"
+   },
+   "report": {
+    "service": "f2-srv",
+    "cause": "word_order",
+    "explanation": "The Modbus server (f2-srv) is using little-endian word order, while the Modbus client (f2-cli) is configured to use big-endian word order. This mismatch can cause the values to be interpreted incorrectly when the client reads the data from the server.",
+    "fix": "Change the word order of the Modbus server (f2-srv) to match the client's word order (big-endian) or adjust the client's word order to match the server's word order (little-endian)."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.5,
+   "tok_s": 26.5,
+   "trace": []
+  },
+  {
+   "id": "f3",
+   "expected": {
+    "service": "f3-cli",
+    "cause": "unit_id"
+   },
+   "report": {
+    "service": "f3-srv",
+    "cause": "unit_id",
+    "explanation": "The client (f3-cli) is configured to read from unit 2, but the server (f3-srv) is providing data from unit 1.",
+    "fix": "Update the client's configuration to match the server's unit ID, changing the 'unit' setting in the client's tags_config from 2 to 1."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.0,
+   "tok_s": 26.3,
+   "trace": []
+  },
+  {
+   "id": "f4",
+   "expected": {
+    "service": "f4-cli",
+    "cause": "scaling"
+   },
+   "report": {
+    "service": "f4-srv",
+    "cause": "scaling",
+    "explanation": "The scaling factor for the temperature tag on the server (f4-srv) is set to 0.1, which is causing the temperature value to be read as 215 degrees instead of 21.5 degrees.",
+    "fix": "Change the scaling factor for the temperature tag on the server (f4-srv) to 1 to match the expected value."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.2,
+   "tok_s": 26.3,
+   "trace": []
+  },
+  {
+   "id": "f5",
+   "expected": {
+    "service": "f5-cli",
+    "cause": "tag_name"
+   },
+   "report": {
+    "service": "f5-cli",
+    "cause": "tag_name",
+    "explanation": "The client f5-cli is trying to read from a Logix tag named 'Program:Main.Levl', but the server f5-srv has a Logix tag named 'Program:Main.Level'. The mismatch in tag names is causing the client to not find the tag.",
+    "fix": "Update the client's tag configuration to match the server's tag name 'Program:Main.Level'."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.4,
+   "tok_s": 26.8,
+   "trace": []
+  },
+  {
+   "id": "f6",
+   "expected": {
+    "service": "f6-cli",
+    "cause": "port_or_host"
+   },
+   "report": {
+    "service": "f6-cli",
+    "cause": "port_or_host",
+    "explanation": "The client is trying to connect to the wrong port. The server is listening on port 30106, but the client is configured to connect to port 30116.",
+    "fix": "Update the client's settings to match the server's listening port, which is 30106."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.5,
+   "tok_s": 26.7,
+   "trace": []
+  },
+  {
+   "id": "f7",
+   "expected": {
+    "service": "f7-cli",
+    "cause": "credentials"
+   },
+   "report": {
+    "service": "f7-cli",
+    "cause": "credentials",
+    "explanation": "The MQTT client (f7-cli) is unable to connect to the broker because the password provided does not match the one required by the MQTT server (f7-srv).",
+    "fix": "Update the MQTT client's password to match the server's password, which is 'poke'."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.5,
+   "tok_s": 27.1,
+   "trace": []
+  },
+  {
+   "id": "f8",
+   "expected": {
+    "service": "f8-cli",
+    "cause": "topic"
+   },
+   "report": {
+    "service": "f8-srv",
+    "cause": "tag_name",
+    "explanation": "The MQTT topic used by the client (f8-cli) to subscribe to the tank level does not match the topic used by the server (f8-srv) for publishing the tank level data. The client is expecting to receive data on 'plant/line8/levle', but the server is publishing data on 'plant/line8/level'.",
+    "fix": "Update the client's MQTT subscription topic to match the server's publishing topic. Change the client's 'topic' setting in 'tags_config' for the 'level' tag to 'plant/line8/level'."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.9,
+   "tok_s": 26.4,
+   "trace": []
+  },
+  {
+   "id": "f9",
+   "expected": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids"
+   },
+   "report": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The Sparkplug edge_node specified in the client configuration ('Line09') does not match the edge_node published by the server ('Line9').",
+    "fix": "Update the client configuration to match the edge_node published by the server ('Line9')."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.4,
+   "tok_s": 26.4,
+   "trace": []
+  },
+  {
+   "id": "f10",
+   "expected": {
+    "service": "f10-cli",
+    "cause": "json_pointer"
+   },
+   "report": {
+    "service": "f10-cli",
+    "cause": "tag_name",
+    "explanation": "The client (f10-cli) is configured to read the 'level' tag using the JSON pointer /lvl, but the server (f10-srv) serves the 'level' tag at /level.",
+    "fix": "Update the client's JSON pointer in the settings to match the server's tag path, changing /lvl to /level."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.9,
+   "tok_s": 26.4,
+   "trace": []
+  },
+  {
+   "id": "f11",
+   "expected": {
+    "service": "f11-cli",
+    "cause": "bit_offset"
+   },
+   "report": {
+    "service": "f11-srv",
+    "cause": "bit_offset",
+    "explanation": "The bit_offset for the 'distance' tag in the f11-cli client is 4, while the f11-srv server has a bit_offset of 0. This mismatch could cause the client to read the wrong data from the sensor.",
+    "fix": "Update the f11-srv server's tag configuration to match the f11-cli client's bit_offset for the 'distance' tag, setting the bit_offset to 4."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.9,
+   "tok_s": 26.0,
+   "trace": []
+  },
+  {
+   "id": "f12",
+   "expected": {
+    "service": "none",
+    "cause": "none"
+   },
+   "report": {
+    "service": "f12-srv",
+    "cause": "none",
+    "explanation": "The client's settings match the device's simulator settings, and the reported flow rate is consistent with the device's configuration.",
+    "fix": "No fix required; the reported flow rate is accurate according to the device's configuration."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.0,
+   "tok_s": 25.9,
+   "trace": []
+  }
+ ]
+}

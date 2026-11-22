@@ -199,25 +199,45 @@ def run_decide(sc, cp, model, rules=False):
     return report, round(time.time() - t0, 1)
 
 
+def first_json(text):
+    """The first JSON object in a reply (after any <think> block)."""
+    text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.S)
+    start = text.find("{")
+    while start >= 0:
+        depth = 0
+        for i in range(start, len(text)):
+            depth += {"{": 1, "}": -1}.get(text[i], 0)
+            if depth == 0:
+                try:
+                    return json.loads(text[start:i + 1])
+                except json.JSONDecodeError:
+                    break
+        start = text.find("{", start + 1)
+    return None
+
+
+FREE_FORM = False  # --no-format: runners without structured output (Ollama's MLX runner)
+
+
 def run_evidence(sc, cp, url, model, think, rules=False):
     """The same pre-gathered evidence for a chat model, answered as JSON in one call."""
     t0 = time.time()
     text = f"Operator report: {sc['symptom']}\n\nServices:\n" + evidence(cp, sc["id"] + "-", rules)
     schema = TOOLS[3]["function"]["parameters"]
-    body = {"model": model, "stream": False, "format": schema, "options": {"temperature": 0, "num_ctx": 8192},
+    # A diagnosis is ~100 tokens; the cap stops a model that keeps writing after its JSON.
+    body = {"model": model, "stream": False, "options": {"temperature": 0, "num_ctx": 8192, "num_predict": 400},
             "messages": [{"role": "system", "content": SYSTEM.split("When you know")[0] +
                           "Answer with JSON: service (id or none), cause (one of " + ", ".join(CAUSES) + "), explanation, fix."},
                          {"role": "user", "content": text}]}
+    if not FREE_FORM:
+        body["format"] = schema
     if think is not None:
         body["think"] = think
     req = urllib.request.Request(url.rstrip("/") + "/api/chat", data=json.dumps(body).encode(),
                                  headers={"content-type": "application/json"})
     with urllib.request.urlopen(req, timeout=600) as r:
         res = json.loads(r.read())
-    try:
-        report = json.loads(res["message"]["content"])
-    except (json.JSONDecodeError, KeyError):
-        report = None
+    report = first_json(res.get("message", {}).get("content", ""))
     tok_s = round(res.get("eval_count", 0) / (res["eval_duration"] / 1e9), 1) if res.get("eval_duration") else None
     return report, round(time.time() - t0, 1), tok_s
 
@@ -338,6 +358,8 @@ def main():
                     help="thinking for models that have it (qwen3); default leaves it to the model")
     ap.add_argument("--only", help="comma-separated scenario ids")
     ap.add_argument("--max-steps", type=int, default=8)
+    ap.add_argument("--no-format", action="store_true",
+                    help="evidence mode: don't constrain the reply to the JSON schema; read the first JSON object")
     ap.add_argument("--rules", action="store_true", help="add Cowpoke's rule checks to the evidence (evidence/decide)")
     ap.add_argument("--mode", choices=["agent", "evidence", "decide"], default="agent",
                     help="agent: the model calls tools itself; evidence: Cowpoke gathers the evidence and a chat "
@@ -345,6 +367,8 @@ def main():
     a = ap.parse_args()
 
     think = {"on": True, "off": False, "default": None}[a.think]
+    global FREE_FORM
+    FREE_FORM = a.no_format
     scenarios = json.load(open(os.path.join(HERE, "scenarios.json")))
     if a.only:
         keep = set(a.only.split(","))
@@ -394,7 +418,7 @@ def main():
     }
     print(json.dumps(summary))
     os.makedirs(os.path.join(HERE, "results"), exist_ok=True)
-    label = a.label or (a.model.replace(":", "-").replace("/", "-") + ("" if a.mode == "agent" else "-" + a.mode) + ("-rules" if a.rules else ""))
+    label = a.label or (a.model.replace(":", "-").replace("/", "-") + ("" if a.mode == "agent" else "-" + a.mode) + ("-rules" if a.rules else "") + ("-free" if a.no_format else ""))
     with open(os.path.join(HERE, "results", label + ".json"), "w") as f:
         json.dump({"summary": summary, "results": results}, f, indent=1)
 

@@ -1,0 +1,232 @@
+{
+ "summary": {
+  "model": "qwen3:4b",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 0,
+  "service_ok": 0,
+  "cause_ok": 0,
+  "inspected_faulty": 12,
+  "invalid_calls": 11,
+  "no_report": 11,
+  "avg_seconds": 31.8,
+  "avg_tok_s": 13.8
+ },
+ "results": [
+  {
+   "id": "f1",
+   "expected": {
+    "service": "f1-cli",
+    "cause": "address_offset"
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 34.0,
+   "tok_s": 12.6,
+   "trace": []
+  },
+  {
+   "id": "f2",
+   "expected": {
+    "service": "f2-cli",
+    "cause": "word_order"
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 33.8,
+   "tok_s": 12.9,
+   "trace": []
+  },
+  {
+   "id": "f3",
+   "expected": {
+    "service": "f3-cli",
+    "cause": "unit_id"
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 31.0,
+   "tok_s": 13.8,
+   "trace": []
+  },
+  {
+   "id": "f4",
+   "expected": {
+    "service": "f4-cli",
+    "cause": "scaling"
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 31.6,
+   "tok_s": 13.9,
+   "trace": []
+  },
+  {
+   "id": "f5",
+   "expected": {
+    "service": "f5-cli",
+    "cause": "tag_name"
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 32.2,
+   "tok_s": 13.6,
+   "trace": []
+  },
+  {
+   "id": "f6",
+   "expected": {
+    "service": "f6-cli",
+    "cause": "port_or_host"
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 32.3,
+   "tok_s": 13.5,
+   "trace": []
+  },
+  {
+   "id": "f7",
+   "expected": {
+    "service": "f7-cli",
+    "cause": "credentials"
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 32.8,
+   "tok_s": 13.3,
+   "trace": []
+  },
+  {
+   "id": "f8",
+   "expected": {
+    "service": "f8-cli",
+    "cause": "topic"
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 33.4,
+   "tok_s": 13.3,
+   "trace": []
+  },
+  {
+   "id": "f9",
+   "expected": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids"
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 32.9,
+   "tok_s": 13.3,
+   "trace": []
+  },
+  {
+   "id": "f10",
+   "expected": {
+    "service": "f10-cli",
+    "cause": "json_pointer"
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 31.0,
+   "tok_s": 14.0,
+   "trace": []
+  },
+  {
+   "id": "f11",
+   "expected": {
+    "service": "f11-cli",
+    "cause": "bit_offset"
+   },
+   "report": {
+    "bit_length": 16,
+    "bit_offset": 0,
+    "datatype": "uint16",
+    "initial": 300,
+    "name": "distance",
+    "port": 1,
+    "units": "mm",
+    "writable": true
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 29.6,
+   "tok_s": 14.9,
+   "trace": []
+  },
+  {
+   "id": "f12",
+   "expected": {
+    "service": "none",
+    "cause": "none"
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 27.5,
+   "tok_s": 16.0,
+   "trace": []
+  }
+ ]
+}

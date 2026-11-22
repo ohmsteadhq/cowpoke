@@ -1,10 +1,10 @@
 ---
-title: An open-source alternative to Neuron for industrial gateways
-description: Neuron's open-source edition ships Modbus and MQTT drivers; other protocols need a licence. Cowpoke ships Modbus, OPC UA, EtherNet/IP, S7, MQTT/Sparkplug B and IO-Link free, with simulators of each.
+title: Neuron alternative: free Modbus, OPC UA, S7 | Cowpoke
+description: Open-source Neuron alternative: Modbus, OPC UA, EtherNet/IP, S7, MQTT and IO-Link free, each as client or simulator.
 slug: neuron-alternative
 ---
 
-# Looking for an open-source alternative to Neuron?
+# An open-source Neuron alternative
 
 Cowpoke is an open-source (AGPL-3.0) alternative to Neuron with every protocol in the free build: Modbus TCP, OPC UA, EtherNet/IP, Siemens S7, MQTT with Sparkplug B and IO-Link. Each one runs as a client to a real device or as a **simulator** of that device.
 
@@ -39,3 +39,5 @@ Cowpoke is an open-source (AGPL-3.0) alternative to Neuron with every protocol i
 The Neuron details were checked against its public repository in November 2026. Confirm what its current edition includes before you decide.
 
 Free to self-host (AGPL-3.0). [Docs](/docs) · [Source]([SOURCE URL])
+
+Related: [Modbus TCP simulator](/modbus-tcp-simulator) · [OPC UA simulator](/opc-ua-simulator) · [Simulate an S7 PLC](/s7-plc-simulator)

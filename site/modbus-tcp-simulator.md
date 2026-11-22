@@ -1,6 +1,6 @@
 ---
-title: Modbus TCP simulator in Docker
-description: A free Modbus TCP simulator in one Docker container. Several unit ids on one port, simulated values, a web UI, REST and Python APIs, and a Modbus client in the same box to read it back.
+title: Modbus TCP simulator in Docker | Cowpoke
+description: Free Modbus TCP simulator in one Docker container: several unit ids, moving values, a web UI and a Python API.
 slug: modbus-tcp-simulator
 ---
 
@@ -47,3 +47,5 @@ services:
 A small Modbus-only image is fine when all you need is a register to poll. Cowpoke is for when the test grows: more devices, other protocols (OPC UA, EtherNet/IP, S7, MQTT, IO-Link), recorded history, and checks that tell you why a value is wrong.
 
 Free to self-host (AGPL-3.0). [Docs](/docs) · [Source]([SOURCE URL])
+
+Related: [OPC UA simulator](/opc-ua-simulator) · [Simulate an S7 PLC](/s7-plc-simulator)

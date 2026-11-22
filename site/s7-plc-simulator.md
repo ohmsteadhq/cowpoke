@@ -1,7 +1,7 @@
 ---
-title: Simulate a Siemens S7 PLC without hardware or TIA Portal
-description: Cowpoke simulates an S7 PLC on the network: S7comm reads and writes on DBs, M, I and Q, for any rack and slot. A free, Docker-based complement to PLCSIM for testing HMIs, SCADA and gateways.
-slug: plcsim-alternative
+title: Simulate a Siemens S7 PLC without hardware | Cowpoke
+description: Simulate a Siemens S7 PLC on the network in Docker: S7comm reads and writes on DBs, M, I and Q. A free PLCSIM complement.
+slug: s7-plc-simulator
 ---
 
 # Simulate a Siemens S7 PLC without the hardware
@@ -54,3 +54,5 @@ The same container reads and writes real S7-300/400/1200/1500 PLCs by Siemens ad
 | Price | Licensed | Free (AGPL-3.0) |
 
 Free to self-host (AGPL-3.0). [Docs](/docs) · [Source]([SOURCE URL])
+
+Related: [Modbus TCP simulator](/modbus-tcp-simulator) · [OPC UA simulator](/opc-ua-simulator) · [Neuron alternative](/neuron-alternative)

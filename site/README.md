@@ -9,5 +9,5 @@ Docker Hub listing in `dockerhub.md` goes live under that name.
 | `modbus-tcp-simulator.md` | modbus tcp simulator docker |
 | `opc-ua-simulator.md` | opc ua server simulator free / docker |
 | `neuron-alternative.md` | neuron open source alternative, modbus/opc ua to mqtt gateway |
-| `plcsim-alternative.md` | simulate siemens s7 plc without hardware, plcsim alternative |
+| `s7-plc-simulator.md` | simulate siemens s7 plc without hardware, plcsim alternative |
 | `dockerhub.md` | the Docker Hub overview for `ohmstead/cowpoke` |

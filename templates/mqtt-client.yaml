@@ -27,3 +27,12 @@ tags:
   - name: pump_run
     datatype: bool
     topic: plant/pump1/run
+
+# Sparkplug B: replace the tags above with metrics from one edge node (or a device
+# under it). Births give each metric's type and alias; writes go out as NCMD/DCMD.
+# settings:
+#   host: broker.local
+#   sparkplug: { group_id: Plant, edge_node: Line1, device: Tank1, rebirth: true }
+# tags:
+#   - { name: tank_level, datatype: float64, metric: Level }
+#   - { name: pump_run, datatype: bool, metric: Pump/Run }

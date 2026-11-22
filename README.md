@@ -10,7 +10,7 @@ Create *services* in a web UI, a REST API or a YAML file. Each service speaks on
 | **OPC UA** | Server with your tags as variables; None, Basic256Sha256, Aes128Sha256RsaOaep, Aes256Sha256RsaPss; anonymous and username logins; trust list | Reads and writes a server's nodes with any of the same policies, as anonymous or a user |
 | **API request** | Mock HTTP API: routes with canned bodies, `:params`, delays, status codes, and `{{tags.NAME}}` placeholders; routes can set tags from the request; plus `GET/PUT /tags` | Calls an endpoint on a timer and picks values from the JSON with JSON pointers; optional write request |
 | **IO-Link** | Simulated ifm IoT Core master: `pdin`/`pdout`, device info, `getdatamulti` | Reads sensors through a real ifm IoT Core master (AL13xx and similar) by IODD bit offset; writes `pdout` |
-| **MQTT** | Built-in MQTT 3.1.1 broker: publishes every tag on change to `<prefix>/<tag>` (retained), takes writes on `<topic>/set`, optional login; other clients publish and subscribe as with any broker | Subscribes to a broker's topics (wildcards allowed), picks values from JSON or text payloads with JSON pointers; writes publish to a topic template; TLS, login, QoS 0/1, retain |
+| **MQTT** | Built-in MQTT 3.1.1 broker: publishes every tag on change to `<prefix>/<tag>` (retained), takes writes on `<topic>/set`, optional login; other clients publish and subscribe as with any broker | Subscribes to a broker's topics (wildcards allowed), picks values from JSON or text payloads with JSON pointers; writes publish to a topic template; TLS, login, QoS 0/1, retain. **Sparkplug B**: reads an edge node's or device's metrics from births and data (aliases included), marks tags bad on death, asks for a rebirth, writes with NCMD/DCMD |
 | **EtherNet/IP** | Simulated Logix controller: Read Tag / Write Tag by symbolic name, direct or via Unconnected Send to any slot, Multiple Service Packet, ListIdentity | Reads and writes ControlLogix / CompactLogix tags by symbolic name (`Program:Main.Level`, `Tank[3].Temp`): BOOL, SINT, INT, DINT, LINT, REAL, LREAL, STRING |
 
 Every service runs on its own. Cowpoke is not a bridge between them.
@@ -89,6 +89,7 @@ The address fields depend on the kind:
 - **API:** `pointer`, a JSON pointer such as `/main/temp`. The default is `/<tag name>`.
 - **MQTT:**
   - Client mode: `topic` (a filter; `+` and `#` work) and optional `pointer` into a JSON payload. Non-JSON payloads are read as text.
+  - Client mode with `sparkplug` (`group_id`, `edge_node`, optional `device`): `metric`, the Sparkplug metric name. The default is the tag name.
   - Server mode: optional `topic`. By default the tag publishes to `<prefix>/<tag name>`; a write is a publish to `<topic>/set`.
 - **EtherNet/IP:** `cip_tag`, the Logix tag name (`Program:Main.Level`). Required in client mode; in server mode it defaults to the tag name. Pick a Cowpoke datatype that holds the value (BOOL → `bool`, SINT/INT → `int16`, DINT → `int32`, LINT → `int64`, REAL → `float32`, LREAL → `float64`, STRING → `string`); client writes use the type the controller reports.
 - **IO-Link:** `port`, `pd` (`in` or `out`), `bit_offset` and `bit_length`. Bit offsets are IODD-style: counted from the least significant bit of the last byte.
@@ -297,7 +298,7 @@ These aren't built yet:
 - IO-Link masters other than ifm IoT Core
 - OPC UA subscriptions (the client polls)
 - Built-in HTTPS
-- MQTT: Sparkplug B, MQTT 5, TLS on the built-in broker, persistent sessions and QoS 2 delivery (QoS 2 publishes are accepted and passed on at QoS 1)
+- MQTT: Sparkplug B in server mode (as an edge node), Sparkplug datasets and templates, MQTT 5, TLS on the built-in broker, persistent sessions and QoS 2 delivery (QoS 2 publishes are accepted and passed on at QoS 1)
 - EtherNet/IP: connected (Forward Open) messaging, arrays beyond one element, UDTs other than STRING, tag browsing, batching client reads into Multiple Service Packets
 
 ## License

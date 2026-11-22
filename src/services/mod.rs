@@ -6,6 +6,7 @@ pub mod iolink;
 pub mod modbus;
 pub mod mqtt;
 pub mod opcua;
+pub mod sparkplug;
 
 use anyhow::{Context as _, Result};
 

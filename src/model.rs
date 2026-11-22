@@ -171,6 +171,9 @@ pub struct TagDef {
     /// Server: where it is published; defaults to `<prefix>/<tag name>`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub topic: Option<String>,
+    /// Sparkplug B client: the metric name. Defaults to the tag name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metric: Option<String>,
 
     // --- EtherNet/IP ---
     /// Logix tag name (`Program:Main.Level`, `Tank[3].Temp`). Server: defaults to the tag name.
@@ -326,8 +329,8 @@ impl ServiceDef {
                     }
                 }
                 Kind::Mqtt => match (&t.topic, self.mode) {
-                    (None, Mode::Client) => {
-                        return Err(format!("tag `{}`: MQTT client tags need `topic`", t.name));
+                    (None, Mode::Client) if self.settings.get("sparkplug").is_none_or(|v| v.is_null()) => {
+                        return Err(format!("tag `{}`: MQTT client tags need `topic` (or the service needs `sparkplug`)", t.name));
                     }
                     (Some(topic), Mode::Server) if topic.contains(['+', '#']) || topic.is_empty() => {
                         return Err(format!("tag `{}`: a published topic can't be empty or hold + or #", t.name));

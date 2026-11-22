@@ -89,6 +89,9 @@ struct ClientSettings {
     write_topic: String,
     #[serde(default = "default_keep_alive")]
     keep_alive_s: u64,
+    /// Read one Sparkplug B edge node (or device) instead of plain topics. Tags name a `metric`.
+    #[serde(default)]
+    sparkplug: Option<super::sparkplug::Config>,
 }
 
 fn default_write_topic() -> String {
@@ -122,7 +125,13 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
         });
     }
     let (cli, mut events) = AsyncClient::new(opts, 64);
-    let mut topics: Vec<String> = tags.iter().filter_map(|t| t.topic.clone()).collect();
+    let sp = s.sparkplug.clone();
+    let mut births = super::sparkplug::Births::default();
+    let metric = |t: &TagDef| t.metric.clone().unwrap_or_else(|| t.name.clone());
+    let mut topics: Vec<String> = match &sp {
+        Some(c) => c.subscriptions(),
+        None => tags.iter().filter_map(|t| t.topic.clone()).collect(),
+    };
     topics.sort();
     topics.dedup();
     let where_ = format!("{}{}:{port}", if s.tls { "mqtts://" } else { "mqtt://" }, s.host);
@@ -139,7 +148,43 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
                     for t in &topics {
                         cli.subscribe(t.clone(), qos(s.qos)).await?;
                     }
+                    if let Some(c) = sp.as_ref().filter(|c| c.rebirth) {
+                        use super::sparkplug as spb;
+                        let ts = spb::now_ms();
+                        let m = spb::encode_metric(Some("Node Control/Rebirth"), None, spb::BOOLEAN, &Value::Bool(true), ts)
+                            .map_err(|e| anyhow::anyhow!(e))?;
+                        cli.publish(c.ncmd(), QoS::AtMostOnce, false, spb::encode(ts, None, &[m])).await?;
+                    }
                     ctx.status.running(format!("connected to {where_}, {} topic(s)", topics.len()));
+                }
+                Ok(Event::Incoming(Packet::Publish(p))) if sp.is_some() => {
+                    use super::sparkplug::{Message, classify, decode};
+                    let c = sp.as_ref().unwrap();
+                    match classify(c, &p.topic) {
+                        Message::Death => {
+                            births.clear();
+                            for t in &tags { ctx.tags.set_bad(&id, &t.name); }
+                            ctx.status.degraded(format!("{where_}: edge node {} is offline (death certificate)", c.edge_node));
+                        }
+                        Message::Metrics { birth } => match decode(&p.payload) {
+                            Ok(payload) => {
+                                if birth {
+                                    ctx.status.running(format!("connected to {where_}, Sparkplug {}/{}{}", c.group_id, c.edge_node,
+                                        c.device.as_ref().map(|d| format!("/{d}")).unwrap_or_default()));
+                                }
+                                for (name, v) in births.resolve(&payload, birth) {
+                                    for t in tags.iter().filter(|t| metric(t) == name) {
+                                        match v.as_ref().map(|v| coerce_tag(t, v)) {
+                                            Some(Ok(v)) => ctx.tags.set(&id, &t.name, v, Quality::Good, Origin::Service),
+                                            _ => ctx.tags.set_bad(&id, &t.name),
+                                        }
+                                    }
+                                }
+                            }
+                            Err(e) => tracing::debug!(service = %id, "bad Sparkplug payload on {}: {e}", p.topic),
+                        },
+                        Message::Other => {}
+                    }
                 }
                 Ok(Event::Incoming(Packet::Publish(p))) => {
                     for t in &tags {
@@ -168,10 +213,27 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
             Some(w) = ctx.writes.recv() => {
                 let r = match ctx.def.tag(&w.tag) {
                     None => Err(format!("no tag `{}`", w.tag)),
-                    Some(t) => cli
-                        .publish(write_topic(&s.write_topic, t), qos(s.qos), s.retain, payload_of(&w.value))
-                        .await
-                        .map_err(|e| e.to_string()),
+                    Some(t) => match &sp {
+                        None => cli
+                            .publish(write_topic(&s.write_topic, t), qos(s.qos), s.retain, payload_of(&w.value))
+                            .await
+                            .map_err(|e| e.to_string()),
+                        Some(c) => {
+                            use super::sparkplug as spb;
+                            let name = metric(t);
+                            // Use the type (and alias) the birth announced; else the tag's own type.
+                            let (dt, alias) = births.metrics.get(&name).copied()
+                                .unwrap_or((spb::datatype_for(t.datatype), None));
+                            let ts = spb::now_ms();
+                            match spb::encode_metric(Some(&name), alias, dt, &w.value, ts) {
+                                Err(e) => Err(e),
+                                // Commands are QoS 0 and never retained (Sparkplug B spec).
+                                Ok(m) => cli.publish(c.cmd(), QoS::AtMostOnce, false, spb::encode(ts, None, &[m]))
+                                    .await
+                                    .map_err(|e| e.to_string()),
+                            }
+                        }
+                    },
                 };
                 let _ = w.reply.send(r);
             }
@@ -491,6 +553,9 @@ pub fn check_settings(mode: Mode, v: &Value) -> Result<(), String> {
         Mode::Client => serde_json::from_value::<ClientSettings>(v.clone()).and_then(|s| {
             if s.qos > 1 {
                 return Err(serde::de::Error::custom("qos is 0 or 1"));
+            }
+            if let Some(c) = &s.sparkplug {
+                c.validate().map_err(serde::de::Error::custom)?;
             }
             Ok(())
         }),

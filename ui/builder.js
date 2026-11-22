@@ -117,6 +117,12 @@ const SCHEMAS = {
     { k: "retain", label: "Publish writes retained", type: "bool", adv: true },
     { k: "client_id", label: "Client id", type: "text", ph: "cowpoke-<id>", adv: true },
     { k: "keep_alive_s", label: "Keep-alive (s)", type: "number", ph: "30", adv: true },
+    { k: "sparkplug", label: "Sparkplug B", type: "object", help: "Read one edge node (or a device under it) instead of plain topics. Tags name a metric; writes go out as NCMD/DCMD.", fields: [
+      { k: "group_id", label: "Group id", type: "text", ph: "Plant", required: true },
+      { k: "edge_node", label: "Edge node id", type: "text", ph: "Line1", required: true },
+      { k: "device", label: "Device id", type: "text", ph: "none: the node's own metrics" },
+      { k: "rebirth", label: "Ask for a rebirth on connect", type: "bool", dflt: true },
+    ] },
     { k: "ca", label: "CA certificate (PEM)", type: "body", ph: "-----BEGIN CERTIFICATE-----", adv: true, help: "For a broker with its own CA. Blank uses the system's roots." },
   ],
   "eip/server": [
@@ -140,7 +146,7 @@ const REGS = { bool: 1, int16: 1, uint16: 1, int32: 2, uint32: 2, float32: 2, in
 const BITS = { bool: 1, int16: 16, uint16: 16, int32: 32, uint32: 32, float32: 32, int64: 64, uint64: 64, float64: 64, string: 128 };
 
 // Address columns per kind (and mode). `w` is the column width.
-function tagColumns(kind, mode) {
+function tagColumns(kind, mode, settings) {
   switch (kind) {
     case "modbus": return [
       { k: "table", label: "Table", type: "choice", options: TABLES, dflt: "holding_register", w: 140 },
@@ -149,7 +155,9 @@ function tagColumns(kind, mode) {
     ];
     case "opcua": return [{ k: "node_id", label: mode === "client" ? "Node id" : "Node id (optional)", type: "text", ph: mode === "client" ? "ns=2;s=Line1.Temp" : "the tag name", w: 220 }];
     case "api": return mode === "client" ? [{ k: "pointer", label: "JSON pointer", type: "text", ph: "/<tag name>", w: 180 }] : [];
-    case "mqtt": return [
+    case "mqtt":
+      if (mode === "client" && settings?.sparkplug) return [{ k: "metric", label: "Metric", type: "text", ph: "the tag name", w: 220 }];
+      return [
       { k: "topic", label: mode === "client" ? "Topic" : "Topic (optional)", type: "text", ph: mode === "client" ? "plant/tank1/state" : "<prefix>/<tag name>", w: 200 },
       ...(mode === "client" ? [{ k: "pointer", label: "JSON pointer", type: "text", ph: "whole payload", w: 140 }] : []),
     ];
@@ -325,7 +333,7 @@ function serviceBuilder(root, opts) {
       return f;
     }
     if (parts[0] === "tags") {
-      const all = [...tagColumns(st.def.kind, st.def.mode), ...TAG_DETAIL];
+      const all = [...tagColumns(st.def.kind, st.def.mode, st.def.settings), ...TAG_DETAIL];
       return all.find((x) => x.k === parts[parts.length - 1]) || (parts[1] === "history" ? HIST.find((x) => x.k === parts[2]) : null);
     }
     return null;
@@ -526,7 +534,7 @@ function serviceBuilder(root, opts) {
   };
 
   const tagsTable = () => {
-    const d = st.def, cols = tagColumns(d.kind, d.mode);
+    const d = st.def, cols = tagColumns(d.kind, d.mode, d.settings);
     const tags = d.tags || [];
     if (!tags.length) return `<div class="pad muted b-empty">No tags yet. Add one, or load the example tags for ${esc(KINDS[d.kind].label)} ${esc(d.mode)}.</div>`;
     return `<div class="scroll"><table class="b-table">

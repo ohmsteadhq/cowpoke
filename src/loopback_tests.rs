@@ -522,3 +522,110 @@ tags:
     assert_ne!(rig.tags.get("direct", "missing").map(|s| s.quality), Some(Quality::Good));
     rig.stop().await;
 }
+
+/// A Sparkplug B edge node (played by the test) publishes through Cowpoke's broker;
+/// a Cowpoke MQTT client in Sparkplug mode reads its metrics and writes with DCMD.
+#[tokio::test(flavor = "multi_thread")]
+async fn mqtt_sparkplug_b() {
+    use crate::services::sparkplug as spb;
+    use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS};
+
+    let p = free_port();
+    let all = vec![
+        svc(&format!(
+            "id: broker\nkind: mqtt\nmode: server\nsettings: {{ bind: 127.0.0.1, port: {p}, retain: false }}\ntags: []\n"
+        )),
+        svc(&format!(
+            r#"
+id: cli
+kind: mqtt
+mode: client
+settings: {{ host: 127.0.0.1, port: {p}, sparkplug: {{ group_id: Plant, edge_node: Line1, device: Tank1 }} }}
+tags:
+  - {{ name: level, datatype: float64, metric: Level }}
+  - {{ name: temp, datatype: int16, metric: Temp }}
+  - {{ name: run, datatype: bool, metric: Pump/Run }}
+"#
+        )),
+    ];
+    // Start the broker alone; the client comes once the edge node is listening.
+    let mut rig = Rig::start(vec![all[0].clone()]).await;
+    rig.wait_running("broker").await;
+
+    // The edge node: answer a rebirth request with births, and record commands.
+    let mut opts = MqttOptions::new("edge", "127.0.0.1", p);
+    opts.set_keep_alive(Duration::from_secs(5));
+    let (node, mut ev) = AsyncClient::new(opts, 32);
+    let (cmd_tx, mut cmds) = tokio::sync::mpsc::unbounded_channel::<spb::Payload>();
+    let births = {
+        let node = node.clone();
+        move || {
+            let node = node.clone();
+            async move {
+                let ts = spb::now_ms();
+                let nb = spb::encode(ts, Some(0), &[spb::encode_metric(Some("bdSeq"), None, spb::UINT64, &json!(0), ts).unwrap()]);
+                node.publish("spBv1.0/Plant/NBIRTH/Line1", QoS::AtMostOnce, false, nb).await.unwrap();
+                let db = spb::encode(ts, Some(1), &[
+                    spb::encode_metric(Some("Level"), Some(1), spb::FLOAT, &json!(42.5), ts).unwrap(),
+                    spb::encode_metric(Some("Temp"), Some(2), spb::INT16, &json!(-12), ts).unwrap(),
+                    spb::encode_metric(Some("Pump/Run"), Some(3), spb::BOOLEAN, &json!(false), ts).unwrap(),
+                ]);
+                node.publish("spBv1.0/Plant/DBIRTH/Line1/Tank1", QoS::AtMostOnce, false, db).await.unwrap();
+            }
+        }
+    };
+    tokio::spawn(async move {
+        while let Ok(e) = ev.poll().await {
+            match e {
+                Event::Incoming(Packet::ConnAck(_)) => {}
+                Event::Incoming(Packet::Publish(m)) => {
+                    let payload = spb::decode(&m.payload).unwrap();
+                    if m.topic == "spBv1.0/Plant/NCMD/Line1" {
+                        // Rebirth request.
+                        births().await;
+                    } else {
+                        let _ = cmd_tx.send(payload);
+                    }
+                }
+                _ => {}
+            }
+        }
+    });
+    node.subscribe("spBv1.0/Plant/NCMD/Line1", QoS::AtMostOnce).await.unwrap();
+    node.subscribe("spBv1.0/Plant/DCMD/Line1/Tank1", QoS::AtMostOnce).await.unwrap();
+    // Once the edge node is subscribed, start the client: its rebirth request brings the births.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    rig.cfg = Config { services: all };
+    rig.mgr.apply(&rig.cfg).await;
+    let rig2 = rig;
+
+    rig2.wait_value("cli", "level", json!(42.5)).await;
+    rig2.wait_value("cli", "temp", json!(-12)).await;
+    rig2.wait_value("cli", "run", json!(false)).await;
+
+    // DDATA by alias only.
+    let ts = spb::now_ms();
+    let dd = spb::encode(ts, Some(2), &[spb::encode_metric(None, Some(2), spb::INT16, &json!(7), ts).unwrap()]);
+    node.publish("spBv1.0/Plant/DDATA/Line1/Tank1", QoS::AtMostOnce, false, dd).await.unwrap();
+    rig2.wait_value("cli", "temp", json!(7)).await;
+
+    // A write goes out as DCMD with the birth's type and alias.
+    rig2.write("cli", "run", json!(true)).await;
+    let cmd = tokio::time::timeout(Duration::from_secs(5), cmds.recv()).await.unwrap().unwrap();
+    assert_eq!(cmd.metrics.len(), 1);
+    assert_eq!(cmd.metrics[0].name.as_deref(), Some("Pump/Run"));
+    assert_eq!(cmd.metrics[0].alias, Some(3));
+    assert_eq!(cmd.metrics[0].value, Some(json!(true)));
+
+    // A death certificate marks the tags bad.
+    let death = spb::encode(spb::now_ms(), None, &[spb::encode_metric(Some("bdSeq"), None, spb::UINT64, &json!(0), ts).unwrap()]);
+    node.publish("spBv1.0/Plant/NDEATH/Line1", QoS::AtMostOnce, false, death).await.unwrap();
+    for _ in 0..100 {
+        if rig2.tags.get("cli", "level").map(|s| s.quality) == Some(Quality::Bad) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(rig2.tags.get("cli", "level").map(|s| s.quality), Some(Quality::Bad));
+    rig2.stop().await;
+}

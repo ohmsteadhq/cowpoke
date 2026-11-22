@@ -158,9 +158,14 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
                         bail!("`{}` is process data in (from the device); only pdout tags can be written", t.name);
                     }
                     let port = t.port.unwrap_or(1);
-                    let mut pd = m.get_pd(port, ProcessData::Out).await.unwrap_or_default();
+                    // Read-modify-write of the whole port: without the current outputs we
+                    // would send zeros for every other output, so refuse the write instead.
+                    let mut pd = m.get_pd(port, ProcessData::Out).await
+                        .with_context(|| format!("read port {port} pdout before writing `{}`", t.name))?;
                     let need = pd_len(&port_tags(&tags, port, ProcessData::Out));
-                    if pd.len() < need { pd.resize(need, 0); }
+                    if pd.len() < need {
+                        bail!("port {port} pdout is {} bytes but the tags need {need}; not writing `{}`", pd.len(), t.name);
+                    }
                     encode_pd(t, &w.value, &mut pd).map_err(|e| anyhow!(e))?;
                     m.request(&format!("{}/setdata", pd_path(port, ProcessData::Out)),
                         Some(json!({"newvalue": hex::encode_upper(&pd)}))).await?;

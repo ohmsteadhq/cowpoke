@@ -251,6 +251,17 @@ const MULTIPLE_SERVICE: u8 = 0x0A;
 const CONNECTION_MANAGER: [u8; 4] = [0x20, 0x06, 0x24, 0x01];
 /// The Message Router (class 2, instance 1).
 const MESSAGE_ROUTER: [u8; 4] = [0x20, 0x02, 0x24, 0x01];
+/// How deep Unconnected Send / Multiple Service Packet requests may nest. A real
+/// client needs two (a Multiple Service Packet inside an Unconnected Send).
+const MAX_NESTING: usize = 4;
+/// Most requests one Multiple Service Packet may carry.
+const MAX_SERVICES: usize = 256;
+/// Largest Multiple Service Packet reply (its offsets are u16).
+const MAX_REPLY: usize = u16::MAX as usize;
+/// CIP general status: resource unavailable.
+const RESOURCE_UNAVAILABLE: u8 = 0x02;
+/// CIP general status: reply data too large.
+const REPLY_TOO_LARGE: u8 = 0x11;
 
 struct Encap {
     command: u16,
@@ -609,6 +620,13 @@ impl Sim {
 
     /// Answer one Message Router request.
     fn handle(&self, m: &[u8]) -> Vec<u8> {
+        self.handle_at(m, 0)
+    }
+
+    /// Answer one Message Router request nested `depth` levels inside Unconnected Send
+    /// or Multiple Service Packet requests. Nesting is capped so a client cannot make
+    /// the work (or the stack) grow without bound.
+    fn handle_at(&self, m: &[u8], depth: usize) -> Vec<u8> {
         let Some((&service, rest)) = m.split_first() else {
             return mr_reply(0, 0x04, None, &[]);
         };
@@ -669,26 +687,41 @@ impl Sim {
                 let Some(n) = data.get(2..4).map(|b| u16::from_le_bytes([b[0], b[1]]) as usize) else {
                     return mr_reply(service, 0x13, None, &[]);
                 };
+                if depth >= MAX_NESTING {
+                    return mr_reply(service, RESOURCE_UNAVAILABLE, None, &[]);
+                }
                 match data.get(4..4 + n) {
-                    Some(inner) => self.handle(inner),
+                    Some(inner) => self.handle_at(inner, depth + 1),
                     None => mr_reply(service, 0x13, None, &[]),
                 }
             }
             MULTIPLE_SERVICE if path == MESSAGE_ROUTER => {
+                if depth >= MAX_NESTING {
+                    return mr_reply(service, RESOURCE_UNAVAILABLE, None, &[]);
+                }
                 let count = data.get(..2).map(|b| u16::from_le_bytes([b[0], b[1]]) as usize).unwrap_or(0);
+                if count > MAX_SERVICES {
+                    return mr_reply(service, RESOURCE_UNAVAILABLE, None, &[]);
+                }
                 let offs: Vec<usize> = (0..count)
                     .filter_map(|i| data.get(2 + 2 * i..4 + 2 * i).map(|b| u16::from_le_bytes([b[0], b[1]]) as usize))
                     .collect();
                 if offs.len() != count {
                     return mr_reply(service, 0x13, None, &[]);
                 }
+                // Each request must start after the offset table, after the previous
+                // request, and inside the data: no request may cover another's bytes.
+                let mut prev = 2 + 2 * count - 1;
+                for &o in &offs {
+                    if o <= prev || o >= data.len() {
+                        return mr_reply(service, 0x13, None, &[]);
+                    }
+                    prev = o;
+                }
                 let replies: Vec<Vec<u8>> = (0..count)
                     .map(|i| {
                         let end = offs.get(i + 1).copied().unwrap_or(data.len());
-                        match data.get(offs[i]..end) {
-                            Some(req) => self.handle(req),
-                            None => mr_reply(0, 0x13, None, &[]),
-                        }
+                        self.handle_at(&data[offs[i]..end], depth + 1)
                     })
                     .collect();
                 let mut out = (count as u16).to_le_bytes().to_vec();
@@ -696,6 +729,9 @@ impl Sim {
                 for r in &replies {
                     out.extend_from_slice(&(off as u16).to_le_bytes());
                     off += r.len();
+                }
+                if off > MAX_REPLY {
+                    return mr_reply(service, REPLY_TOO_LARGE, None, &[]);
                 }
                 let any_err = replies.iter().any(|r| r.get(2).is_some_and(|&s| s != 0));
                 for r in replies {
@@ -855,5 +891,96 @@ mod tests {
         }
         let sint = CipType { code: SINT, handle: None };
         assert_eq!(decode_value(sint, &encode_value(sint, &json!(-5)).unwrap()).unwrap(), json!(-5));
+    }
+
+    fn sim() -> Sim {
+        let def: ServiceDef = serde_yaml::from_str(
+            "id: es\nkind: eip\nmode: server\ntags: [{ name: level, datatype: float32, cip_tag: Level, initial: 2.5 }]\n",
+        )
+        .unwrap();
+        let by_name = def.tags.iter().enumerate().map(|(i, t)| (cip_name(t).to_ascii_lowercase(), i)).collect();
+        Sim { def, store: TagStore::new(), by_name, product: default_product(), next_session: Mutex::new(0) }
+    }
+
+    fn read_level() -> Vec<u8> {
+        let p = tag_path("Level").unwrap();
+        let mut m = vec![READ_TAG, (p.len() / 2) as u8];
+        m.extend_from_slice(&p);
+        m.extend_from_slice(&1u16.to_le_bytes());
+        m
+    }
+
+    /// A Multiple Service Packet carrying `reqs`, with the given offsets (or the right ones).
+    fn msp(reqs: &[Vec<u8>], offs: Option<&[u16]>) -> Vec<u8> {
+        let mut m = vec![MULTIPLE_SERVICE, 2];
+        m.extend_from_slice(&MESSAGE_ROUTER);
+        m.extend_from_slice(&(offs.map_or(reqs.len(), |o| o.len()) as u16).to_le_bytes());
+        let mut off = 2 + 2 * reqs.len();
+        let mut table = Vec::new();
+        for r in reqs {
+            table.push(off as u16);
+            off += r.len();
+        }
+        for o in offs.unwrap_or(&table) {
+            m.extend_from_slice(&o.to_le_bytes());
+        }
+        for r in reqs {
+            m.extend_from_slice(r);
+        }
+        m
+    }
+
+    fn unconnected_send(inner: &[u8]) -> Vec<u8> {
+        let mut m = vec![UNCONNECTED_SEND, 2];
+        m.extend_from_slice(&CONNECTION_MANAGER);
+        m.extend_from_slice(&[0x0A, 0x05]);
+        m.extend_from_slice(&(inner.len() as u16).to_le_bytes());
+        m.extend_from_slice(inner);
+        m
+    }
+
+    #[test]
+    fn multiple_service_in_unconnected_send_works() {
+        let s = sim();
+        let r = s.handle(&unconnected_send(&msp(&[read_level(), read_level()], None)));
+        assert_eq!(&r[..3], &[MULTIPLE_SERVICE | 0x80, 0, 0], "{r:?}");
+        assert_eq!(u16::from_le_bytes([r[4], r[5]]), 2);
+    }
+
+    #[test]
+    fn overlapping_multiple_service_offsets_are_refused() {
+        let s = sim();
+        let inner = read_level();
+        let len = (2 + 2 * 3 + inner.len()) as u16;
+        // Entries 0 and 2 both cover the whole payload: the doubling attack.
+        let r = s.handle(&msp(&[inner.clone()], Some(&[8, len, 8])));
+        assert_eq!(r[2], 0x13, "{r:?}");
+        // Offsets inside the offset table, or past the data, are refused too.
+        assert_eq!(s.handle(&msp(&[inner.clone()], Some(&[0])))[2], 0x13);
+        assert_eq!(s.handle(&msp(&[inner], Some(&[500])))[2], 0x13);
+    }
+
+    #[test]
+    fn deep_nesting_is_refused_quickly() {
+        let s = sim();
+        // Thousands of nested Unconnected Sends would overflow the stack without a limit.
+        let mut m = read_level();
+        for _ in 0..5000 {
+            m = unconnected_send(&m);
+        }
+        let r = s.handle(&m);
+        assert_eq!(r[0], UNCONNECTED_SEND | 0x80);
+        assert_ne!(r[2], 0, "{r:?}");
+        // Nested Multiple Service Packets are refused past the limit.
+        let mut m = read_level();
+        for _ in 0..30 {
+            m = msp(&[m], None);
+        }
+        let r = s.handle(&m);
+        assert_eq!(r[0], MULTIPLE_SERVICE | 0x80);
+        assert_ne!(r[2], 0, "{r:?}");
+        // ...but a few levels still work.
+        let r = s.handle(&msp(&[msp(&[read_level()], None)], None));
+        assert_eq!(r[2], 0, "{r:?}");
     }
 }

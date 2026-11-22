@@ -396,13 +396,17 @@ fn s7(to_server: bool, b: &[u8], out: &mut Vec<Obs>) -> Option<usize> {
         0xE0 if to_server => {
             // Connection request: the destination TSAP names rack and slot.
             let mut tsap = String::new();
+            // The parameters end at the COTP length byte, or at the packet if that lies.
+            let end = (cl + 1).min(cotp.len());
             let mut i = 7;
-            while i + 1 < cl + 1 {
-                let (code, n) = (cotp[i], cotp[i + 1] as usize);
+            while i + 1 < end {
+                let (Some(&code), Some(&n)) = (cotp.get(i), cotp.get(i + 1)) else { break };
                 if code == 0xC2 && n == 2 {
-                    tsap = format!(" to rack {} slot {}", cotp[i + 3] >> 5, cotp[i + 3] & 0x1F);
+                    if let Some(&rs) = cotp.get(i + 3) {
+                        tsap = format!(" to rack {} slot {}", rs >> 5, rs & 0x1F);
+                    }
                 }
-                i += 2 + n;
+                i += 2 + n as usize;
             }
             out.push(obs(Action::Connect, format!("COTP connect{tsap}")));
         }
@@ -674,6 +678,28 @@ mod tests {
         let n = f.len() as u16;
         f[2..4].copy_from_slice(&n.to_be_bytes());
         assert_eq!(one(Proto::S7, true, &f)[0].action, Action::Control);
+    }
+
+    #[test]
+    fn s7_cotp_connect_request_tsap_and_malformed() {
+        // COTP CR: LI 17, CR, dst/src ref, class, then src TSAP 01 00 and dst TSAP 01 02 (rack 0 slot 2).
+        let cotp = [17, 0xE0, 0, 0, 0, 1, 0, 0xC1, 2, 1, 0, 0xC2, 2, 1, 2, 0xC0, 1, 0x0A];
+        let mut f = vec![3, 0, 0, 0];
+        f.extend_from_slice(&cotp);
+        let n = f.len() as u16;
+        f[2..4].copy_from_slice(&n.to_be_bytes());
+        assert_eq!(one(Proto::S7, true, &f)[0], obs(Action::Connect, "COTP connect to rack 0 slot 2"));
+        // A COTP length byte longer than the packet used to panic (index out of bounds).
+        assert_eq!(one(Proto::S7, true, &[3, 0, 0, 7, 0x0A, 0xE0, 0])[0].action, Action::Connect);
+        // Every length byte against every truncation of a real request: never a panic.
+        for cl in 0..=255u8 {
+            for cut in 7..=f.len() {
+                let mut g = f[..cut].to_vec();
+                g[2..4].copy_from_slice(&(cut as u16).to_be_bytes());
+                g[4] = cl;
+                let _ = decode(Proto::S7, true, &g);
+            }
+        }
     }
 
     #[test]

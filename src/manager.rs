@@ -259,13 +259,26 @@ impl Manager {
             let mut backoff = Duration::from_secs(1);
             loop {
                 status.set(Status::new(State::Starting, ""));
-                let res = services::run(&mut ctx).await;
+                // A panic inside a service (e.g. a decoder bug on hostile input) must not end
+                // this supervisor for good: treat it as an error and retry like any other.
+                let res = {
+                    use futures::FutureExt;
+                    std::panic::AssertUnwindSafe(services::run(&mut ctx)).catch_unwind().await
+                };
                 if ctx.cancel.is_cancelled() {
                     break;
                 }
                 let msg = match res {
-                    Ok(()) => "stopped unexpectedly".to_string(),
-                    Err(e) => format!("{e:#}"),
+                    Ok(Ok(())) => "stopped unexpectedly".to_string(),
+                    Ok(Err(e)) => format!("{e:#}"),
+                    Err(p) => {
+                        let what = p
+                            .downcast_ref::<&str>()
+                            .map(|s| s.to_string())
+                            .or_else(|| p.downcast_ref::<String>().cloned())
+                            .unwrap_or_else(|| "unknown panic".into());
+                        format!("service panicked: {what}")
+                    }
                 };
                 tracing::warn!(service = %ctx.def.id, "{msg}; retrying in {backoff:?}");
                 status.set(Status::new(State::Error, format!("{msg} (retrying)")));

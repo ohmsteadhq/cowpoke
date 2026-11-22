@@ -309,11 +309,12 @@ mode: server
 settings:
   bind: 127.0.0.1
   port: {p}
-  devices: [{{ port: 1, product_name: TV7105, pdin_bytes: 4 }}]
+  devices: [{{ port: 1, product_name: TV7105, pdin_bytes: 4 }}, {{ port: 3, pdout_bytes: 0 }}]
 tags:
   - {{ name: temperature, datatype: int16, port: 1, bit_offset: 16, bit_length: 16, scale: 0.1, initial: 21.5 }}
   - {{ name: out2, datatype: bool, port: 1, bit_offset: 1, initial: true }}
   - {{ name: lamp, datatype: bool, port: 2, pd: out, bit_offset: 0 }}
+  - {{ name: valve, datatype: bool, port: 3, pd: out, bit_offset: 0 }}
 "#
         )),
         svc(&format!(
@@ -326,6 +327,7 @@ tags:
   - {{ name: temperature, datatype: int16, port: 1, bit_offset: 16, bit_length: 16, scale: 0.1 }}
   - {{ name: out2, datatype: bool, port: 1, bit_offset: 1 }}
   - {{ name: lamp, datatype: bool, port: 2, pd: out, bit_offset: 0 }}
+  - {{ name: valve, datatype: bool, port: 3, pd: out, bit_offset: 0 }}
 "#
         )),
     ])
@@ -337,6 +339,10 @@ tags:
     rig.wait_value("srv", "lamp", json!(true)).await;
     rig.write("srv", "temperature", json!(-4.5)).await;
     rig.wait_value("cli", "temperature", json!(-4.5)).await;
+    // Port 3's pdout reads back shorter than its tags need: the write is refused rather
+    // than zero-filling the rest of the port's outputs.
+    let e = rig.mgr.write(&rig.def("cli"), "valve", &json!(true)).await.unwrap_err();
+    assert!(format!("{e:?}").contains("pdout"), "{e:?}");
 
     // The raw IoT Core answer, as a real client would see it.
     let r: Value = reqwest::Client::new()

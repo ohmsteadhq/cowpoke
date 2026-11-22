@@ -28,6 +28,7 @@ pub struct Panels {
     pub app: App,
     pub engine: Arc<Engine>,
     pub dash: Arc<Dashboards>,
+    pub insights: Arc<crate::insights::Insights>,
 }
 
 pub struct ApiErr(StatusCode, String);
@@ -367,6 +368,30 @@ async fn delete_dashboard(State(p): State<Panels>, me: Me, Path(id): Path<String
     Ok(StatusCode::NO_CONTENT)
 }
 
+// ------------------------------------------------------------------ insights
+
+async fn list_insights(State(p): State<Panels>, _me: Me) -> Json<Value> {
+    Json(p.insights.report())
+}
+
+async fn run_insights(State(p): State<Panels>, me: Me) -> R<Json<Value>> {
+    me.need(Role::Operator)?;
+    crate::insights::recompute_now(&p.insights, &p.app, &p.engine);
+    Ok(Json(p.insights.report()))
+}
+
+async fn dismiss_insight(State(p): State<Panels>, me: Me, Path(id): Path<String>) -> R<StatusCode> {
+    me.need(Role::Operator)?;
+    p.insights.dismiss(&id, true);
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn restore_insight(State(p): State<Panels>, me: Me, Path(id): Path<String>) -> R<StatusCode> {
+    me.need(Role::Operator)?;
+    p.insights.dismiss(&id, false);
+    Ok(StatusCode::NO_CONTENT)
+}
+
 // ------------------------------------------------------------------ router
 
 const JS: &str = include_str!("../ui/panels.js");
@@ -386,6 +411,9 @@ pub fn router(p: Panels) -> Router {
         .route("/api/hooks", get(list_hooks).post(create_hook))
         .route("/api/hooks/{id}", axum::routing::put(update_hook).delete(delete_hook))
         .route("/api/hooks/{id}/test", post(test_hook))
+        .route("/api/insights", get(list_insights))
+        .route("/api/insights/run", post(run_insights))
+        .route("/api/insights/{id}/dismiss", post(dismiss_insight).delete(restore_insight))
         .route("/api/dashboards", get(list_dashboards).post(create_dashboard))
         .route("/api/dashboards/{id}", get(get_dashboard).put(update_dashboard).delete(delete_dashboard))
         .with_state(p)

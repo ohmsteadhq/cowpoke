@@ -143,7 +143,65 @@ function panelsRoute(parts) {
   if (parts[0] === "boards") { boardsPage(); return true; }
   if (parts[0] === "b" && parts[1]) { boardPage(parts[1], parts[2] === "edit"); return true; }
   if (parts[0] === "alarms") { alarmsPage(parts[1] || "active"); return true; }
+  if (parts[0] === "insights") { insightsPage(parts[1] || "open"); return true; }
   return false;
+}
+
+// ---------------------------------------------------------------- insights
+
+const AREAS = { comms: "Communications", alarms: "Alarms", historian: "Historian" };
+const LEVELS = { warn: ["Check", "pn-sev pn-sev-high"], suggest: ["Suggestion", "pn-sev pn-sev-medium"], info: ["Note", "pn-sev"] };
+
+async function insightsPage(tab) {
+  clearPage();
+  const tabs = [["open", "Open"], ["comms", "Communications"], ["alarms", "Alarms"], ["historian", "Historian"], ["dismissed", "Dismissed"]];
+  shell("insights", `
+    <div class="row"><div><h1>Insights</h1>
+      <p class="sub">What Cowpoke has learned from watching every tag, service and alarm: polling faster than values change, flapping connections, bad reads, noisy history and alarm hygiene. Suggestions only: nothing changes until you change it.</p></div>
+      <span class="spacer"></span>${can("operator") ? `<button id="run">Analyze now</button>` : ""}</div>
+    <div id="m"></div>
+    <div class="tabs">${tabs.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" data-tab="${k}">${l}</button>`).join("")}</div>
+    <div id="body" class="pn-tabbody"></div>`);
+  document.querySelectorAll("[data-tab]").forEach((b) => (b.onclick = () => (location.hash = `#/insights/${b.dataset.tab}`)));
+  const m = document.getElementById("m");
+  const body = document.getElementById("body");
+  const draw = (r) => {
+    const all = r.insights || [];
+    const list = all.filter((i) => tab === "dismissed" ? i.dismissed : !i.dismissed && (tab === "open" || i.area === tab));
+    const since = r.watching_since ? new Date(r.watching_since).toLocaleString() : "not yet";
+    const when = r.generated ? new Date(r.generated).toLocaleTimeString() : "not yet";
+    body.innerHTML = `<div class="panel pad">
+      <p class="muted small">Watching ${r.tags_watched || 0} tags since ${esc(since)} · last analyzed ${esc(when)} · ${r.dismissed || 0} dismissed.
+        Insights need at least 30 minutes of watching; some (frozen values, standing alarms) need hours.</p>
+      ${list.length ? list.map((i) => {
+        const [lab, cls] = LEVELS[i.level] || LEVELS.info;
+        const where = [i.service ? `<a class="mono" href="#/s/${encodeURIComponent(i.service)}">${esc(i.service)}</a>` : "", i.tag ? `<span class="mono">${esc(i.tag)}</span>` : ""].filter(Boolean).join(" · ");
+        return `<div class="pn-insight" data-id="${esc(i.id)}">
+          <div class="row"><span class="${cls}">${lab}</span><span class="tag">${esc(AREAS[i.area] || i.area)}</span>${where ? `<span class="detail">${where}</span>` : ""}
+            <span class="spacer"></span>${can("operator") ? `<button class="small" data-act="${i.dismissed ? "restore" : "dismiss"}">${i.dismissed ? "Restore" : "Dismiss"}</button>` : ""}</div>
+          <h3>${esc(i.title)}</h3>
+          <p>${esc(i.detail)}</p>
+          ${i.evidence.length ? `<ul class="detail">${i.evidence.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>` : ""}
+          <p class="pn-fix"><b>Suggestion:</b> ${esc(i.suggestion)}</p>
+        </div>`;
+      }).join("") : `<p class="muted">${tab === "dismissed" ? "Nothing dismissed." : "Nothing to suggest yet."}</p>`}
+    </div>`;
+    body.querySelectorAll("[data-act]").forEach((b) => (b.onclick = async () => {
+      const id = b.closest("[data-id]").dataset.id;
+      try {
+        await api(b.dataset.act === "dismiss" ? "POST" : "DELETE", `/api/insights/${encodeURIComponent(id)}/dismiss`);
+        load();
+      } catch (e) { flash(m, e.message); }
+    }));
+  };
+  const load = () => api("GET", "/api/insights").then(draw).catch((e) => flash(m, e.message));
+  const run = document.getElementById("run");
+  if (run) run.onclick = async () => {
+    run.disabled = true;
+    try { draw(await api("POST", "/api/insights/run")); } catch (e) { flash(m, e.message); }
+    run.disabled = false;
+  };
+  load();
 }
 
 // ---------------------------------------------------------------- boards list

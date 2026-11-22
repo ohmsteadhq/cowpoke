@@ -306,6 +306,16 @@ Live capture in Docker needs `--cap-add NET_RAW --network host` (or the mirror i
 
 This is change and anomaly monitoring for the industrial traffic it sees, not a certified intrusion detection system.
 
+## Insights
+
+Cowpoke watches every tag update and samples every service's status, building a baseline per tag: how often it's read and how often it actually changes, bad reads, range, typical step size and the time between changes. Every 15 minutes (or on **Analyze now**) it turns the baseline, the service definitions and the alarm log into insights on the **Insights** page:
+
+- **Communications:** a client polling far faster than any of its tags change (with a poll interval to use), connections that keep dropping, tags that read bad intermittently, live measurements that never change.
+- **Historian:** deadbands smaller than a tag's noise, and interval recording of tags that rarely change.
+- **Alarms:** chattering, floods (with the alarms behind them), standing alarms and alarms nobody acknowledges.
+
+Insights are suggestions with evidence; nothing changes until someone changes it. Dismiss one and it stays dismissed. Values typed in the UI and simulator generators don't count toward the baseline. The baseline is saved in `baselines.json` in the data folder. Most insights need 30 minutes of watching, some need hours; `COWPOKE_INSIGHTS_QUICK=1` shortens that to minutes for demos. `GET /api/insights`, `POST /api/insights/run`, and `POST`/`DELETE /api/insights/<id>/dismiss`.
+
 ## Not yet
 
 These aren't built yet:

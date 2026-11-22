@@ -70,7 +70,7 @@ function clearPage() {
 // ---------------------------------------------------------------- shell
 
 function shell(current, inner) {
-  const links = [["#/", "Dashboard", "dashboard"], ["#/boards", "Boards", "boards"], ["#/services", "Services", "services"], ["#/alarms", "Alarms", "alarms"], ["#/agents", "Agents", "agents"]];
+  const links = [["#/", "Dashboard", "dashboard"], ["#/boards", "Boards", "boards"], ["#/services", "Services", "services"], ["#/alarms", "Alarms", "alarms"], ["#/insights", "Insights", "insights"], ["#/agents", "Agents", "agents"]];
   if (can("admin")) links.push(["#/users", "Users", "users"]);
   links.push(["#/settings", "Settings", "settings"]);
   $app.innerHTML = `

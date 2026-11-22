@@ -12,6 +12,7 @@ mod dashboards;
 mod generate;
 mod historian;
 mod import_ohmstead;
+mod insights;
 mod manager;
 mod model;
 mod monitor;
@@ -74,8 +75,11 @@ pub fn setup_panels(app: &web::App) -> Result<panels::Panels> {
     let store = Arc::new(alarms::AlarmStore::open(&app.data_dir.join("alarms.yaml"))?);
     let engine = alarms::Engine::new(app.clone(), store);
     tokio::spawn(engine.clone().run());
+    let insights = insights::Insights::open(app.data_dir.join("baselines.json"));
+    tokio::spawn(insights::run(insights.clone(), app.clone(), engine.clone()));
     Ok(panels::Panels {
         app: app.clone(),
+        insights,
         engine,
         dash: Arc::new(dashboards::Dashboards::open(&app.data_dir.join("dashboards.json"))?),
     })

@@ -150,3 +150,12 @@
   nav { order: 3; flex: 0 0 100%; overflow-x: auto; padding: 4px 0 6px; gap: 12px; }
   .feed { top: 100px; }
 }
+
+/* Insights */
+.pn-insight { border-top: 1px solid var(--rule); padding: 16px 0; }
+.pn-insight:first-of-type { border-top: 0; }
+.pn-insight .row { gap: 8px; flex-wrap: wrap; }
+.pn-insight h3 { margin: 10px 0 4px; font-size: 1rem; }
+.pn-insight p { margin: 4px 0; color: var(--ink-2); }
+.pn-insight ul { margin: 6px 0; padding-left: 18px; }
+.pn-insight .pn-fix { color: var(--ink); }

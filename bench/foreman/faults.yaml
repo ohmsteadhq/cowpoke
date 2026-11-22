@@ -1,0 +1,40 @@
+# Staged faults for the foreman model benchmark. Each scenario fN is a server
+# (simulator) and a client; all but f12 have one deliberate mistake.
+# The answer key is in scenarios.json. Ports 30100-30199 on 127.0.0.1.
+services:
+  # f1: client reads the wrong register (off by one)
+  - { id: f1-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30101 }, tags: [ { name: level, datatype: float32, register: 0, initial: 42.5 } ] }
+  - { id: f1-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30101, poll_ms: 500 }, tags: [ { name: level, datatype: float32, register: 1 } ] }
+  # f2: word order mismatch
+  - { id: f2-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30102, word_order: little }, tags: [ { name: level, datatype: float32, register: 0, initial: 42.5 } ] }
+  - { id: f2-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30102, poll_ms: 500, word_order: big }, tags: [ { name: level, datatype: float32, register: 0 } ] }
+  # f3: client asks the wrong unit id
+  - { id: f3-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30103 }, tags: [ { name: level, datatype: float32, register: 0, initial: 42.5 } ] }
+  - { id: f3-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30103, poll_ms: 500, timeout_ms: 1000 }, tags: [ { name: level, datatype: float32, register: 0, unit: 2 } ] }
+  # f4: client is missing the 0.1 scale
+  - { id: f4-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30104 }, tags: [ { name: temp, datatype: int16, register: 0, scale: 0.1, initial: 21.5, units: degC } ] }
+  - { id: f4-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30104, poll_ms: 500 }, tags: [ { name: temp, datatype: int16, register: 0, units: degC } ] }
+  # f5: Logix tag name typo
+  - { id: f5-srv, kind: eip, mode: server, settings: { bind: 127.0.0.1, port: 30105 }, tags: [ { name: level, datatype: float32, cip_tag: Program:Main.Level, initial: 42.5 } ] }
+  - { id: f5-cli, kind: eip, mode: client, settings: { host: 127.0.0.1, port: 30105, poll_ms: 500 }, tags: [ { name: level, datatype: float32, cip_tag: Program:Main.Levl } ] }
+  # f6: Logix client points at the wrong port
+  - { id: f6-srv, kind: eip, mode: server, settings: { bind: 127.0.0.1, port: 30106 }, tags: [ { name: level, datatype: float32, initial: 42.5 } ] }
+  - { id: f6-cli, kind: eip, mode: client, settings: { host: 127.0.0.1, port: 30116, poll_ms: 500, timeout_ms: 1000 }, tags: [ { name: level, datatype: float32, cip_tag: level } ] }
+  # f7: wrong MQTT password
+  - { id: f7-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30107, prefix: plant/line7, username: cow, password: poke }, tags: [ { name: level, datatype: float64, initial: 42.5 } ] }
+  - { id: f7-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30107, username: cow, password: pokee }, tags: [ { name: level, datatype: float64, topic: plant/line7/level } ] }
+  # f8: MQTT topic typo
+  - { id: f8-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30108, prefix: plant/line8 }, tags: [ { name: level, datatype: float64, initial: 42.5 }, { name: flow, datatype: float64, initial: 3.5 } ] }
+  - { id: f8-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30108 }, tags: [ { name: level, datatype: float64, topic: plant/line8/levle }, { name: flow, datatype: float64, topic: plant/line8/flow } ] }
+  # f9: Sparkplug edge node id mismatch
+  - { id: f9-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30109, sparkplug: { group_id: Plant, edge_node: Line9 } }, tags: [ { name: level, datatype: float64, initial: 42.5 } ] }
+  - { id: f9-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30109, sparkplug: { group_id: Plant, edge_node: Line09 } }, tags: [ { name: level, datatype: float64 } ] }
+  # f10: wrong JSON pointer
+  - { id: f10-srv, kind: api, mode: server, settings: { bind: 127.0.0.1, port: 30110 }, tags: [ { name: level, datatype: float64, initial: 42.5 } ] }
+  - { id: f10-cli, kind: api, mode: client, settings: { url: "http://127.0.0.1:30110/tags", interval_ms: 1000 }, tags: [ { name: level, datatype: float64, pointer: /lvl } ] }
+  # f11: IO-Link bit offset wrong
+  - { id: f11-srv, kind: iolink, mode: server, settings: { bind: 127.0.0.1, port: 30111 }, tags: [ { name: distance, datatype: uint16, port: 1, bit_offset: 0, bit_length: 16, initial: 300, units: mm } ] }
+  - { id: f11-cli, kind: iolink, mode: client, settings: { host: 127.0.0.1, port: 30111, poll_ms: 500 }, tags: [ { name: distance, datatype: uint16, port: 1, bit_offset: 4, bit_length: 16, units: mm } ] }
+  # f12: healthy control
+  - { id: f12-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30112 }, tags: [ { name: flow, datatype: float32, register: 0, initial: 12.5, units: m3/h } ] }
+  - { id: f12-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30112, poll_ms: 500 }, tags: [ { name: flow, datatype: float32, register: 0, units: m3/h } ] }

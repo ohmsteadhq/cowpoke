@@ -1,0 +1,14 @@
+[
+  {"id": "f1", "symptom": "The tank level on the line 1 HMI shows a nonsense number. The tank gauge says about 42.", "service": "f1-cli", "cause": "address_offset"},
+  {"id": "f2", "symptom": "Line 2 tank level shows a wildly wrong number. The tank gauge says about 42.", "service": "f2-cli", "cause": "word_order"},
+  {"id": "f3", "symptom": "Line 3 tank level never updates on the HMI.", "service": "f3-cli", "cause": "unit_id"},
+  {"id": "f4", "symptom": "Line 4 temperature reads 215 degrees, but the sensor's own display says 21.5.", "service": "f4-cli", "cause": "scaling"},
+  {"id": "f5", "symptom": "The Logix tank level on line 5 shows bad quality.", "service": "f5-cli", "cause": "tag_name"},
+  {"id": "f6", "symptom": "We get no data at all from the line 6 Logix controller.", "service": "f6-cli", "cause": "port_or_host"},
+  {"id": "f7", "symptom": "Line 7 MQTT data stopped coming in.", "service": "f7-cli", "cause": "credentials"},
+  {"id": "f8", "symptom": "On line 8 the flow comes through MQTT fine, but the tank level never shows a value.", "service": "f8-cli", "cause": "topic"},
+  {"id": "f9", "symptom": "The Sparkplug host shows no data for line 9.", "service": "f9-cli", "cause": "sparkplug_ids"},
+  {"id": "f10", "symptom": "The line 10 level read from the API is bad quality.", "service": "f10-cli", "cause": "json_pointer"},
+  {"id": "f11", "symptom": "The line 11 IO-Link distance sensor reads wrong. The sensor display says 300 mm.", "service": "f11-cli", "cause": "bit_offset"},
+  {"id": "f12", "symptom": "An operator thinks the line 12 flow is off. The local flow meter says 12.5 m3/h.", "service": "none", "cause": "none"}
+]

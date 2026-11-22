@@ -38,6 +38,62 @@ pub struct Config {
     /// (and aliases). Ignored in server mode.
     #[serde(default = "yes")]
     pub rebirth: bool,
+    /// Server: also be the edge node on this outside broker (with an NDEATH will),
+    /// not only on Cowpoke's own.
+    #[serde(default)]
+    pub broker: Option<Remote>,
+}
+
+/// An outside MQTT broker the edge node connects to.
+#[derive(Deserialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Remote {
+    pub host: String,
+    #[serde(default)]
+    pub port: Option<u16>,
+    #[serde(default)]
+    pub client_id: Option<String>,
+    #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default)]
+    pub password: Option<String>,
+    #[serde(default)]
+    pub tls: bool,
+    /// PEM CA certificate for a broker with its own CA.
+    #[serde(default)]
+    pub ca: Option<String>,
+    #[serde(default = "keep_alive")]
+    pub keep_alive_s: u64,
+}
+
+fn keep_alive() -> u64 {
+    30
+}
+
+impl Remote {
+    pub fn port(&self) -> u16 {
+        self.port.unwrap_or(if self.tls { 8883 } else { 1883 })
+    }
+
+    pub fn url(&self) -> String {
+        format!("{}{}:{}", if self.tls { "mqtts://" } else { "mqtt://" }, self.host, self.port())
+    }
+
+    pub fn options(&self, default_id: String) -> rumqttc::MqttOptions {
+        let mut o = rumqttc::MqttOptions::new(self.client_id.clone().unwrap_or(default_id), self.host.clone(), self.port());
+        o.set_keep_alive(std::time::Duration::from_secs(self.keep_alive_s.max(5)));
+        o.set_max_packet_size(1 << 20, 1 << 20);
+        if let Some(u) = &self.username {
+            o.set_credentials(u.clone(), self.password.clone().unwrap_or_default());
+        }
+        if self.tls {
+            o.set_transport(match &self.ca {
+                Some(ca) => rumqttc::Transport::tls(ca.as_bytes().to_vec(), None, None),
+                None => rumqttc::Transport::tls_with_default_config(),
+            });
+        }
+        o
+    }
 }
 
 fn yes() -> bool {
@@ -51,6 +107,11 @@ impl Config {
                 if v.is_empty() || v.contains(['/', '+', '#']) {
                     return Err(format!("sparkplug.{what}: can't be empty or hold /, + or #"));
                 }
+            }
+        }
+        if let Some(b) = &self.broker {
+            if b.host.trim().is_empty() {
+                return Err("sparkplug.broker: give the broker's host".into());
             }
         }
         Ok(())
@@ -438,7 +499,7 @@ mod tests {
 
     #[test]
     fn topics() {
-        let c = Config { group_id: "G".into(), edge_node: "N".into(), device: Some("D".into()), rebirth: true };
+        let c = Config { group_id: "G".into(), edge_node: "N".into(), device: Some("D".into()), rebirth: true, broker: None };
         assert_eq!(classify(&c, "spBv1.0/G/DDATA/N/D"), Message::Metrics { birth: false });
         assert_eq!(classify(&c, "spBv1.0/G/DBIRTH/N/D"), Message::Metrics { birth: true });
         assert_eq!(classify(&c, "spBv1.0/G/NDATA/N"), Message::Other);

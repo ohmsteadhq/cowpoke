@@ -697,3 +697,63 @@ tags:
     }
     rig.stop().await;
 }
+
+/// A Cowpoke Sparkplug edge node publishing to an outside broker (here another Cowpoke
+/// broker), read and written there by a Sparkplug host; stopping the node sends NDEATH.
+#[tokio::test(flavor = "multi_thread")]
+async fn mqtt_sparkplug_edge_node_outside_broker() {
+    let (ext, own) = (free_port(), free_port());
+    let broker = svc(&format!("id: ext\nkind: mqtt\nmode: server\nsettings: {{ bind: 127.0.0.1, port: {ext} }}\ntags: []\n"));
+    let node = svc(&format!(
+        r#"
+id: node
+kind: mqtt
+mode: server
+settings:
+  bind: 127.0.0.1
+  port: {own}
+  sparkplug: {{ group_id: Plant, edge_node: Line1, device: Tank1, broker: {{ host: 127.0.0.1, port: {ext} }} }}
+tags:
+  - {{ name: level, datatype: float32, initial: 42.5 }}
+  - {{ name: run, datatype: bool }}
+"#
+    ));
+    let host = svc(&format!(
+        r#"
+id: host
+kind: mqtt
+mode: client
+settings: {{ host: 127.0.0.1, port: {ext}, sparkplug: {{ group_id: Plant, edge_node: Line1, device: Tank1 }} }}
+tags:
+  - {{ name: level, datatype: float64 }}
+  - {{ name: run, datatype: bool }}
+"#
+    ));
+    let mut rig = Rig::start(vec![broker.clone(), node, host.clone()]).await;
+    rig.wait_running("ext").await;
+    rig.wait_value("host", "level", json!(42.5)).await;
+    for _ in 0..100 {
+        if rig.mgr.status("node").detail.contains("edge node on mqtt://127.0.0.1") {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert!(rig.mgr.status("node").detail.contains("edge node on"), "{:?}", rig.mgr.status("node"));
+
+    rig.write("node", "level", json!(7.25)).await;
+    rig.wait_value("host", "level", json!(7.25)).await;
+    rig.write("host", "run", json!(true)).await;
+    rig.wait_value("node", "run", json!(true)).await;
+
+    // Stopping the node sends NDEATH to the outside broker: the host marks its tags bad.
+    rig.cfg = Config { services: vec![broker, host] };
+    rig.mgr.apply(&rig.cfg).await;
+    for _ in 0..100 {
+        if rig.tags.get("host", "level").map(|s| s.quality) == Some(Quality::Bad) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(rig.tags.get("host", "level").map(|s| s.quality), Some(Quality::Bad));
+    rig.stop().await;
+}

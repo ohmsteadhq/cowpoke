@@ -337,6 +337,8 @@ struct EdgeNode {
     /// Message sequence number, 0-255, reset by each NBIRTH.
     seq: Mutex<u8>,
     bd_seq: u64,
+    /// The outside broker, when `sparkplug.broker` is set.
+    remote: Option<AsyncClient>,
 }
 
 impl EdgeNode {
@@ -369,7 +371,25 @@ impl EdgeNode {
             n
         };
         let payload = super::sparkplug::encode(ts, Some(seq as u64), metrics);
-        self.broker.route(&Publish::new(self.cfg.topic(kind, device), QoS::AtMostOnce, payload));
+        self.send(self.cfg.topic(kind, device), payload);
+    }
+
+    /// Publish on Cowpoke's broker and, if set, the outside one.
+    fn send(&self, topic: String, payload: Vec<u8>) {
+        if let Some(r) = &self.remote {
+            if let Err(e) = r.try_publish(topic.clone(), QoS::AtMostOnce, false, payload.clone()) {
+                tracing::debug!("Sparkplug publish to the outside broker dropped: {e}");
+            }
+        }
+        self.broker.route(&Publish::new(topic, QoS::AtMostOnce, payload));
+    }
+
+    fn death_payload(&self) -> Vec<u8> {
+        use super::sparkplug as spb;
+        let ts = spb::now_ms();
+        let m = spb::encode_metric(Some("bdSeq"), None, spb::UINT64, &json_u64(self.bd_seq), ts).unwrap();
+        // NDEATH carries no seq.
+        spb::encode(ts, None, &[m])
     }
 
     /// NBIRTH (and DBIRTH for a device) with every tag's current value.
@@ -406,12 +426,9 @@ impl EdgeNode {
         }
     }
 
+    /// NDEATH on Cowpoke's broker (the outside connection sends its own as it closes).
     fn death(&self) {
-        use super::sparkplug as spb;
-        let ts = spb::now_ms();
-        let m = spb::encode_metric(Some("bdSeq"), None, spb::UINT64, &json_u64(self.bd_seq), ts).unwrap();
-        // NDEATH carries no seq.
-        let payload = spb::encode(ts, None, &[m]);
+        let payload = self.death_payload();
         self.broker.route(&Publish::new(self.cfg.topic("NDEATH", false), QoS::AtMostOnce, payload));
     }
 
@@ -488,14 +505,89 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
         let bd_seq = std::fs::read_to_string(&path).ok().and_then(|t| t.trim().parse::<u64>().ok()).map_or(0, |n| (n + 1) % 256);
         let _ = std::fs::create_dir_all(&ctx.dir);
         let _ = std::fs::write(&path, bd_seq.to_string());
-        Arc::new(EdgeNode { cfg, def: def.clone(), store: ctx.tags.clone(), broker: broker.clone(), seq: Mutex::new(0), bd_seq })
+        (cfg, bd_seq)
+    });
+    // The outside broker's connection: the event loop runs alongside the broker below.
+    let mut remote_loop = None;
+    let node = node.map(|(cfg, bd_seq)| {
+        let mut n = EdgeNode { cfg, def: def.clone(), store: ctx.tags.clone(), broker: broker.clone(), seq: Mutex::new(0), bd_seq, remote: None };
+        if let Some(r) = n.cfg.broker.clone() {
+            let mut opts = r.options(format!("cowpoke-{}-{}", n.cfg.group_id, n.cfg.edge_node));
+            // Sparkplug: the broker announces our NDEATH if we drop off without one.
+            opts.set_last_will(rumqttc::LastWill::new(n.cfg.topic("NDEATH", false), n.death_payload(), QoS::AtLeastOnce, false));
+            let (cli, events) = AsyncClient::new(opts, 256);
+            n.remote = Some(cli);
+            remote_loop = Some((r, events));
+        }
+        Arc::new(n)
     });
     if let Some(n) = &node {
         n.births();
     }
+    // The broker's own status line, which the outside connection's status extends.
+    let base_note = Arc::new(Mutex::new(String::new()));
+    let remote_stop = ctx.cancel.child_token();
+    let remote = {
+        let (node, status) = (node.clone(), ctx.status.clone());
+        let note = base_note.clone();
+        let stop = remote_stop.clone();
+        tokio::spawn(async move {
+            let (Some(n), Some((r, mut events))) = (node, remote_loop) else { return };
+            let url = r.url();
+            loop {
+                let ev = tokio::select! {
+                    _ = stop.cancelled() => {
+                        // Say goodbye with NDEATH at QoS 1, wait for its ack, then disconnect.
+                        // (The will covers a crash.)
+                        let cli = n.remote.as_ref().unwrap();
+                        let _ = cli.publish(n.cfg.topic("NDEATH", false), QoS::AtLeastOnce, false, n.death_payload()).await;
+                        let _ = tokio::time::timeout(Duration::from_secs(2), async {
+                            loop {
+                                match events.poll().await {
+                                    Ok(Event::Incoming(Packet::PubAck(_))) | Err(_) => break,
+                                    _ => {}
+                                }
+                            }
+                        }).await;
+                        let _ = cli.disconnect().await;
+                        let _ = tokio::time::timeout(Duration::from_millis(500), async {
+                            while let Ok(e) = events.poll().await {
+                                if matches!(e, Event::Outgoing(rumqttc::Outgoing::Disconnect)) { break }
+                            }
+                        }).await;
+                        return;
+                    }
+                    ev = events.poll() => ev,
+                };
+                match ev {
+                    Ok(Event::Incoming(Packet::ConnAck(_))) => {
+                        let cli = n.remote.as_ref().unwrap();
+                        let _ = cli.subscribe(n.cfg.ncmd(), QoS::AtLeastOnce).await;
+                        if n.cfg.device.is_some() {
+                            let _ = cli.subscribe(n.cfg.cmd(), QoS::AtLeastOnce).await;
+                        }
+                        // Births on every (re)connect, as the spec asks.
+                        n.births();
+                        status.running(format!("{}, edge node on {url}", note.lock()));
+                    }
+                    Ok(Event::Incoming(Packet::Publish(p))) => {
+                        n.command(&p.topic, &p.payload);
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        status.degraded(format!("{}; edge node can't reach {url}: {e}", note.lock()));
+                        tokio::select! {
+                            _ = stop.cancelled() => return,
+                            _ = tokio::time::sleep(Duration::from_secs(2)) => {}
+                        }
+                    }
+                }
+            }
+        })
+    };
 
     let listener = crate::services::listen(&s.bind, s.port).await?;
-    ctx.status.running(match &node {
+    let note = match &node {
         Some(n) => format!(
             "broker on {}, Sparkplug node {}/{}{}",
             listener.local_addr()?,
@@ -504,7 +596,9 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
             n.cfg.device.as_ref().map(|d| format!("/{d}")).unwrap_or_default()
         ),
         None => format!("broker on {}", listener.local_addr()?),
-    });
+    };
+    *base_note.lock() = note.clone();
+    ctx.status.running(note);
 
     let auth = s.username.clone().map(|u| (u, s.password.clone().unwrap_or_default()));
     let accept = {
@@ -562,6 +656,8 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
         _ = follow => {}
         _ = crate::services::idle_until_cancelled(ctx) => {}
     }
+    remote_stop.cancel();
+    let _ = tokio::time::timeout(Duration::from_secs(3), remote).await;
     if let Some(n) = &node {
         n.death();
     }

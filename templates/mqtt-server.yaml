@@ -16,6 +16,7 @@ settings:
   #   group_id: Plant
   #   edge_node: Line1
   #   device: Tank1       # optional: publish the metrics as a device under the node
+  #   broker: { host: broker.local, port: 1883 }   # optional: also publish to an outside broker
 tags:
   - name: temperature
     datatype: float64

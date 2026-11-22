@@ -1,0 +1,283 @@
+{
+ "summary": {
+  "model": "foreman-gguf:qwen3-1.7b",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 12,
+  "service_ok": 12,
+  "cause_ok": 12,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 1.9,
+  "avg_tok_s": 57.8
+ },
+ "results": [
+  {
+   "id": "f1",
+   "expected": {
+    "service": "f1-cli",
+    "cause": "address_offset"
+   },
+   "report": {
+    "service": "f1-cli",
+    "cause": "address_offset",
+    "explanation": "Tag level: f1-cli has register 1, but f1-srv has 0.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.1,
+   "tok_s": 56.8,
+   "trace": []
+  },
+  {
+   "id": "f2",
+   "expected": {
+    "service": "f2-cli",
+    "cause": "word_order"
+   },
+   "report": {
+    "service": "f2-cli",
+    "cause": "word_order",
+    "explanation": "f2-cli uses word_order big, but f2-srv uses little.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.6,
+   "tok_s": 57.7,
+   "trace": []
+  },
+  {
+   "id": "f3",
+   "expected": {
+    "service": "f3-cli",
+    "cause": "unit_id"
+   },
+   "report": {
+    "service": "f3-cli",
+    "cause": "unit_id",
+    "explanation": "Tag level: f3-cli has unit 2, but f3-srv has 1.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.7,
+   "tok_s": 57.2,
+   "trace": []
+  },
+  {
+   "id": "f4",
+   "expected": {
+    "service": "f4-cli",
+    "cause": "scaling"
+   },
+   "report": {
+    "service": "f4-cli",
+    "cause": "scaling",
+    "explanation": "Tag temp: f4-cli has scale 1, but f4-srv has 0.1.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.8,
+   "tok_s": 56.9,
+   "trace": []
+  },
+  {
+   "id": "f5",
+   "expected": {
+    "service": "f5-cli",
+    "cause": "tag_name"
+   },
+   "report": {
+    "service": "f5-cli",
+    "cause": "tag_name",
+    "explanation": "Tag level: f5-cli reads Logix tag Program:Main.Levl, but f5-srv has Program:Main.Level.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.8,
+   "tok_s": 58.4,
+   "trace": []
+  },
+  {
+   "id": "f6",
+   "expected": {
+    "service": "f6-cli",
+    "cause": "port_or_host"
+   },
+   "report": {
+    "service": "f6-cli",
+    "cause": "port_or_host",
+    "explanation": "f6-cli connects to port 30116, but f6-srv listens on port 30106.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.9,
+   "tok_s": 57.3,
+   "trace": []
+  },
+  {
+   "id": "f7",
+   "expected": {
+    "service": "f7-cli",
+    "cause": "credentials"
+   },
+   "report": {
+    "service": "f7-cli",
+    "cause": "credentials",
+    "explanation": "f7-cli's password does not match the one f7-srv requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.6,
+   "tok_s": 58.5,
+   "trace": []
+  },
+  {
+   "id": "f8",
+   "expected": {
+    "service": "f8-cli",
+    "cause": "topic"
+   },
+   "report": {
+    "service": "f8-cli",
+    "cause": "topic",
+    "explanation": "Tag level: f8-cli subscribes to plant/line8/levle, but f8-srv publishes it on plant/line8/level.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.0,
+   "tok_s": 58.2,
+   "trace": []
+  },
+  {
+   "id": "f9",
+   "expected": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids"
+   },
+   "report": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug edge_node: f9-cli expects 'Line09', f9-srv publishes 'Line9'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.9,
+   "tok_s": 57.9,
+   "trace": []
+  },
+  {
+   "id": "f10",
+   "expected": {
+    "service": "f10-cli",
+    "cause": "json_pointer"
+   },
+   "report": {
+    "service": "f10-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag level: f10-cli reads JSON pointer /lvl, but f10-srv serves it at /level.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.8,
+   "tok_s": 58.1,
+   "trace": []
+  },
+  {
+   "id": "f11",
+   "expected": {
+    "service": "f11-cli",
+    "cause": "bit_offset"
+   },
+   "report": {
+    "service": "f11-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag distance: f11-cli has bit_offset 4, but f11-srv has 0.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.9,
+   "tok_s": 58.3,
+   "trace": []
+  },
+  {
+   "id": "f12",
+   "expected": {
+    "service": "none",
+    "cause": "none"
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.6,
+   "tok_s": 58.8,
+   "trace": []
+  }
+ ]
+}

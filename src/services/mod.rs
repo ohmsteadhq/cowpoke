@@ -70,3 +70,27 @@ pub async fn listen(bind: &str, port: u16) -> Result<tokio::net::TcpListener> {
         .await
         .with_context(|| format!("can't listen on {bind}:{port}"))
 }
+
+/// Check a service's settings for its kind and mode.
+pub fn check_settings(def: &crate::model::ServiceDef) -> Result<(), String> {
+    match def.kind {
+        Kind::Modbus => modbus::check_settings(def.mode, &def.settings),
+        Kind::Opcua => opcua::check_settings(def.mode, &def.settings),
+        Kind::Api => api::check_settings(def.mode, &def.settings),
+        Kind::Iolink => iolink::check_settings(def.mode, &def.settings),
+    }
+}
+
+/// The TCP port a server-mode service listens on, if any.
+pub fn listen_port(def: &crate::model::ServiceDef) -> Option<u16> {
+    if def.mode != Mode::Server {
+        return None;
+    }
+    let explicit = def.settings.get("port").and_then(|p| p.as_u64()).map(|p| p as u16);
+    match def.kind {
+        Kind::Modbus => Some(explicit.unwrap_or(502)),
+        Kind::Opcua => Some(explicit.unwrap_or(4840)),
+        Kind::Iolink => Some(explicit.unwrap_or(8080)),
+        Kind::Api => explicit,
+    }
+}

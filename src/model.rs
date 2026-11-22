@@ -253,6 +253,9 @@ impl ServiceDef {
     }
 
     pub fn validate(&self) -> Result<(), String> {
+        if self.id.is_empty() {
+            return Err("give the service an id".into());
+        }
         if !valid_id(&self.id) {
             return Err(format!(
                 "service id `{}`: use 1-64 of a-z, 0-9, - and _",

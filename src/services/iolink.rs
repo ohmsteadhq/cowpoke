@@ -389,3 +389,12 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
     }
     Ok(())
 }
+
+/// Check settings without running the service (used by the form and `/api/services/check`).
+pub fn check_settings(mode: crate::model::Mode, v: &Value) -> Result<(), String> {
+    let r = match mode {
+        crate::model::Mode::Server => serde_json::from_value::<ServerSettings>(v.clone()).map(|_| ()),
+        crate::model::Mode::Client => serde_json::from_value::<ClientSettings>(v.clone()).map(|_| ()),
+    };
+    r.map_err(|e| format!("settings: {e}"))
+}

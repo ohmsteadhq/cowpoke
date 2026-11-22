@@ -416,30 +416,33 @@ async function newPage() {
   clearPage();
   if (!can("admin")) return (location.hash = "#/");
   let kind = "modbus", mode = "server";
+  const agents = await api("GET", "/api/agents").catch(() => []);
   shell("services", `
-    <h1>New service</h1><p class="sub">Pick a protocol and a mode, then edit the starter definition.</p>
-    <h2>Protocol</h2><div class="grid2" id="kinds"></div>
-    <h2>Mode</h2><div class="grid2" id="modes"></div>
-    <h2>Definition</h2>
-    <textarea id="yaml" spellcheck="false"></textarea>
-    <div id="m"></div>
-    <div class="row"><button class="primary" id="create">Create and start</button><a class="btn" href="#/">Cancel</a></div>`);
-  const draw = async () => {
+    <h1>New service</h1><p class="sub">Pick a protocol and a mode, then fill in the details.</p>
+    <div class="pick">
+      <div><h2>Protocol</h2><div class="grid2" id="kinds"></div></div>
+      <div><h2>Mode</h2><div class="grid2 two" id="modes"></div></div>
+    </div>
+    <div id="builder"></div>`);
+  let def = { id: "", name: "", kind, mode, enabled: true, settings: {}, tags: [] };
+  const draw = () => {
     document.getElementById("kinds").innerHTML = Object.entries(KINDS).map(([k, v]) =>
-      `<button class="choice ${k === kind ? "on" : ""}" data-k="${k}"><b>${esc(v.label)}</b><span>${esc(v[mode])}</span></button>`).join("");
+      `<button class="choice ${k === kind ? "on" : ""}" data-k="${k}" aria-pressed="${k === kind}"><b>${esc(v.label)}</b><span>${esc(v[mode])}</span></button>`).join("");
     document.getElementById("modes").innerHTML = ["server", "client"].map((m) =>
-      `<button class="choice ${m === mode ? "on" : ""}" data-m="${m}"><b>${m === "server" ? "Server" : "Client"}</b><span>${esc(KINDS[kind][m])}</span></button>`).join("");
-    document.querySelectorAll("[data-k]").forEach((b) => (b.onclick = () => { kind = b.dataset.k; draw(); }));
-    document.querySelectorAll("[data-m]").forEach((b) => (b.onclick = () => { mode = b.dataset.m; draw(); }));
-    document.getElementById("yaml").value = await api("GET", `/api/templates/${kind}/${mode}`);
+      `<button class="choice ${m === mode ? "on" : ""}" data-m="${m}" aria-pressed="${m === mode}"><b>${m === "server" ? "Server" : "Client"}</b><span>${m === "server" ? "Cowpoke acts as the device." : "Cowpoke talks to a real device."}</span></button>`).join("");
+    document.querySelectorAll("[data-k]").forEach((b) => (b.onclick = () => { kind = b.dataset.k; restart(); }));
+    document.querySelectorAll("[data-m]").forEach((b) => (b.onclick = () => { mode = b.dataset.m; restart(); }));
   };
-  document.getElementById("create").onclick = async () => {
-    try {
-      const s = await api("POST", "/api/services", document.getElementById("yaml").value, "yaml");
-      location.hash = `#/s/${s.id}`;
-    } catch (e) { flash(document.getElementById("m"), e.message); }
+  // Switching protocol or mode starts over, keeping the name and id.
+  const restart = () => {
+    def = { id: def.id, name: def.name, kind, mode, enabled: true, settings: {}, tags: [] };
+    draw();
+    serviceBuilder(document.getElementById("builder"), {
+      def, agents, cancel: "#/services",
+      onSaved: (s) => (location.hash = `#/s/${s.id}`),
+    });
   };
-  draw();
+  restart();
 }
 
 // ---------------------------------------------------------------- one service
@@ -450,7 +453,7 @@ async function servicePage(id, tab = "tags") {
   try { svc = await api("GET", `/api/services/${encodeURIComponent(id)}`); }
   catch (e) { shell("services", `<div class="msg err">${esc(e.message)}</div>`); return; }
   const tabs = [["tags", "Tags"]];
-  if (can("admin")) tabs.push(["definition", "Definition"]);
+  if (can("admin")) tabs.push(["definition", "Settings"]);
   if (can("admin") && svc.kind === "opcua") tabs.push(["certs", "Certificates"]);
   const mount = svc.kind === "api" && svc.mode === "server" && !(svc.definition.settings || {}).port
     ? `<p class="detail">Routes: <a href="/x/${esc(svc.id)}/">${esc(location.origin)}/x/${esc(svc.id)}/</a></p>` : "";
@@ -616,21 +619,12 @@ async function trend(svc, tag, page) {
 }
 
 async function definitionTab(svc, body, m) {
-  const yaml = await api("GET", `/api/services/${svc.id}/yaml`);
-  body.innerHTML = `<div class="panel pad tabbody">
-    <p class="muted">The whole service as YAML: settings, tags and history. Saving restarts the service.</p>
-    <textarea id="yaml" spellcheck="false"></textarea>
-    <div class="row"><button class="primary" id="save">Save</button><button id="tpl">Show the starter for this protocol</button></div></div>`;
-  const ta = document.getElementById("yaml");
-  ta.value = yaml;
-  document.getElementById("save").onclick = async () => {
-    try {
-      const s = await api("PUT", `/api/services/${svc.id}`, ta.value, "yaml");
-      flash(m, "Saved.", "ok");
-      if (s.id !== svc.id) location.hash = `#/s/${s.id}/definition`;
-    } catch (e) { flash(m, e.message); }
-  };
-  document.getElementById("tpl").onclick = async () => flash(m, await api("GET", `/api/templates/${svc.kind}/${svc.mode}`), "ok");
+  const agents = await api("GET", "/api/agents").catch(() => []);
+  body.innerHTML = `<div class="tabbody b-edit"><p class="muted">Saving restarts the service with the new settings.</p><div id="builder"></div></div>`;
+  serviceBuilder(document.getElementById("builder"), {
+    def: svc.definition, editing: svc.id, agents,
+    onSaved: (s) => { location.hash = `#/s/${s.id}`; },
+  });
 }
 
 async function certsTab(svc, body, m) {

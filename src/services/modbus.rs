@@ -479,6 +479,29 @@ async fn write_tag(
     }
 }
 
+/// Tags whose registers overlap on the same unit and table, as readable warnings.
+pub fn overlaps(tags: &[TagDef]) -> Vec<String> {
+    let mut out = vec![];
+    for (i, a) in tags.iter().enumerate() {
+        let Some(ar) = a.register else { continue };
+        let a_end = ar as u32 + a.datatype.registers(a.length) as u32;
+        for b in &tags[i + 1..] {
+            let Some(br) = b.register else { continue };
+            if (a.unit(), a.table()) != (b.unit(), b.table()) {
+                continue;
+            }
+            let b_end = br as u32 + b.datatype.registers(b.length) as u32;
+            if (ar as u32) < b_end && (br as u32) < a_end {
+                out.push(format!(
+                    "`{}` ({}..{}) and `{}` ({}..{}) share registers on unit {}",
+                    a.name, ar, a_end - 1, b.name, br, b_end - 1, a.unit()
+                ));
+            }
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -494,6 +517,18 @@ mod tests {
     }
 
     #[test]
+    fn overlap_warnings() {
+        let tags = vec![
+            t("a", 0, DataType::Float32),
+            t("b", 1, DataType::Uint16),
+            t("c", 2, DataType::Uint16),
+        ];
+        let w = overlaps(&tags);
+        assert_eq!(w.len(), 1, "{w:?}");
+        assert!(w[0].contains("`a`") && w[0].contains("`b`"));
+    }
+
+    #[test]
     fn blocks_merge_nearby_registers() {
         let tags = vec![
             t("a", 0, DataType::Uint16),
@@ -505,4 +540,13 @@ mod tests {
         assert_eq!((b[0].start, b[0].count), (0, 4));
         assert_eq!((b[1].start, b[1].count), (300, 1));
     }
+}
+
+/// Check settings without running the service (used by the form and `/api/services/check`).
+pub fn check_settings(mode: crate::model::Mode, v: &Value) -> Result<(), String> {
+    let r = match mode {
+        crate::model::Mode::Server => serde_json::from_value::<ServerSettings>(v.clone()).map(|_| ()),
+        crate::model::Mode::Client => serde_json::from_value::<ClientSettings>(v.clone()).map(|_| ()),
+    };
+    r.map_err(|e| format!("settings: {e}"))
 }

@@ -58,7 +58,7 @@ The web UI has no HTTPS of its own. Off a trusted network, put it behind a rever
 
 ## Define services
 
-A service is `id`, `name`, `kind` (`modbus`, `opcua`, `api`, `iolink`), `mode` (`server` or `client`), `settings` and `tags`. The UI's **New service** page starts from a commented template for each kind and mode; they're also in [`templates/`](templates).
+The web UI builds services with a form for each protocol and mode, with checks as you type and a **Test** button that runs the service for a few seconds without saving; its YAML tab edits the same definition. A service is `id`, `name`, `kind` (`modbus`, `opcua`, `api`, `iolink`), `mode` (`server` or `client`), `settings` and `tags`. The UI's **New service** page starts from a commented template for each kind and mode; they're also in [`templates/`](templates).
 
 ```yaml
 services:
@@ -104,6 +104,8 @@ Sign in with `POST /api/login {"username","password"}`. It returns a `token`; se
 |---|---|
 | `GET /api/services`, `GET /api/services/<id>` | viewer |
 | `POST /api/services` (JSON or YAML), `PUT /api/services/<id>`, `DELETE /api/services/<id>` | admin |
+| `POST /api/services/check?editing=<id>`: parse and check a service without saving; returns `definition`, `yaml`, `errors`, `warnings` (unknown settings, id clashes, port clashes, overlapping Modbus registers) | admin |
+| `POST /api/services/test?editing=<id>`: run a service for up to 8 s without saving; returns `state`, `detail` and the first value of each tag | admin |
 | `POST /api/services/<id>/start` · `/stop` · `/restart` | operator |
 | `GET /api/services/<id>/tags`, `PUT /api/services/<id>/tags/<tag> {"value": …}` | viewer / operator |
 | `GET /api/services/<id>/history/<tag>?from=…&to=…&points=600` | viewer |

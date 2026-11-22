@@ -233,6 +233,7 @@ async fn create_service(State(app): State<App>, me: Me, headers: HeaderMap, body
     me.need(Role::Admin)?;
     let def = parse_def(&headers, &body)?;
     app.check_agent(&def)?;
+    services::check_settings(&def).map_err(bad)?;
     if app.cfg.service(&def.id).is_some() {
         return Err(ApiError(StatusCode::CONFLICT, format!("a service with id `{}` already exists", def.id)));
     }
@@ -246,6 +247,7 @@ async fn update_service(State(app): State<App>, me: Me, Path(id): Path<String>, 
     find(&app, &id)?;
     let def = parse_def(&headers, &body)?;
     app.check_agent(&def)?;
+    services::check_settings(&def).map_err(bad)?;
     app.cfg.upsert(Some(&id), def.clone()).map_err(bad)?;
     if def.id != id {
         // Renamed: move its folder (certificates) along.
@@ -254,6 +256,124 @@ async fn update_service(State(app): State<App>, me: Me, Path(id): Path<String>, 
     }
     app.reload().await;
     Ok(Json(service_json(&app, &def)))
+}
+
+#[derive(Deserialize)]
+struct CheckQuery {
+    /// The id of the service being edited, if any (so its own id and port don't count as clashes).
+    editing: Option<String>,
+}
+
+/// Parse and check a service without saving it. Turns the form's JSON into YAML and back.
+async fn check_service(State(app): State<App>, me: Me, Query(q): Query<CheckQuery>, headers: HeaderMap, body: Bytes) -> R<Json<Value>> {
+    me.need(Role::Admin)?;
+    let def = match parse_def(&headers, &body) {
+        Ok(d) => d,
+        Err(ApiError(_, e)) => return Ok(Json(json!({"errors": [e], "warnings": []}))),
+    };
+    let mut errors = vec![];
+    let mut warnings = vec![];
+    if let Err(e) = def.validate() {
+        errors.push(e);
+    }
+    if let Err(e) = services::check_settings(&def) {
+        errors.push(e);
+    }
+    if let Err(ApiError(_, e)) = app.check_agent(&def) {
+        errors.push(e);
+    }
+    let cfg = app.cfg.get();
+    if def.id != q.editing.clone().unwrap_or_default() && cfg.services.iter().any(|s| s.id == def.id) {
+        errors.push(format!("a service with id `{}` already exists", def.id));
+    }
+    if let Some(port) = services::listen_port(&def) {
+        for other in cfg.services.iter().filter(|s| Some(&s.id) != q.editing.as_ref() && s.agent == def.agent) {
+            if services::listen_port(other) == Some(port) {
+                warnings.push(format!(
+                    "port {port} is also used by `{}`{}: only one can listen on it at a time",
+                    other.id,
+                    if other.enabled { "" } else { " (stopped)" }
+                ));
+            }
+        }
+        let web_port = std::env::var("COWPOKE_BIND").ok().and_then(|b| b.rsplit(':').next().and_then(|p| p.parse::<u16>().ok())).unwrap_or(8080);
+        if def.agent.is_none() && port == web_port {
+            warnings.push(format!("port {port} is Cowpoke's own web port"));
+        }
+        if def.agent.is_none() {
+            warnings.push(format!("in Docker, publish port {port} (`-p {port}:{port}`) or use host networking"));
+        }
+    }
+    if def.tags.is_empty() {
+        warnings.push("no tags yet".into());
+    }
+    if def.kind == crate::model::Kind::Modbus {
+        warnings.extend(services::modbus::overlaps(&def.tags));
+    }
+    Ok(Json(json!({
+        "definition": def,
+        "yaml": serde_yaml::to_string(&def).unwrap_or_default(),
+        "errors": errors,
+        "warnings": warnings,
+    })))
+}
+
+/// Run a service for a few seconds without saving it, and report what happened.
+async fn test_service(State(app): State<App>, me: Me, Query(q): Query<CheckQuery>, headers: HeaderMap, body: Bytes) -> R<Json<Value>> {
+    me.need(Role::Admin)?;
+    let mut def = parse_def(&headers, &body)?;
+    def.validate().map_err(bad)?;
+    services::check_settings(&def).map_err(bad)?;
+    if let Some(a) = &def.agent {
+        return Err(bad(format!("this service runs on agent `{a}`; tests run on the hub. Save it and watch its status instead.")));
+    }
+    if def.mode == crate::model::Mode::Server {
+        if let Some(cur) = q.editing.as_deref().and_then(|id| app.cfg.service(id)) {
+            if cur.enabled && cur.agent.is_none() && services::listen_port(&cur) == services::listen_port(&def) {
+                return Ok(Json(json!({
+                    "state": "skipped",
+                    "detail": "The saved copy of this service is running on the same port. Save to apply your changes.",
+                    "tags": [],
+                })));
+            }
+        }
+    }
+    def.enabled = true;
+    let tags = crate::tags::TagStore::new();
+    let mgr = Manager::new(tags.clone(), app.data_dir.clone());
+    mgr.apply(&crate::model::Config { services: vec![def.clone()] }).await;
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(8);
+    let mut status;
+    loop {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        status = mgr.status(&def.id);
+        let read_all = def.tags.iter().all(|t| tags.get(&def.id, &t.name).is_some());
+        let done = match status.state {
+            crate::manager::State::Error => true,
+            crate::manager::State::Running | crate::manager::State::Degraded => {
+                def.mode == crate::model::Mode::Server || read_all
+            }
+            _ => false,
+        };
+        if done || tokio::time::Instant::now() > deadline {
+            break;
+        }
+    }
+    let values: Vec<Value> = def
+        .tags
+        .iter()
+        .map(|t| {
+            let st = tags.get(&def.id, &t.name);
+            json!({"name": t.name, "value": st.as_ref().map(|s| s.value.clone()), "quality": st.as_ref().map(|s| s.quality)})
+        })
+        .collect();
+    mgr.shutdown().await;
+    let detail = if status.state == crate::manager::State::Starting {
+        "still connecting after 8 s".to_string()
+    } else {
+        status.detail.trim_end_matches(" (retrying)").to_string()
+    };
+    Ok(Json(json!({"state": status.state, "detail": detail, "tags": values})))
 }
 
 async fn delete_service(State(app): State<App>, me: Me, Path(id): Path<String>) -> R<StatusCode> {
@@ -558,6 +678,7 @@ async fn mock(State(app): State<App>, method: Method, Path(params): Path<Vec<(St
 
 const INDEX: &str = include_str!("../ui/index.html");
 const APP_JS: &str = include_str!("../ui/app.js");
+const BUILDER_JS: &str = include_str!("../ui/builder.js");
 const STYLE: &str = include_str!("../ui/style.css");
 
 fn asset(ct: &'static str, body: &'static str) -> impl IntoResponse {
@@ -569,6 +690,7 @@ pub fn router(app: App) -> Router {
         .route("/", get(|| async { asset("text/html; charset=utf-8", INDEX) }))
         .route("/app.js", get(|| async { asset("text/javascript; charset=utf-8", APP_JS) }))
         .route("/style.css", get(|| async { asset("text/css; charset=utf-8", STYLE) }))
+        .route("/builder.js", get(|| async { asset("text/javascript; charset=utf-8", BUILDER_JS) }))
         .route("/healthz", get(|| async { "ok" }))
         .route("/api/login", post(login))
         .route("/api/logout", post(logout))
@@ -576,6 +698,8 @@ pub fn router(app: App) -> Router {
         .route("/api/users", get(list_users))
         .route("/api/users/{name}", put(put_user).delete(delete_user))
         .route("/api/services", get(list_services).post(create_service))
+        .route("/api/services/check", post(check_service))
+        .route("/api/services/test", post(test_service))
         .route("/api/services/{id}", get(get_service).put(update_service).delete(delete_service))
         .route("/api/services/{id}/yaml", get(get_service_yaml))
         .route("/api/services/{id}/start", post(start_service))

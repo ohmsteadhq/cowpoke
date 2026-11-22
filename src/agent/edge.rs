@@ -182,7 +182,7 @@ pub async fn run(edge: Arc<Edge>, hub: String, token: String, cancel: Cancellati
         let started = tokio::time::Instant::now();
         let res = tokio::select! {
             _ = cancel.cancelled() => break,
-            r = session(&edge, &url, &token, &cancel) => r,
+            r = session(&edge, &url, &token, &cancel, SILENCE) => r,
         };
         if cancel.is_cancelled() {
             break;
@@ -207,7 +207,8 @@ pub async fn run(edge: Arc<Edge>, hub: String, token: String, cancel: Cancellati
 }
 
 /// One connection to the hub, until it drops.
-async fn session(edge: &Arc<Edge>, url: &str, token: &str, cancel: &CancellationToken) -> Result<()> {
+/// `silence` is how long the hub may send nothing before the link counts as dead.
+async fn session(edge: &Arc<Edge>, url: &str, token: &str, cancel: &CancellationToken, silence: Duration) -> Result<()> {
     let mut req = url.into_client_request()?;
     req.headers_mut()
         .insert("Authorization", format!("Bearer {token}").parse()?);
@@ -235,6 +236,10 @@ async fn session(edge: &Arc<Edge>, url: &str, token: &str, cancel: &Cancellation
     let mut flush = tokio::time::interval(Duration::from_millis(200));
     let mut status = tokio::time::interval(Duration::from_secs(2));
     let mut alive = tokio::time::interval(Duration::from_secs(10));
+    // One deadline for the whole session, pushed back only when a frame
+    // arrives (the ticks above must not restart it).
+    let deadline = tokio::time::sleep(silence);
+    tokio::pin!(deadline);
 
     let result: Result<()> = loop {
         tokio::select! {
@@ -273,13 +278,14 @@ async fn session(edge: &Arc<Edge>, url: &str, token: &str, cancel: &Cancellation
                 edge.state.lock().last_connected = Some(Utc::now());
                 edge.save_state();
             }
-            next = tokio::time::timeout(SILENCE, stream.next()) => {
+            _ = &mut deadline => break Err(anyhow!("hub silent for 60 s")),
+            next = stream.next() => {
                 let msg = match next {
-                    Err(_) => break Err(anyhow!("hub silent for 60 s")),
-                    Ok(None) => break Err(anyhow!("hub closed the connection")),
-                    Ok(Some(Err(e))) => break Err(e.into()),
-                    Ok(Some(Ok(m))) => m,
+                    None => break Err(anyhow!("hub closed the connection")),
+                    Some(Err(e)) => break Err(e.into()),
+                    Some(Ok(m)) => m,
                 };
+                deadline.as_mut().reset(tokio::time::Instant::now() + silence);
                 let text = match msg {
                     Message::Text(t) => t,
                     Message::Close(_) => break Err(anyhow!("hub closed the connection")),
@@ -354,5 +360,38 @@ mod tests {
         assert_eq!(super::ws_url("https://hub.example.com/").unwrap(), "wss://hub.example.com/api/agents/connect");
         assert_eq!(super::ws_url("http://10.0.0.5:8080").unwrap(), "ws://10.0.0.5:8080/api/agents/connect");
         assert!(super::ws_url("hub.example.com").is_err());
+    }
+
+    /// A hub that accepts the link and then says nothing must be dropped after
+    /// the silence window, even though the flush/status/alive ticks keep firing
+    /// (they used to restart the deadline, so it never fired).
+    #[tokio::test]
+    async fn silent_hub_is_dropped() {
+        use futures::StreamExt;
+        use std::time::{Duration, Instant};
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            let (tcp, _) = listener.accept().await.unwrap();
+            let ws = tokio_tungstenite::accept_async(tcp).await.unwrap();
+            // Read whatever the agent sends, never answer.
+            let (_sink, mut stream) = ws.split();
+            while stream.next().await.is_some() {}
+        });
+
+        let dir = tempfile::tempdir().unwrap();
+        let edge = super::Edge::new(dir.path()).unwrap();
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let started = Instant::now();
+        let r = tokio::time::timeout(
+            Duration::from_secs(10),
+            super::session(&edge, &format!("ws://127.0.0.1:{port}"), "t", &cancel, Duration::from_secs(1)),
+        )
+        .await
+        .expect("session never noticed the silent hub");
+        let err = r.expect_err("a silent hub must end the session").to_string();
+        assert!(err.contains("silent"), "unexpected error: {err}");
+        assert!(started.elapsed() < Duration::from_secs(5));
     }
 }

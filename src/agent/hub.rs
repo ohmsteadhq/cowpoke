@@ -259,6 +259,11 @@ pub async fn serve(app: App, agent: String, socket: WebSocket) {
     let (mut sink, mut stream) = socket.split();
     let mut ping = tokio::time::interval(Duration::from_secs(20));
     let silence = Duration::from_secs(60);
+    // One deadline for the whole connection, pushed back only when a frame
+    // arrives: rebuilding it inside select! would restart it whenever the ping
+    // tick or an outgoing message won, so a silent agent was never dropped.
+    let deadline = tokio::time::sleep(silence);
+    tokio::pin!(deadline);
     let owns = |cfg: &Config, service: &str| {
         cfg.services
             .iter()
@@ -275,12 +280,16 @@ pub async fn serve(app: App, agent: String, socket: WebSocket) {
             _ = ping.tick() => {
                 let _ = tx.send(ToAgent::Ping);
             }
-            next = tokio::time::timeout(silence, stream.next()) => {
+            _ = &mut deadline => {
+                tracing::warn!(agent, "agent silent for 60 s; dropping");
+                break;
+            }
+            next = stream.next() => {
                 let msg = match next {
-                    Err(_) => { tracing::warn!(agent, "agent silent for 60 s; dropping"); break; }
-                    Ok(None) | Ok(Some(Err(_))) => break,
-                    Ok(Some(Ok(m))) => m,
+                    None | Some(Err(_)) => break,
+                    Some(Ok(m)) => m,
                 };
+                deadline.as_mut().reset(tokio::time::Instant::now() + silence);
                 hub.last_seen.insert(agent.clone(), Utc::now());
                 let text = match msg {
                     Message::Text(t) => t,

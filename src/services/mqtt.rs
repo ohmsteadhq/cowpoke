@@ -23,6 +23,17 @@ use crate::tags::{Origin, Quality, coerce_tag};
 
 const MAX_PACKET: usize = 1 << 20;
 
+// Broker limits, so one slow or hostile client can't grow memory without bound.
+/// Publishes queued for one subscriber; a subscriber that falls this far behind is disconnected.
+const SESSION_QUEUE: usize = 1024;
+/// Retained topics, their total payload bytes, and the largest payload kept retained.
+const MAX_RETAINED: usize = 10_000;
+const MAX_RETAINED_BYTES: usize = 64 << 20;
+const MAX_RETAINED_PAYLOAD: usize = 256 << 10;
+/// How long a socket write may take, and how long a new socket may take to send CONNECT.
+const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
 fn qmin(a: QoS, b: QoS) -> QoS {
     if (a as u8) <= (b as u8) { a } else { b }
 }
@@ -106,6 +117,13 @@ fn write_topic(tpl: &str, t: &TagDef) -> String {
         .replace("{{tag}}", &t.name)
 }
 
+fn write_err(e: rumqttc::ClientError) -> String {
+    match e {
+        rumqttc::ClientError::TryRequest(_) => "too many writes waiting to be sent; try again".into(),
+        e => e.to_string(),
+    }
+}
+
 pub async fn client(ctx: &mut Ctx) -> Result<()> {
     let s: ClientSettings = ctx.settings()?;
     let id = ctx.def.id.clone();
@@ -136,6 +154,9 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
     topics.dedup();
     let where_ = format!("{}{}:{port}", if s.tls { "mqtts://" } else { "mqtt://" }, s.host);
     ctx.status.degraded(format!("connecting to {where_}"));
+    // Requests to the event loop never wait here: `events.poll()` is what drains the request
+    // queue, so awaiting a full queue inside this loop would block forever.
+    let mut connected = false;
 
     loop {
         tokio::select! {
@@ -145,15 +166,19 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
             }
             ev = events.poll() => match ev {
                 Ok(Event::Incoming(Packet::ConnAck(_))) => {
-                    for t in &topics {
-                        cli.subscribe(t.clone(), qos(s.qos)).await?;
+                    connected = true;
+                    if !topics.is_empty() {
+                        // One SUBSCRIBE for every topic, so any number of topics fits the queue.
+                        cli.try_subscribe_many(topics.iter().map(|t| rumqttc::SubscribeFilter::new(t.clone(), qos(s.qos))))?;
                     }
                     if let Some(c) = sp.as_ref().filter(|c| c.rebirth) {
                         use super::sparkplug as spb;
                         let ts = spb::now_ms();
                         let m = spb::encode_metric(Some("Node Control/Rebirth"), None, spb::BOOLEAN, &Value::Bool(true), ts)
                             .map_err(|e| anyhow::anyhow!(e))?;
-                        cli.publish(c.ncmd(), QoS::AtMostOnce, false, spb::encode(ts, None, &[m])).await?;
+                        if let Err(e) = cli.try_publish(c.ncmd(), QoS::AtMostOnce, false, spb::encode(ts, None, &[m])) {
+                            tracing::debug!(service = %id, "Sparkplug rebirth request dropped: {e}");
+                        }
                     }
                     ctx.status.running(format!("connected to {where_}, {} topic(s)", topics.len()));
                 }
@@ -204,6 +229,7 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
                 }
                 Ok(_) => {}
                 Err(e) => {
+                    connected = false;
                     for t in &tags { ctx.tags.set_bad(&id, &t.name); }
                     ctx.status.degraded(format!("{where_}: {e}"));
                     // The event loop reconnects on the next poll.
@@ -216,11 +242,12 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
             Some(w) = ctx.writes.recv() => {
                 let r = match ctx.def.tag(&w.tag) {
                     None => Err(format!("no tag `{}`", w.tag)),
+                    // While disconnected nothing drains the queue: refuse instead of queuing.
+                    Some(_) if !connected => Err(format!("not connected to {where_}")),
                     Some(t) => match &sp {
                         None => cli
-                            .publish(write_topic(&s.write_topic, t), qos(s.qos), s.retain, payload_of(&w.value))
-                            .await
-                            .map_err(|e| e.to_string()),
+                            .try_publish(write_topic(&s.write_topic, t), qos(s.qos), s.retain, payload_of(&w.value))
+                            .map_err(write_err),
                         Some(c) => {
                             use super::sparkplug as spb;
                             let name = metric(t);
@@ -231,9 +258,8 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
                             match spb::encode_metric(Some(&name), alias, dt, &w.value, ts) {
                                 Err(e) => Err(e),
                                 // Commands are QoS 0 and never retained (Sparkplug B spec).
-                                Ok(m) => cli.publish(c.cmd(), QoS::AtMostOnce, false, spb::encode(ts, None, &[m]))
-                                    .await
-                                    .map_err(|e| e.to_string()),
+                                Ok(m) => cli.try_publish(c.cmd(), QoS::AtMostOnce, false, spb::encode(ts, None, &[m]))
+                                    .map_err(write_err),
                             }
                         }
                     },
@@ -294,40 +320,73 @@ pub fn server_topic(def: &ServiceDef, t: &TagDef) -> String {
 
 struct Session {
     filters: Vec<(String, QoS)>,
-    tx: mpsc::UnboundedSender<Publish>,
+    tx: mpsc::Sender<Publish>,
+}
+
+#[derive(Default)]
+struct Retained {
+    map: HashMap<String, Publish>,
+    /// Total payload bytes in `map`.
+    bytes: usize,
+}
+
+impl Retained {
+    /// Keep (or clear) a retained message, within the caps. Returns false if it was refused.
+    fn store(&mut self, p: &Publish) -> bool {
+        let old = self.map.get(&p.topic).map_or(0, |o| o.payload.len());
+        if p.payload.is_empty() {
+            if self.map.remove(&p.topic).is_some() {
+                self.bytes -= old;
+            }
+            return true;
+        }
+        let new_topic = !self.map.contains_key(&p.topic);
+        if p.payload.len() > MAX_RETAINED_PAYLOAD
+            || (new_topic && self.map.len() >= MAX_RETAINED)
+            || self.bytes - old + p.payload.len() > MAX_RETAINED_BYTES
+        {
+            return false;
+        }
+        self.bytes = self.bytes - old + p.payload.len();
+        self.map.insert(p.topic.clone(), p.clone());
+        true
+    }
 }
 
 #[derive(Default)]
 struct Broker {
     sessions: Mutex<HashMap<u64, Session>>,
-    retained: Mutex<HashMap<String, Publish>>,
+    retained: Mutex<Retained>,
 }
 
 impl Broker {
     fn route(&self, p: &Publish) {
-        if p.retain {
-            let mut r = self.retained.lock();
-            if p.payload.is_empty() {
-                r.remove(&p.topic);
-            } else {
-                r.insert(p.topic.clone(), p.clone());
-            }
+        if p.retain && !self.retained.lock().store(p) {
+            tracing::debug!("mqtt broker: retained message on {} not kept (retained storage is full)", p.topic);
         }
-        for s in self.sessions.lock().values() {
+        // A subscriber whose queue is full is too slow (or gone): drop its session, which
+        // closes its queue and so its connection, instead of queuing without limit.
+        self.sessions.lock().retain(|id, s| {
             let granted = s
                 .filters
                 .iter()
                 .filter(|(f, _)| rumqttc::matches(&p.topic, f))
                 .map(|(_, q)| *q)
                 .max_by_key(|q| *q as u8);
-            if let Some(q) = granted {
-                let mut out = p.clone();
-                out.qos = qmin(out.qos, q);
-                out.retain = false;
-                out.dup = false;
-                let _ = s.tx.send(out);
+            let Some(q) = granted else { return true };
+            let mut out = p.clone();
+            out.qos = qmin(out.qos, q);
+            out.retain = false;
+            out.dup = false;
+            match s.tx.try_send(out) {
+                Ok(()) => true,
+                Err(mpsc::error::TrySendError::Full(_)) => {
+                    tracing::debug!("mqtt broker: client {id} fell {SESSION_QUEUE} messages behind, disconnecting it");
+                    false
+                }
+                Err(mpsc::error::TrySendError::Closed(_)) => false,
             }
-        }
+        });
     }
 }
 
@@ -543,7 +602,7 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
                         // Say goodbye with NDEATH at QoS 1, wait for its ack, then disconnect.
                         // (The will covers a crash.)
                         let cli = n.remote.as_ref().unwrap();
-                        let _ = cli.publish(n.cfg.topic("NDEATH", false), QoS::AtLeastOnce, false, n.death_payload()).await;
+                        let _ = cli.try_publish(n.cfg.topic("NDEATH", false), QoS::AtLeastOnce, false, n.death_payload());
                         let _ = tokio::time::timeout(Duration::from_secs(2), async {
                             loop {
                                 match events.poll().await {
@@ -552,7 +611,7 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
                                 }
                             }
                         }).await;
-                        let _ = cli.disconnect().await;
+                        let _ = cli.try_disconnect();
                         let _ = tokio::time::timeout(Duration::from_millis(500), async {
                             while let Ok(e) = events.poll().await {
                                 if matches!(e, Event::Outgoing(rumqttc::Outgoing::Disconnect)) { break }
@@ -565,9 +624,13 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
                 match ev {
                     Ok(Event::Incoming(Packet::ConnAck(_))) => {
                         let cli = n.remote.as_ref().unwrap();
-                        let _ = cli.subscribe(n.cfg.ncmd(), QoS::AtLeastOnce).await;
+                        // Never await the request queue here: only `events.poll()` drains it.
+                        let mut cmds = vec![rumqttc::SubscribeFilter::new(n.cfg.ncmd(), QoS::AtLeastOnce)];
                         if n.cfg.device.is_some() {
-                            let _ = cli.subscribe(n.cfg.cmd(), QoS::AtLeastOnce).await;
+                            cmds.push(rumqttc::SubscribeFilter::new(n.cfg.cmd(), QoS::AtLeastOnce));
+                        }
+                        if let Err(e) = cli.try_subscribe_many(cmds) {
+                            tracing::debug!("Sparkplug command subscription dropped: {e}");
                         }
                         // Births on every (re)connect, as the spec asks.
                         n.births();
@@ -688,16 +751,24 @@ impl Drop for Conn {
 async fn send(sock: &mut tokio::net::TcpStream, p: Packet) -> Result<()> {
     let mut buf = bytes::BytesMut::new();
     p.write(&mut buf, MAX_PACKET)?;
-    sock.write_all(&buf).await?;
+    // A client that stops reading must not pin this connection's task forever.
+    tokio::time::timeout(WRITE_TIMEOUT, sock.write_all(&buf))
+        .await
+        .context("write timed out")??;
     Ok(())
 }
 
 impl Conn {
     async fn run(self, mut sock: tokio::net::TcpStream) -> Result<()> {
         let mut buf = bytes::BytesMut::with_capacity(4096);
-        let (tx, mut rx) = mpsc::unbounded_channel::<Publish>();
+        let (tx, mut rx) = mpsc::channel::<Publish>(SESSION_QUEUE);
+        // Moved into the session at CONNECT; when the broker drops the session, `rx` closes.
+        let mut tx = Some(tx);
         let mut connected = false;
         let mut pkid: u16 = 0;
+        // Read deadline: CONNECT must come soon, then 1.5x the client's keep-alive (none if 0).
+        let mut idle = Some(CONNECT_TIMEOUT);
+        let mut deadline = tokio::time::Instant::now() + CONNECT_TIMEOUT;
         loop {
             // Drain every complete packet already buffered.
             loop {
@@ -717,8 +788,13 @@ impl Conn {
                         if !ok {
                             return Ok(());
                         }
+                        let Some(tx) = tx.take() else { bail!("second CONNECT") };
                         connected = true;
-                        self.broker.sessions.lock().insert(self.id, Session { filters: vec![], tx: tx.clone() });
+                        idle = (c.keep_alive > 0).then(|| Duration::from_millis(c.keep_alive as u64 * 1500));
+                        if let Some(d) = idle {
+                            deadline = tokio::time::Instant::now() + d;
+                        }
+                        self.broker.sessions.lock().insert(self.id, Session { filters: vec![], tx });
                     }
                     _ if !connected => bail!("first packet wasn't CONNECT"),
                     Packet::Publish(p) => {
@@ -735,7 +811,7 @@ impl Conn {
                         let mut retained = vec![];
                         {
                             let mut sessions = self.broker.sessions.lock();
-                            let sess = sessions.get_mut(&self.id).expect("session");
+                            let Some(sess) = sessions.get_mut(&self.id) else { bail!("session dropped (client too slow)") };
                             for f in &sub.filters {
                                 if !rumqttc::valid_filter(&f.path) {
                                     codes.push(SubscribeReasonCode::Failure);
@@ -745,7 +821,7 @@ impl Conn {
                                 sess.filters.retain(|(p, _)| p != &f.path);
                                 sess.filters.push((f.path.clone(), q));
                                 codes.push(SubscribeReasonCode::Success(q));
-                                for r in self.broker.retained.lock().values() {
+                                for r in self.broker.retained.lock().map.values() {
                                     if rumqttc::matches(&r.topic, &f.path) {
                                         let mut r = r.clone();
                                         r.qos = qmin(r.qos, q);
@@ -778,8 +854,15 @@ impl Conn {
             tokio::select! {
                 n = sock.read_buf(&mut buf) => {
                     if n? == 0 { return Ok(()) }
+                    if let Some(d) = idle {
+                        deadline = tokio::time::Instant::now() + d;
+                    }
                 }
-                Some(mut p) = rx.recv() => {
+                _ = tokio::time::sleep_until(deadline), if idle.is_some() => {
+                    bail!(if connected { "keep-alive expired" } else { "no CONNECT in time" });
+                }
+                p = rx.recv() => {
+                    let Some(mut p) = p else { bail!("client too slow; disconnected") };
                     if p.qos != QoS::AtMostOnce {
                         pkid = pkid % u16::MAX + 1;
                         p.pkid = pkid;
@@ -851,5 +934,92 @@ mod tests {
         assert_eq!(parse_payload(br#"{"t": 1}"#), json!({"t": 1}));
         assert_eq!(payload_of(&json!("hi")), b"hi");
         assert_eq!(payload_of(&json!(true)), b"true");
+    }
+
+    fn retained(topic: &str, len: usize) -> Publish {
+        let mut p = Publish::new(topic, QoS::AtMostOnce, vec![1u8; len]);
+        p.retain = true;
+        p
+    }
+
+    #[test]
+    fn retained_storage_is_capped() {
+        let mut r = Retained::default();
+        assert!(r.store(&retained("a", 10)));
+        assert!(r.store(&retained("a", 20)));
+        assert_eq!((r.map.len(), r.bytes), (1, 20));
+        assert!(!r.store(&retained("big", MAX_RETAINED_PAYLOAD + 1)));
+        assert!(r.store(&retained("a", 0)));
+        assert_eq!((r.map.len(), r.bytes), (0, 0));
+        for i in 0..MAX_RETAINED {
+            assert!(r.store(&retained(&format!("t/{i}"), 1)));
+        }
+        assert!(!r.store(&retained("one/more", 1)));
+        // Replacing a kept topic still works when full.
+        assert!(r.store(&retained("t/0", 2)));
+        assert_eq!(r.bytes, MAX_RETAINED + 1);
+    }
+
+    #[test]
+    fn slow_subscriber_is_dropped_not_queued_forever() {
+        let broker = Broker::default();
+        let (tx, mut rx) = mpsc::channel(SESSION_QUEUE);
+        broker.sessions.lock().insert(1, Session { filters: vec![("#".into(), QoS::AtMostOnce)], tx });
+        for _ in 0..SESSION_QUEUE {
+            broker.route(&Publish::new("x", QoS::AtMostOnce, b"1".to_vec()));
+        }
+        assert!(broker.sessions.lock().contains_key(&1));
+        broker.route(&Publish::new("x", QoS::AtMostOnce, b"1".to_vec()));
+        assert!(broker.sessions.lock().is_empty());
+        // The queue closes once drained, which ends the connection.
+        let mut n = 0;
+        while rx.try_recv().is_ok() {
+            n += 1;
+        }
+        assert_eq!(n, SESSION_QUEUE);
+        assert!(matches!(rx.try_recv(), Err(mpsc::error::TryRecvError::Disconnected)));
+    }
+
+    #[tokio::test]
+    async fn broker_drops_a_client_past_its_keep_alive() {
+        let def: ServiceDef = serde_json::from_value(json!({"id": "b", "kind": "mqtt", "mode": "server"})).unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let broker = Arc::new(Broker::default());
+        let server = {
+            let broker = broker.clone();
+            tokio::spawn(async move {
+                let (sock, _) = listener.accept().await.unwrap();
+                let conn = Conn {
+                    id: 1,
+                    broker,
+                    def: Arc::new(def),
+                    store: crate::tags::TagStore::new(),
+                    topics: HashMap::new(),
+                    auth: None,
+                    node: None,
+                };
+                conn.run(sock).await
+            })
+        };
+        let mut sock = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let mut connect = rumqttc::Connect::new("t");
+        connect.keep_alive = 1;
+        send(&mut sock, Packet::Connect(connect)).await.unwrap();
+        // Then go silent: the broker must close the connection after 1.5 s.
+        let mut buf = vec![0u8; 64];
+        let r = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                match sock.read(&mut buf).await {
+                    Ok(0) | Err(_) => break,
+                    Ok(_) => {}
+                }
+            }
+        })
+        .await;
+        assert!(r.is_ok(), "broker kept a silent client past 1.5x keep-alive");
+        let err = server.await.unwrap().unwrap_err();
+        assert!(err.to_string().contains("keep-alive"), "{err:#}");
+        assert!(broker.sessions.lock().is_empty());
     }
 }

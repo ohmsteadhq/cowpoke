@@ -157,6 +157,10 @@ pub struct Insight {
     pub service: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
+    /// The change as data, for the UI to pre-fill: `{"setting": key, "value": v}` on the
+    /// service's settings, or `{"history": cfg}` replacing `tag`'s history settings.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fix: Option<Value>,
 }
 
 fn id(parts: &[&str]) -> String {
@@ -292,6 +296,7 @@ fn comms(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
                     suggestion: "Check the network path and the device's connection limit; raise the timeout if the device answers slowly.".into(),
                     service: Some(def.id.clone()),
                     tag: None,
+                    fix: None,
                 });
             }
         }
@@ -317,6 +322,7 @@ fn comms(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
                     suggestion: "Raise the timeout, poll less often, or check the cable and the device's load.".into(),
                     service: Some(def.id.clone()),
                     tag: Some(tg.name.clone()),
+                    fix: None,
                 });
             }
             // A value that never moves.
@@ -332,6 +338,7 @@ fn comms(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
                     suggestion: "Compare with the device's own display; check the address and the sensor.".into(),
                     service: Some(def.id.clone()),
                     tag: Some(tg.name.clone()),
+                    fix: None,
                 });
             }
             // Polling much faster than the value changes.
@@ -343,6 +350,7 @@ fn comms(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
         if watched >= 1 && slow.len() == watched {
             let fastest = slow.iter().map(|x| x.1).fold(f64::INFINITY, f64::min);
             let suggest = round_ms((fastest * 1000.0 / 4.0).max(poll));
+            let key = if def.settings.get("interval_ms").is_some() || def.kind == crate::model::Kind::Api { "interval_ms" } else { "poll_ms" };
             if suggest > poll as u64 {
                 let mut ev: Vec<String> = slow
                     .iter()
@@ -360,9 +368,10 @@ fn comms(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
                         fastest * 1000.0 / poll
                     ),
                     evidence: ev,
-                    suggestion: format!("Set poll_ms to {suggest} (still 4 reads per change of the fastest tag)."),
+                    suggestion: format!("Set {key} to {suggest} (still 4 reads per change of the fastest tag)."),
                     service: Some(def.id.clone()),
                     tag: None,
+                    fix: Some(serde_json::json!({"setting": key, "value": suggest})),
                 });
             }
         }
@@ -399,6 +408,7 @@ fn historian(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
                             suggestion: format!("Set the history deadband to {suggest} (about twice the typical step), well under the tag's range."),
                             service: Some(def.id.clone()),
                             tag: Some(tg.name.clone()),
+                            fix: Some(serde_json::json!({"history": {"mode": "deadband", "deadband": suggest, "interval_ms": h.interval_ms, "retention_days": h.retention_days}})),
                         });
                     }
                 }
@@ -416,6 +426,7 @@ fn historian(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
                             suggestion: format!("Record on change instead: mode deadband with a deadband near {}.", round_db(noise)),
                             service: Some(def.id.clone()),
                             tag: Some(tg.name.clone()),
+                            fix: Some(serde_json::json!({"history": {"mode": "deadband", "deadband": round_db(noise), "interval_ms": h.interval_ms, "retention_days": h.retention_days}})),
                         });
                     }
                 }
@@ -448,6 +459,7 @@ fn alarms(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
                 suggestion: "Add a deadband (so it clears only well past the limit) or an on-delay (so a brief crossing doesn't raise it).".into(),
                 service: None,
                 tag: None,
+                fix: None,
             });
         }
     }
@@ -475,6 +487,7 @@ fn alarms(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
             suggestion: "Find the first alarm in the flood and the cause behind it; consider suppressing alarms that follow from it.".into(),
             service: None,
             tag: None,
+            fix: None,
         });
     }
     // Standing and unacknowledged alarms.
@@ -492,6 +505,7 @@ fn alarms(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
                 suggestion: "Fix the cause, change the limit to what is normal now, or turn the alarm off if it no longer means anything.".into(),
                 service: None,
                 tag: None,
+                fix: None,
             });
         } else if !st.active && !st.acked && st.cleared.is_some_and(|c| s.now - c >= t.standing_after) {
             out.push(Insight {
@@ -504,6 +518,7 @@ fn alarms(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
                 suggestion: "Check who gets it (hooks), or lower its severity.".into(),
                 service: None,
                 tag: None,
+                fix: None,
             });
         }
     }
@@ -742,6 +757,7 @@ mod tests {
         assert!(ids.contains(&"frozen:plc:level"), "{out:#?}");
         let o = out.iter().find(|i| i.id == "overpoll:plc").unwrap();
         assert!(o.suggestion.contains("poll_ms to 60000"), "{}", o.suggestion);
+        assert_eq!(o.fix, Some(json!({"setting": "poll_ms", "value": 60000})));
     }
 
     #[test]
@@ -775,6 +791,7 @@ mod tests {
         let out = snap(&cfg, &tags, &[]);
         let d = out.iter().find(|i| i.id == "deadband:plc:flow").expect("deadband insight");
         assert!(d.suggestion.contains("0.2"), "{}", d.suggestion);
+        assert_eq!(d.fix.as_ref().unwrap()["history"]["deadband"], json!(0.2));
         let _ = TagDef::default();
     }
 

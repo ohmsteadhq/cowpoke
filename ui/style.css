@@ -412,3 +412,11 @@ table.mini td { padding: 4px 6px; }
 .small-link { padding: 0; font-size: 0.78rem; }
 .b-table td:nth-child(2) input { min-width: 140px; }
 .b-table .dd { white-space: nowrap; }
+
+/* Insights on a service page */
+.ins-strip { margin-top: 12px; }
+.ins-strip ul { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.ins-strip li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; font-size: 0.9rem; }
+.ins-strip li .muted { flex: 1 1 260px; }
+.ins-mark { font-size: 0.72rem; padding: 0 6px; border: 1px solid var(--brass); color: var(--brass); text-decoration: none; }
+.ins-mark:hover { color: var(--teal-hi); border-color: currentColor; }

@@ -457,6 +457,7 @@ async function servicePage(id, tab = "tags") {
   let svc;
   try { svc = await api("GET", `/api/services/${encodeURIComponent(id)}`); }
   catch (e) { shell("services", `<div class="msg err">${esc(e.message)}</div>`); return; }
+  const insights = await serviceInsights(id);
   const tabs = svc.kind === "monitor" ? [["traffic", "Traffic"], ["tags", "Counters"]] : [["tags", "Tags"]];
   if (svc.kind === "monitor" && tab === "tags" && !location.hash.endsWith("/tags")) tab = "traffic";
   if (can("admin")) tabs.push(["definition", "Settings"]);
@@ -471,7 +472,7 @@ async function servicePage(id, tab = "tags") {
       ${can("operator") ? `<button id="toggle">${svc.enabled ? "Stop" : "Start"}</button><button id="restart" ${svc.enabled ? "" : "disabled"}>Restart</button>` : ""}
       ${can("admin") ? `<button class="danger" id="del">Delete</button>` : ""}
     </div>
-    <div class="panel pad" id="st"></div>${mount}
+    <div class="panel pad" id="st"></div>${mount}${insightStrip(insights)}
     <div id="m"></div>
     <div class="tabs">${tabs.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" data-tab="${k}">${l}</button>`).join("")}</div>
     <div id="body"></div>`);
@@ -481,6 +482,7 @@ async function servicePage(id, tab = "tags") {
   };
   drawStatus(svc.status);
   const m = document.getElementById("m");
+  document.querySelectorAll("[data-fix]").forEach((b) => (b.onclick = () => startApply(insights[+b.dataset.fix])));
   document.querySelectorAll("[data-tab]").forEach((b) => (b.onclick = () => (location.hash = `#/s/${id}/${b.dataset.tab}`)));
   if (can("operator")) {
     document.getElementById("toggle").onclick = () => api("POST", `/api/services/${id}/${svc.enabled ? "stop" : "start"}`).then(() => servicePage(id, tab)).catch((e) => flash(m, e.message));
@@ -496,20 +498,22 @@ async function servicePage(id, tab = "tags") {
   const page = { onStatus: (all) => all[id] && drawStatus(all[id]) };
   S.page = page;
   const body = document.getElementById("body");
-  if (tab === "tags") tagsTab(svc, body, page, m);
+  if (tab === "tags") tagsTab(svc, body, page, m, insights);
   else if (tab === "definition") definitionTab(svc, body, m);
   else if (tab === "certs") certsTab(svc, body, m);
   else if (tab === "traffic") trafficTab(svc, body, m);
 }
 
-async function tagsTab(svc, body, page, m) {
+async function tagsTab(svc, body, page, m, insights = []) {
+  const flagged = {};
+  for (const i of insights) if (i.tag) (flagged[i.tag] ||= []).push(i.title);
   const tags = await api("GET", `/api/services/${svc.id}/tags`);
   const writable = (t) => can("operator") && (svc.mode === "server" || t.writable);
   body.innerHTML = `<div class="panel tabbody scroll"><table>
     <thead><tr><th>Tag</th><th>Type</th><th class="hide-sm">Last 10 min</th><th class="num">Value</th><th class="hide-sm">Updated</th><th>${can("operator") ? "Write" : ""}</th><th></th></tr></thead>
     <tbody>${tags.length ? tags.map((t) => `
       <tr data-tag="${esc(t.name)}">
-        <td><span class="mono">${esc(t.name)}</span>${t.description ? `<br><span class="muted">${esc(t.description)}</span>` : ""}</td>
+        <td><span class="mono">${esc(t.name)}</span>${flagged[t.name] ? ` <a class="ins-mark" href="#/insights" title="${esc(flagged[t.name].join("\n"))}">insight</a>` : ""}${t.description ? `<br><span class="muted">${esc(t.description)}</span>` : ""}</td>
         <td><span class="tag">${esc(t.datatype)}</span></td>
         <td class="hide-sm"><canvas class="sp sp-row" aria-hidden="true"></canvas></td>
         <td class="num mono val q-${esc(t.quality || "")}">${esc(fmtValue(t.value))}${t.units ? ` <span class="muted">${esc(t.units)}</span>` : ""}</td>
@@ -625,11 +629,60 @@ async function trend(svc, tag, page) {
   box.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
+// ---------------------------------------------------------------- insights on service pages
+
+const INSIGHT_LEVEL = { warn: ["Check", "pn-sev pn-sev-high"], suggest: ["Suggestion", "pn-sev pn-sev-medium"], info: ["Note", "pn-sev"] };
+
+/** Open insights about one service (empty if none or on error). */
+async function serviceInsights(id) {
+  try {
+    const r = await api("GET", "/api/insights");
+    return (r.insights || []).filter((i) => i.service === id && !i.dismissed);
+  } catch { return []; }
+}
+
+function insightStrip(list) {
+  if (!list.length) return "";
+  return `<div class="panel pad ins-strip"><div class="row"><b>${list.length} insight${list.length > 1 ? "s" : ""}</b><span class="spacer"></span><a href="#/insights">All insights</a></div>
+    <ul>${list.map((i, k) => {
+      const [lab, cls] = INSIGHT_LEVEL[i.level] || INSIGHT_LEVEL.info;
+      return `<li><span class="${cls}">${lab}</span> <span>${esc(i.title)}.</span> <span class="muted">${esc(i.suggestion)}</span>
+        ${i.fix && can("admin") ? `<button class="small" data-fix="${k}">Apply…</button>` : ""}</li>`;
+    }).join("")}</ul></div>`;
+}
+
+/** Make an insight's change in a copy of a service definition. */
+function applyFix(def, ins) {
+  const d = JSON.parse(JSON.stringify(def));
+  const f = ins.fix || {};
+  if (f.setting) (d.settings ||= {})[f.setting] = f.value;
+  if (f.history) {
+    const t = (d.tags || []).find((x) => x.name === ins.tag);
+    if (t) t.history = f.history;
+  }
+  return d;
+}
+
+/** Open the service's Settings with the insight's change filled in. */
+function startApply(ins) {
+  S.pendingFix = ins;
+  const target = `#/s/${encodeURIComponent(ins.service)}/definition`;
+  if (location.hash === target) route(); else location.hash = target;
+}
+
 async function definitionTab(svc, body, m) {
   const agents = await api("GET", "/api/agents").catch(() => []);
-  body.innerHTML = `<div class="tabbody b-edit"><p class="muted">Saving restarts the service with the new settings.</p><div id="builder"></div></div>`;
+  // An insight's Apply lands here with its change already made in the form.
+  let def = svc.definition, note = "";
+  const fix = S.pendingFix;
+  if (fix && fix.service === svc.id) {
+    S.pendingFix = null;
+    def = applyFix(def, fix);
+    note = `<div class="msg ok"><b>Pre-filled from an insight:</b> ${esc(fix.suggestion)}\nReview the change in the form below, then save. Nothing has changed yet.</div>`;
+  }
+  body.innerHTML = `<div class="tabbody b-edit">${note}<p class="muted">Saving restarts the service with the new settings.</p><div id="builder"></div></div>`;
   serviceBuilder(document.getElementById("builder"), {
-    def: svc.definition, editing: svc.id, agents,
+    def, editing: svc.id, agents,
     onSaved: (s) => { location.hash = `#/s/${s.id}`; },
   });
 }

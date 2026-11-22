@@ -178,7 +178,7 @@ async function insightsPage(tab) {
         const where = [i.service ? `<a class="mono" href="#/s/${encodeURIComponent(i.service)}">${esc(i.service)}</a>` : "", i.tag ? `<span class="mono">${esc(i.tag)}</span>` : ""].filter(Boolean).join(" · ");
         return `<div class="pn-insight" data-id="${esc(i.id)}">
           <div class="row"><span class="${cls}">${lab}</span><span class="tag">${esc(AREAS[i.area] || i.area)}</span>${where ? `<span class="detail">${where}</span>` : ""}
-            <span class="spacer"></span>${can("operator") ? `<button class="small" data-act="${i.dismissed ? "restore" : "dismiss"}">${i.dismissed ? "Restore" : "Dismiss"}</button>` : ""}</div>
+            <span class="spacer"></span>${i.fix && can("admin") && !i.dismissed ? `<button class="small" data-apply>Apply…</button>` : ""}${can("operator") ? `<button class="small" data-act="${i.dismissed ? "restore" : "dismiss"}">${i.dismissed ? "Restore" : "Dismiss"}</button>` : ""}</div>
           <h3>${esc(i.title)}</h3>
           <p>${esc(i.detail)}</p>
           ${i.evidence.length ? `<ul class="detail">${i.evidence.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>` : ""}
@@ -186,6 +186,10 @@ async function insightsPage(tab) {
         </div>`;
       }).join("") : `<p class="muted">${tab === "dismissed" ? "Nothing dismissed." : "Nothing to suggest yet."}</p>`}
     </div>`;
+    body.querySelectorAll("[data-apply]").forEach((b) => (b.onclick = () => {
+      const id = b.closest("[data-id]").dataset.id;
+      startApply(all.find((i) => i.id === id));
+    }));
     body.querySelectorAll("[data-act]").forEach((b) => (b.onclick = async () => {
       const id = b.closest("[data-id]").dataset.id;
       try {

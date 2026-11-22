@@ -314,7 +314,7 @@ Cowpoke watches every tag update and samples every service's status, building a 
 - **Historian:** deadbands smaller than a tag's noise, and interval recording of tags that rarely change.
 - **Alarms:** chattering, floods (with the alarms behind them), standing alarms and alarms nobody acknowledges.
 
-Insights are suggestions with evidence; nothing changes until someone changes it. Dismiss one and it stays dismissed. Values typed in the UI and simulator generators don't count toward the baseline. The baseline is saved in `baselines.json` in the data folder. Most insights need 30 minutes of watching, some need hours; `COWPOKE_INSIGHTS_QUICK=1` shortens that to minutes for demos. `GET /api/insights`, `POST /api/insights/run`, and `POST`/`DELETE /api/insights/<id>/dismiss`.
+A service's page lists its open insights under its status and marks the tags they concern. Insights that name an exact setting (a poll interval, a history deadband) have **Apply…**: it opens the service's Settings with the change filled in, and nothing changes until someone saves. Insights are suggestions with evidence; nothing changes until someone changes it. Dismiss one and it stays dismissed. Values typed in the UI and simulator generators don't count toward the baseline. The baseline is saved in `baselines.json` in the data folder. Most insights need 30 minutes of watching, some need hours; `COWPOKE_INSIGHTS_QUICK=1` shortens that to minutes for demos. `GET /api/insights`, `POST /api/insights/run`, and `POST`/`DELETE /api/insights/<id>/dismiss`.
 
 ## Not yet
 

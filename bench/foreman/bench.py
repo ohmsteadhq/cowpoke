@@ -262,11 +262,11 @@ class Cowpoke:
         self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
         self.call("POST", "/api/login", {"username": user, "password": password})
 
-    def call(self, method, path, body=None):
+    def call(self, method, path, body=None, timeout=10):
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(self.base + path, data=data, method=method,
                                      headers={"content-type": "application/json"})
-        with self.opener.open(req, timeout=10) as r:
+        with self.opener.open(req, timeout=timeout) as r:
             text = r.read().decode()
             return json.loads(text) if text else None
 
@@ -376,7 +376,7 @@ def main():
     ap.add_argument("--no-format", action="store_true",
                     help="evidence mode: don't constrain the reply to the JSON schema; read the first JSON object")
     ap.add_argument("--rules", action="store_true", help="add Cowpoke's rule checks to the evidence (evidence/decide)")
-    ap.add_argument("--mode", choices=["agent", "evidence", "decide"], default="agent",
+    ap.add_argument("--mode", choices=["agent", "evidence", "decide", "foreman"], default="agent",
                     help="agent: the model calls tools itself; evidence: Cowpoke gathers the evidence and a chat "
                          "model answers once; decide: the same evidence to a decision model (--ask/--choice)")
     a = ap.parse_args()
@@ -394,7 +394,13 @@ def main():
     for sc in scenarios:
         if a.mode != "agent":
             tok_s = None
-            if a.mode == "decide":
+            if a.mode == "foreman":
+                # Cowpoke's own foreman: it gathers the evidence and asks its configured model.
+                t0 = time.time()
+                r0 = cp.call("POST", "/api/foreman/diagnose",
+                             {"prefix": sc["id"] + "-", "symptom": sc["symptom"], "rules": a.rules}, timeout=600)
+                report, secs = r0.get("diagnosis"), round(time.time() - t0, 1)
+            elif a.mode == "decide":
                 report, secs = run_decide(sc, cp, a.model, a.rules)
             else:
                 report, secs, tok_s = run_evidence(sc, cp, a.ollama, a.model, think, a.rules)

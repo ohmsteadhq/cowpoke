@@ -1,0 +1,61 @@
+# Runs on blaine's Gitea runner, like Ohmstead's CI (see ohmstead/docs/CI.md).
+name: CI
+on:
+  push:
+    branches: ["**"]
+    # Benchmark data and notes can't break the build.
+    paths-ignore: ["bench/**", "*.md"]
+
+jobs:
+  check:
+    runs-on: blaine
+    # Rust isn't in the runner's default image; use the one the Dockerfile builds with.
+    container:
+      image: rust:1.93-bookworm
+    env:
+      CARGO_TERM_COLOR: never
+      # Four slow cores: keep the build from starving blaine's other services.
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      # A plain fetch over the Docker network, as in Ohmstead's CI: Gitea's ROOT_URL and
+      # blaine's LAN IP both move, and actions/checkout would follow them.
+      - name: Get the code
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          git init -q .
+          git remote add origin "http://ci:$TOKEN@gitea:3000/${{ github.repository }}.git"
+          git fetch -q --depth=1 origin "${{ github.sha }}"
+          git checkout -q FETCH_HEAD
+      - name: Install libpcap
+        id: deps
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends libpcap-dev
+      - name: Format
+        id: fmt
+        run: rustup component add rustfmt >/dev/null 2>&1 && cargo fmt --check || echo "::warning::cargo fmt differences"
+      - name: Build
+        id: build
+        run: cargo build --locked
+      - name: Tests
+        id: test
+        run: cargo test --locked
+      - name: Builds without live capture
+        id: nopcap
+        run: cargo check --locked --no-default-features
+      # The playbook's CI page reads this file (jobs/ci.py in ohmstead-reports). The mount may
+      # be missing inside a job container; recording is best-effort.
+      - name: Record the result
+        if: always()
+        env:
+          STATUS: ${{ job.status }}
+          BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          [ -d /ci-status ] || exit 0
+          failed=""
+          for s in "deps:${{ steps.deps.outcome }}" "build:${{ steps.build.outcome }}" "test:${{ steps.test.outcome }}" "no-pcap:${{ steps.nopcap.outcome }}"; do
+            case "$s" in *:failure) failed="$failed${failed:+, }${s%%:*}" ;; esac
+          done
+          title=$(git log -1 --format=%s | sed 's/"/\\"/g')
+          printf '{"time": %s, "repo": "cowpoke", "branch": "%s", "sha": "%s", "title": "%s", "status": "%s", "failed": "%s"}\n' \
+            "$(date +%s)" "$BRANCH" "$SHA" "$title" "$STATUS" "$failed" >> /ci-status/runs.jsonl

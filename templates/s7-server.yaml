@@ -1,0 +1,34 @@
+# A simulated Siemens S7 PLC: answers S7comm variable reads and writes ("PUT/GET")
+# on port 102 for any rack and slot, so HMIs, SCADA and gateways can test against it.
+# Data blocks exist only where tags are defined; I, Q and M areas always exist.
+# Program transfers and run/stop are refused, like a password-protected CPU.
+id: s7-sim
+name: S7 PLC simulator
+kind: s7
+mode: server
+# agent: plant-1          # run this service on an edge agent instead of the hub
+settings:
+  port: 102
+  pdu_size: 480           # S7-300: 240; S7-1500: 960
+tags:
+  - name: tank_level
+    datatype: float32
+    s7_address: DB1.DBD0
+    initial: 42.5
+    simulate: { kind: walk, min: 20, max: 80, step: 0.5 }
+  - name: pump_run
+    datatype: bool
+    s7_address: DB1.DBX4.0
+  - name: setpoint
+    datatype: int16
+    s7_address: DB1.DBW6
+    initial: 55
+  - name: batch_id
+    datatype: string
+    s7_address: DB1.DBB8
+    length: 12
+    initial: "B-0001"
+  - name: motor_speed
+    datatype: uint16
+    s7_address: MW10
+    initial: 1450

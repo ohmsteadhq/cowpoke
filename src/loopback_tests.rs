@@ -834,7 +834,8 @@ tags:
     let has = |needle: &str| events.iter().any(|e| e.contains(needle));
     assert!(has("modbus write write coil 2 (unit 1)"), "{events:#?}");
     assert!(has("modbus error exception 0B") || has("modbus error exception"), "unit 7 has no device: {events:#?}");
-    assert!(has("enip connect new TCP connection"), "new talker: {events:#?}");
+    assert!(has("enip other new TCP connection"), "new talker: {events:#?}");
+    assert!(has("enip connect register session"), "{events:#?}");
     // Repeated errors from polling are listed once a minute, not every poll.
     assert_eq!(events.iter().filter(|e| e.contains("unit 7")).count(), 1, "{events:#?}");
     assert!(has("enip write write tag Program:Main.Level"), "{events:#?}");
@@ -847,4 +848,90 @@ tags:
     assert!(rig.tags.value("mon", "writes").unwrap().as_u64().unwrap() >= 2);
     assert!(rig.tags.value("mon", "errors").unwrap().as_u64().unwrap() >= 1);
     rig.stop().await;
+}
+
+/// S7: a Cowpoke S7 client against the S7 PLC simulator (through a tap, so the
+/// recording also checks the monitor's S7comm decoder on real traffic).
+#[tokio::test(flavor = "multi_thread")]
+async fn s7_client_plc_sim() {
+    use crate::monitor::tap;
+    let p = free_port();
+    let (tap_addr, rec) = tap::start(([127, 0, 0, 1], p).into(), "10.0.0.20:102".parse().unwrap(), [10, 0, 0, 60]).await.unwrap();
+    let rig = Rig::start(vec![
+        svc(&format!(
+            r#"
+id: srv
+kind: s7
+mode: server
+settings: {{ bind: 127.0.0.1, port: {p} }}
+tags:
+  - {{ name: level, datatype: float32, s7_address: DB1.DBD0, initial: 42.5 }}
+  - {{ name: run, datatype: bool, s7_address: DB1.DBX4.3 }}
+  - {{ name: setpoint, datatype: int16, s7_address: DB1.DBW6, initial: -12 }}
+  - {{ name: label, datatype: string, s7_address: DB1.DBB8, length: 10, initial: "Cow1" }}
+  - {{ name: speed, datatype: uint16, s7_address: MW10, initial: 145.0, scale: 0.1 }}
+  - {{ name: big, datatype: float64, s7_address: DB2.DBB0, initial: 0.125 }}
+  - {{ name: locked, datatype: int32, s7_address: DB2.DBD8, initial: 7, writable: false }}
+"#
+        )),
+        svc(&format!(
+            r#"
+id: cli
+kind: s7
+mode: client
+settings: {{ host: 127.0.0.1, port: {}, rack: 0, slot: 2, poll_ms: 100 }}
+tags:
+  - {{ name: level, datatype: float32, s7_address: DB1.DBD0 }}
+  - {{ name: run, datatype: bool, s7_address: DB1.DBX4.3 }}
+  - {{ name: setpoint, datatype: int16, s7_address: DB1.DBW6 }}
+  - {{ name: label, datatype: string, s7_address: DB1.DBB8, length: 10 }}
+  - {{ name: speed, datatype: uint16, s7_address: mw10, scale: 0.1 }}
+  - {{ name: big, datatype: float64, s7_address: DB2.DBB0 }}
+  - {{ name: locked, datatype: int32, s7_address: DB2.DBD8 }}
+  - {{ name: missing, datatype: int16, s7_address: DB9.DBW0 }}
+"#,
+            tap_addr.port()
+        )),
+    ])
+    .await;
+    rig.wait_running("srv").await;
+    rig.wait_value("cli", "level", json!(42.5)).await;
+    rig.wait_value("cli", "setpoint", json!(-12)).await;
+    rig.wait_value("cli", "label", json!("Cow1")).await;
+    rig.wait_value("cli", "speed", json!(145.0)).await;
+    rig.wait_value("cli", "big", json!(0.125)).await;
+    rig.wait_value("cli", "locked", json!(7)).await;
+    assert_ne!(rig.tags.get("cli", "missing").map(|s| s.quality), Some(Quality::Good));
+    assert!(rig.mgr.status("cli").detail.contains("object doesn't exist"), "{:?}", rig.mgr.status("cli"));
+
+    rig.write("cli", "run", json!(true)).await;
+    rig.wait_value("srv", "run", json!(true)).await;
+    rig.write("cli", "level", json!(7.25)).await;
+    rig.wait_value("srv", "level", json!(7.25)).await;
+    rig.write("cli", "label", json!("Batch-42")).await;
+    rig.wait_value("srv", "label", json!("Batch-42")).await;
+    rig.write("cli", "speed", json!(99.9)).await;
+    rig.wait_value("srv", "speed", json!(99.9)).await;
+    // Neighbouring tags keep their values (the bit write only touched its bit).
+    assert_eq!(rig.tags.value("srv", "setpoint"), Some(json!(-12)));
+    // Read-only tags refuse writes.
+    assert!(rig.mgr.write(&rig.def("cli"), "locked", &json!(9)).await.is_err());
+    // Values set on the simulator reach the client.
+    rig.write("srv", "setpoint", json!(300)).await;
+    rig.wait_value("cli", "setpoint", json!(300)).await;
+    rig.stop().await;
+
+    // The monitor decodes the recorded S7 traffic.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("s7.pcap");
+    rec.save(&path).unwrap();
+    let mut m = crate::monitor::Monitor::new(&serde_json::from_value(json!({"file": "x", "learn_minutes": 0})).unwrap());
+    let mut events = vec![];
+    for f in crate::monitor::packet::read_file(&path).unwrap() {
+        events.extend(m.frame(&f).into_iter().map(|e| format!("{:?} {}", e.action, e.what)));
+    }
+    let has = |n: &str| events.iter().any(|e| e.contains(n));
+    assert!(has("Connect COTP connect to rack 0 slot 2"), "{events:#?}");
+    assert!(has("Write write DB1.DBX4.3"), "{events:#?}");
+    assert!(has("Write write DB1.DBB0"), "{events:#?}");
 }

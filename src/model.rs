@@ -17,6 +17,8 @@ pub enum Kind {
     Eip,
     /// Passive traffic monitoring on a mirror port (or a capture file).
     Monitor,
+    /// Siemens S7 (S7comm over ISO-on-TCP).
+    S7,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -182,6 +184,11 @@ pub struct TagDef {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cip_tag: Option<String>,
 
+    // --- S7 ---
+    /// Siemens address: `DB1.DBD0`, `DB1.DBX4.0`, `MW10`, `I0.1`, `QW4`. Strings use `length` (characters).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub s7_address: Option<String>,
+
     // --- IO-Link ---
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub port: Option<u8>,
@@ -345,6 +352,9 @@ impl ServiceDef {
                     }
                     let name = t.cip_tag.as_deref().unwrap_or(&t.name);
                     crate::services::eip::tag_path(name).map_err(|e| format!("tag `{}`: {e}", t.name))?;
+                }
+                Kind::S7 => {
+                    crate::services::s7::check_tag(t).map_err(|e| format!("tag `{}`: {e}", t.name))?;
                 }
                 Kind::Monitor => {
                     let Some((_, dt, _)) = crate::monitor::COUNTERS.iter().find(|c| c.0 == t.name) else {

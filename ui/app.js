@@ -12,6 +12,7 @@ const KINDS = {
   api: { label: "API request", server: "Mock an HTTP API with canned routes, and serve tags as JSON.", client: "Call an HTTP endpoint on a timer and read values from the JSON." },
   iolink: { label: "IO-Link", server: "A simulated IO-Link master (ifm IoT Core JSON).", client: "Read sensors through a real ifm IoT Core master." },
   mqtt: { label: "MQTT", server: "A built-in broker that publishes every tag on change and takes writes on /set.", client: "Subscribe to a broker's topics and publish writes." },
+  s7: { label: "Siemens S7", server: "A simulated S7 PLC answering variable reads and writes (PUT/GET).", client: "Read and write an S7-300/400/1200/1500 by DB, M, I and Q address." },
   monitor: { label: "Traffic monitor", client: "Watch a mirror port (or replay a capture): who talks to which device, plus writes, program changes, run/stop and errors.", server: null },
   eip: { label: "EtherNet/IP", server: "A simulated Logix controller answering tag reads and writes.", client: "Read and write tags on an Allen-Bradley ControlLogix or CompactLogix." },
 };
@@ -209,7 +210,7 @@ function loginPage() {
 
 // ---------------------------------------------------------------- dashboard
 
-const SHORT = { modbus: "Modbus", opcua: "OPC UA", api: "API", iolink: "IO-Link", mqtt: "MQTT", eip: "EtherNet/IP", monitor: "Monitor" };
+const SHORT = { modbus: "Modbus", opcua: "OPC UA", api: "API", iolink: "IO-Link", mqtt: "MQTT", eip: "EtherNet/IP", s7: "S7", monitor: "Monitor" };
 const STATE_COLOR = { running: "--teal", degraded: "--brass", starting: "--brass", error: "--alert", stopped: "--muted" };
 
 async function dashboardPage() {

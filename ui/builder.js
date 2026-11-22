@@ -139,6 +139,20 @@ const SCHEMAS = {
     ] },
     { k: "ca", label: "CA certificate (PEM)", type: "body", ph: "-----BEGIN CERTIFICATE-----", adv: true, help: "For a broker with its own CA. Blank uses the system's roots." },
   ],
+  "s7/client": [
+    { k: "host", label: "PLC address", type: "text", ph: "192.168.0.1", required: true },
+    { k: "rack", label: "Rack", type: "number", ph: "0" },
+    { k: "slot", label: "Slot", type: "number", ph: "1", help: "S7-300: 2. S7-1200/1500: 1 (or 0)." },
+    { k: "poll_ms", label: "Poll every (ms)", type: "number", ph: "1000" },
+    { k: "port", label: "Port", type: "number", ph: "102", adv: true },
+    { k: "timeout_ms", label: "Timeout (ms)", type: "number", ph: "3000", adv: true },
+    { k: "connection_type", label: "Connection type", type: "number", ph: "1", adv: true, help: "1 PG, 2 OP, 3 basic." },
+  ],
+  "s7/server": [
+    { k: "port", label: "Port", type: "number", ph: "102", help: "Answers any rack and slot. Below 1024 may need extra rights outside Docker." },
+    { k: "pdu_size", label: "PDU size", type: "number", ph: "480", help: "S7-300: 240. S7-1500: 960." },
+    BIND,
+  ],
   "monitor/client": [
     { k: "interface", label: "Capture interface", type: "text", ph: "eth1", help: "The mirror (SPAN) port. In Docker: --cap-add NET_RAW --network host." },
     { k: "file", label: "Or replay a capture file", type: "text", ph: "capture.pcapng", help: "pcap or pcapng, relative to the service's data folder." },
@@ -185,6 +199,10 @@ function tagColumns(kind, mode, settings) {
       return [
       { k: "topic", label: mode === "client" ? "Topic" : "Topic (optional)", type: "text", ph: mode === "client" ? "plant/tank1/state" : "<prefix>/<tag name>", w: 200 },
       ...(mode === "client" ? [{ k: "pointer", label: "JSON pointer", type: "text", ph: "whole payload", w: 140 }] : []),
+    ];
+    case "s7": return [
+      { k: "s7_address", label: "Address", type: "text", ph: "DB1.DBD0", w: 150, help: "DB1.DBD0, DB1.DBX4.0, MW10, I0.1, QW4" },
+      { k: "length", label: "Chars", type: "number", ph: "16", w: 64, help: "Strings only" },
     ];
     case "eip": return [{ k: "cip_tag", label: mode === "client" ? "Logix tag" : "Logix tag (optional)", type: "text", ph: mode === "client" ? "Program:Main.Level" : "the tag name", w: 200 }];
     case "iolink": return [
@@ -876,6 +894,11 @@ function serviceBuilder(root, opts) {
     if (d.kind === "modbus") { t.datatype = "uint16"; t.register = nextRegister(tags, "holding_register"); }
     if (d.kind === "opcua" || d.kind === "api" || d.kind === "mqtt") t.datatype = "float64";
     if (d.kind === "eip") t.datatype = "float32";
+    if (d.kind === "s7") {
+      // Next free double word in DB1 after the tags so far.
+      const used = tags.map((x) => /^DB1\.DB[BWD](\d+)/i.exec(x.s7_address || "")).filter(Boolean).map((m) => +m[1] + 4);
+      t.datatype = "float32"; t.s7_address = `DB1.DBD${used.length ? Math.max(...used) : 0}`;
+    }
     if (d.kind === "iolink") {
       const last = tags[tags.length - 1];
       t.datatype = "uint16"; t.port = last?.port || 1;

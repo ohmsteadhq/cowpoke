@@ -1,0 +1,34 @@
+# Read and write a Siemens S7-300/400/1200/1500 over S7comm ("PUT/GET").
+# S7-1200/1500: turn off "optimized block access" on the data blocks and allow
+# PUT/GET communication from remote partners in the CPU's protection settings.
+id: s7-line1
+name: Line 1 S7
+kind: s7
+mode: client
+# agent: plant-1          # run this service on an edge agent instead of the hub
+settings:
+  host: 192.168.0.1
+  rack: 0
+  slot: 1                 # S7-300: 2; S7-1200/1500: 1 (or 0)
+  poll_ms: 1000
+  timeout_ms: 3000
+  # connection_type: 1    # 1 PG, 2 OP, 3 basic
+# Addresses in Siemens notation: DB1.DBD0, DB1.DBX4.0, MW10, I0.1 (E0.1), QW4 (AW4).
+# REAL → float32 at a D address, INT → int16 at W, DINT → int32 at D, BOOL → bool at X,
+# LREAL/LINT → float64/int64 at a B or D address, STRING[n] → string at B with length n.
+tags:
+  - name: tank_level
+    datatype: float32
+    s7_address: DB1.DBD0
+    writable: false
+    history: { mode: interval, interval_ms: 5000, retention_days: 90 }
+  - name: pump_run
+    datatype: bool
+    s7_address: DB1.DBX4.0
+  - name: setpoint
+    datatype: int16
+    s7_address: DB1.DBW6
+  - name: batch_id
+    datatype: string
+    s7_address: DB1.DBB8
+    length: 12

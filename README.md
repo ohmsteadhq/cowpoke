@@ -12,6 +12,7 @@ Create *services* in a web UI, a REST API or a YAML file. Each service speaks on
 | **IO-Link** | Simulated ifm IoT Core master: `pdin`/`pdout`, device info, `getdatamulti` | Reads sensors through a real ifm IoT Core master (AL13xx and similar) by IODD bit offset; writes `pdout` |
 | **MQTT** | Built-in MQTT 3.1.1 broker: publishes every tag on change to `<prefix>/<tag>` (retained), takes writes on `<topic>/set`, optional login; optionally a **Sparkplug B edge node** (or device): NBIRTH/DBIRTH, data on change by alias, NDEATH, writes and rebirth through NCMD/DCMD, on its own broker and optionally an outside one (with an NDEATH will); other clients publish and subscribe as with any broker | Subscribes to a broker's topics (wildcards allowed), picks values from JSON or text payloads with JSON pointers; writes publish to a topic template; TLS, login, QoS 0/1, retain. **Sparkplug B**: reads an edge node's or device's metrics from births and data (aliases included), marks tags bad on death, asks for a rebirth, writes with NCMD/DCMD |
 | **EtherNet/IP** | Simulated Logix controller: Read Tag / Write Tag by symbolic name, direct or via Unconnected Send to any slot, Multiple Service Packet, ListIdentity | Reads and writes ControlLogix / CompactLogix tags by symbolic name (`Program:Main.Level`, `Tank[3].Temp`): BOOL, SINT, INT, DINT, LINT, REAL, LREAL, STRING |
+| **Siemens S7** | Simulated S7 PLC: S7comm variable reads and writes (PUT/GET) on DBs, M, I and Q for any rack and slot; program transfer and run/stop refused | Reads and writes S7-300/400/1200/1500 by Siemens address (`DB1.DBD0`, `DB1.DBX4.0`, `MW10`), batching items per PDU |
 | **Traffic monitor** | — | Passive: watches a mirror (SPAN) port or replays a pcap/pcapng file, decodes Modbus TCP, EtherNet/IP (CIP), S7comm, OPC UA (unencrypted) and MQTT, and keeps an inventory of who talks to which device plus events: writes, program transfers, run/stop, logins, errors, new talkers |
 
 Every service runs on its own. Cowpoke is not a bridge between them.
@@ -63,7 +64,7 @@ The web UI has no HTTPS of its own. Off a trusted network, put it behind a rever
 
 ## Define services
 
-The web UI builds services with a form for each protocol and mode, with checks as you type and a **Test** button that runs the service for a few seconds without saving; its YAML tab edits the same definition. A service is `id`, `name`, `kind` (`modbus`, `opcua`, `api`, `iolink`, `mqtt`, `eip`), `mode` (`server` or `client`), `settings` and `tags`. The UI's **New service** page starts from a commented template for each kind and mode; they're also in [`templates/`](templates).
+The web UI builds services with a form for each protocol and mode, with checks as you type and a **Test** button that runs the service for a few seconds without saving; its YAML tab edits the same definition. A service is `id`, `name`, `kind` (`modbus`, `opcua`, `api`, `iolink`, `mqtt`, `eip`, `s7`, `monitor`), `mode` (`server` or `client`), `settings` and `tags`. The UI's **New service** page starts from a commented template for each kind and mode; they're also in [`templates/`](templates).
 
 ```yaml
 services:
@@ -96,6 +97,7 @@ The address fields depend on the kind:
   - Server mode with `sparkplug` (`group_id`, `edge_node`, optional `device`): optional `metric`, the Sparkplug metric name. The default is the tag name. Plain topics are published as well. Add `broker: { host, port, tls, ca, username, password, client_id }` under `sparkplug` to also publish to an outside broker.
   - Server mode: optional `topic`. By default the tag publishes to `<prefix>/<tag name>`; a write is a publish to `<topic>/set`.
 - **EtherNet/IP:** `cip_tag`, the Logix tag name (`Program:Main.Level`). Required in client mode; in server mode it defaults to the tag name. Pick a Cowpoke datatype that holds the value (BOOL → `bool`, SINT/INT → `int16`, DINT → `int32`, LINT → `int64`, REAL → `float32`, LREAL → `float64`, STRING → `string`); client writes use the type the controller reports.
+- **Siemens S7:** `s7_address` in Siemens notation (`DB1.DBD0`, `DB1.DBX4.0`, `DB1.DBW6`, `MW10`, `I0.1` or `E0.1`, `QW4` or `AW4`), and `length` (characters) for strings. The address width must fit the datatype: bool at X, int16/uint16 at W, int32/uint32/float32 at D, 64-bit types and strings at B (or D). Values are big-endian; `scale` and `offset` work as for Modbus. S7-1200/1500 need "optimized block access" off on the data blocks and PUT/GET allowed in the CPU's protection settings.
 - **IO-Link:** `port`, `pd` (`in` or `out`), `bit_offset` and `bit_length`. Bit offsets are IODD-style: counted from the least significant bit of the last byte.
 
 What you write in the UI or the API depends on the mode:
@@ -312,6 +314,7 @@ These aren't built yet:
 - IO-Link masters other than ifm IoT Core
 - OPC UA subscriptions (the client polls)
 - Built-in HTTPS
+- S7: S7comm-plus (symbolic access on S7-1200/1500 with optimized blocks), userdata services (SZL, block lists) in the simulator
 - Traffic monitor: S7comm-plus (S7-1200/1500) and encrypted OPC UA contents, DNP3, PROFINET, out-of-order TCP reassembly
 - MQTT: Sparkplug datasets and templates, Sparkplug primary-host STATE awareness and a new bdSeq per reconnect (it changes per start), MQTT 5, TLS on the built-in broker, persistent sessions and QoS 2 delivery (QoS 2 publishes are accepted and passed on at QoS 1)
 - EtherNet/IP: connected (Forward Open) messaging, arrays beyond one element, UDTs other than STRING, tag browsing, batching client reads into Multiple Service Packets

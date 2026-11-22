@@ -228,7 +228,7 @@ impl Monitor {
         }
         // A new connection is worth recording even before any PDU decodes.
         if seg.syn && to_server {
-            found.insert(0, Obs { action: Action::Connect, what: "new TCP connection".into() });
+            found.insert(0, Obs { action: Action::Other, what: "new TCP connection".into() });
         }
         self.record(f.ts, proto, client, server, found)
     }
@@ -262,9 +262,10 @@ impl Monitor {
             *t.counts.entry(action_key(o.action).into()).or_default() += 1;
             t.last = o.what.clone();
             let notable = match o.action {
-                Action::Write | Action::Program | Action::Control | Action::Login | Action::Error | Action::Diagnostic => true,
+                Action::Write | Action::Program | Action::Control | Action::Login | Action::Error | Action::Diagnostic
+                | Action::Connect => true,
                 Action::Read => self.report_reads,
-                Action::Connect | Action::Other => new_talker && !flagged_new,
+                Action::Other => new_talker && !flagged_new,
             } || (new_talker && !flagged_new);
             let key = (tk.0.clone(), tk.1.clone(), proto, o.what.clone());
             let repeat = self.recent.get(&key).is_some_and(|&last| ts - last < REPEAT_QUIET);

@@ -66,7 +66,7 @@ function clearPage() {
 // ---------------------------------------------------------------- shell
 
 function shell(current, inner) {
-  const links = [["#/", "Services", "services"]];
+  const links = [["#/", "Dashboard", "dashboard"], ["#/services", "Services", "services"]];
   if (can("admin")) links.push(["#/users", "Users", "users"]);
   links.push(["#/settings", "Settings", "settings"]);
   $app.innerHTML = `
@@ -89,12 +89,94 @@ function shell(current, inner) {
 
 // ---------------------------------------------------------------- live events
 
+// Every tag value the UI has seen, with the last ten minutes of numeric points for sparklines.
+const LIVE = new Map();
+const FEED = [];
+const RATE = [];
+const SPARK_MS = 10 * 60 * 1000;
+const liveKey = (s, t) => `${s}\u0000${t}`;
+
+function liveSet(service, tag, value, quality, ts) {
+  const k = liveKey(service, tag);
+  const cur = LIVE.get(k) || { pts: [] };
+  const changed = cur.value !== undefined && JSON.stringify(cur.value) !== JSON.stringify(value);
+  const t = ts ? new Date(ts).getTime() : Date.now();
+  const n = typeof value === "number" ? value : typeof value === "boolean" ? +value : null;
+  if (n !== null && quality === "good") {
+    cur.pts.push([t, n]);
+    while (cur.pts.length && cur.pts[0][0] < t - SPARK_MS) cur.pts.shift();
+    if (cur.pts.length > 900) cur.pts.splice(0, cur.pts.length - 900);
+  }
+  Object.assign(cur, { value, quality, ts, changedAt: changed ? Date.now() : cur.changedAt || 0 });
+  LIVE.set(k, cur);
+  return changed;
+}
+
 function connectEvents() {
   if (S.es) return;
   S.es = new EventSource("/api/events");
-  S.es.addEventListener("tag", (e) => { if (S.page && S.page.onTag) S.page.onTag(JSON.parse(e.data)); });
-  S.es.addEventListener("status", (e) => { if (S.page && S.page.onStatus) S.page.onStatus(JSON.parse(e.data)); });
+  S.es.addEventListener("tag", (e) => {
+    const d = JSON.parse(e.data);
+    const changed = liveSet(d.service, d.tag, d.value, d.quality, d.ts);
+    RATE.push(Date.now());
+    if (changed) {
+      FEED.unshift({ service: d.service, tag: d.tag, value: d.value, quality: d.quality, ts: d.ts });
+      if (FEED.length > 60) FEED.length = 60;
+    }
+    if (S.page && S.page.onTag) S.page.onTag(d);
+  });
+  S.es.addEventListener("status", (e) => {
+    S.statuses = JSON.parse(e.data);
+    if (S.page && S.page.onStatus) S.page.onStatus(S.statuses);
+  });
   S.es.onerror = () => { if (!S.me) { S.es.close(); S.es = null; } };
+}
+
+function updatesPerSecond() {
+  const now = Date.now();
+  while (RATE.length && RATE[0] < now - 10000) RATE.shift();
+  return RATE.length / 10;
+}
+
+/// A small line chart of recent points, drawn in the theme's colors.
+function spark(canvas, pts, color) {
+  const css = getComputedStyle(document.documentElement);
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  if (!W || !H) return;
+  if (canvas.width !== W * dpr) { canvas.width = W * dpr; canvas.height = H * dpr; }
+  const g = canvas.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+  if (pts.length < 2) {
+    g.strokeStyle = css.getPropertyValue("--rule");
+    g.beginPath(); g.moveTo(0, H - 1.5); g.lineTo(W, H - 1.5); g.stroke();
+    return;
+  }
+  // Fit the window to the data: at least a minute, at most ten.
+  const now = Date.now();
+  const span = Math.min(SPARK_MS, Math.max(60000, now - pts[0][0]));
+  const from = now - span;
+  let lo = Infinity, hi = -Infinity;
+  for (const [, v] of pts) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  if (hi === lo) { hi += 1; lo -= 1; }
+  const x = (t) => ((Math.max(t, from) - from) / span) * (W - 6) + 2;
+  const y = (v) => H - 3 - ((v - lo) / (hi - lo)) * (H - 6);
+  const stroke = css.getPropertyValue(color || "--teal");
+  g.beginPath();
+  pts.forEach(([t, v], i) => (i ? g.lineTo(x(t), y(v)) : g.moveTo(x(t), y(v))));
+  g.lineTo(x(now), y(pts[pts.length - 1][1]));
+  g.lineWidth = 1.4;
+  g.strokeStyle = stroke;
+  g.stroke();
+  g.lineTo(x(now), H); g.lineTo(x(pts[0][0]), H); g.closePath();
+  g.globalAlpha = 0.12; g.fillStyle = stroke; g.fill(); g.globalAlpha = 1;
+  g.fillStyle = stroke;
+  g.beginPath(); g.arc(x(now), y(pts[pts.length - 1][1]), 2.2, 0, 7); g.fill();
+}
+
+function valueHtml(v, units) {
+  return `${esc(fmtValue(v))}${units ? `<span class="u">${esc(units)}</span>` : ""}`;
 }
 
 // ---------------------------------------------------------------- login
@@ -120,6 +202,160 @@ function loginPage() {
       route();
     } catch (e) { flash(document.getElementById("m"), e.message); }
   };
+}
+
+// ---------------------------------------------------------------- dashboard
+
+const SHORT = { modbus: "Modbus", opcua: "OPC UA", api: "API", iolink: "IO-Link" };
+const STATE_COLOR = { running: "--teal", degraded: "--brass", starting: "--brass", error: "--alert", stopped: "--muted" };
+
+async function dashboardPage() {
+  clearPage();
+  shell("dashboard", `
+    <div class="dash-head">
+      <div><h1>Dashboard</h1><p class="sub" id="clock">Live from every service.</p></div>
+      <span class="spacer"></span>
+      <input id="q" class="filter" placeholder="Filter services or tags" aria-label="Filter services or tags">
+      <div class="seg" role="group" aria-label="Show">
+        <button data-f="all" class="on">All</button><button data-f="problems">Problems</button><button data-f="server">Servers</button><button data-f="client">Clients</button>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div id="attn"></div>
+    <div class="dash">
+      <section><div class="cards" id="cards"><div class="panel pad muted">Loading…</div></div></section>
+      <aside class="panel feed"><div class="feed-h"><b>Activity</b><span class="pulse" id="pulse"></span></div><ol id="feed"></ol></aside>
+    </div>`);
+
+  let services = [];
+  let tagsBy = {};
+  let filter = "all", q = "";
+  const m = document.getElementById("attn");
+
+  const load = async () => {
+    services = await api("GET", "/api/services");
+    const lists = await Promise.all(services.map((s) => api("GET", `/api/services/${s.id}/tags`).catch(() => [])));
+    tagsBy = {};
+    services.forEach((s, i) => {
+      tagsBy[s.id] = lists[i];
+      for (const t of lists[i]) if (!LIVE.has(liveKey(s.id, t.name)) && t.value !== null) liveSet(s.id, t.name, t.value, t.quality, t.ts);
+    });
+    build();
+  };
+
+  const visible = (s) => {
+    const st = (S.statuses && S.statuses[s.id]) || s.status;
+    if (filter === "problems" && !["error", "degraded"].includes(st.state)) return false;
+    if ((filter === "server" || filter === "client") && s.mode !== filter) return false;
+    if (!q) return true;
+    const hay = [s.name, s.id, SHORT[s.kind], s.mode, ...(tagsBy[s.id] || []).map((t) => t.name)].join(" ").toLowerCase();
+    return hay.includes(q);
+  };
+
+  // Up to four tags per card: historized and numeric ones first.
+  const pick = (id) => [...(tagsBy[id] || [])]
+    .sort((a, b) => (b.historized - a.historized) || ((b.datatype !== "string") - (a.datatype !== "string")))
+    .slice(0, 4);
+
+  const build = () => {
+    const shown = services.filter(visible);
+    const cards = document.getElementById("cards");
+    if (!services.length) {
+      cards.innerHTML = `<div class="panel pad empty"><b>No services yet.</b><p class="muted">A service is a Modbus, OPC UA, API or IO-Link client or server.</p>${can("admin") ? `<a class="btn" href="#/new">Create the first one</a>` : ""}</div>`;
+      return render();
+    }
+    cards.innerHTML = shown.length ? shown.map((s) => {
+      const tags = pick(s.id);
+      return `<a class="card" href="#/s/${esc(s.id)}" data-id="${esc(s.id)}">
+        <div class="card-h"><span class="dot"></span><b class="nm">${esc(s.name)}</b><span class="spacer"></span>
+          <span class="badge">${esc(SHORT[s.kind] || s.kind)} · ${s.mode === "server" ? "server" : "client"}</span></div>
+        <div class="detail card-d"></div>
+        <div class="vals">${tags.length ? tags.map((t) => `
+          <div class="vrow" data-tag="${esc(t.name)}">
+            <span class="vn mono">${esc(t.name)}</span>
+            <canvas class="sp" aria-hidden="true"></canvas>
+            <span class="vv mono"></span>
+          </div>`).join("") : `<div class="muted small">No tags</div>`}</div>
+        <div class="card-f"><span>${s.tag_count} tag${s.tag_count === 1 ? "" : "s"}</span><span class="upd"></span></div>
+      </a>`;
+    }).join("") : `<div class="panel pad muted">Nothing matches.</div>`;
+    render();
+  };
+
+  const render = () => {
+    const st = (s) => (S.statuses && S.statuses[s.id]) || s.status;
+    // KPIs
+    const running = services.filter((s) => st(s).state === "running").length;
+    const errors = services.filter((s) => st(s).state === "error");
+    const degraded = services.filter((s) => st(s).state === "degraded");
+    let total = 0, good = 0;
+    for (const s of services) for (const t of tagsBy[s.id] || []) {
+      total++;
+      if (LIVE.get(liveKey(s.id, t.name))?.quality === "good") good++;
+    }
+    const ups = updatesPerSecond();
+    const rate = ups >= 10 ? ups.toFixed(0) : ups.toFixed(1);
+    document.getElementById("kpis").innerHTML = `
+      <div class="kpi"><span class="k">Services running</span><span class="n">${running}<small>/${services.length}</small></span>
+        <span class="bar"><i style="width:${services.length ? (running / services.length) * 100 : 0}%"></i></span></div>
+      <div class="kpi ${errors.length ? "bad" : degraded.length ? "warn" : ""}"><span class="k">Problems</span>
+        <span class="n">${errors.length + degraded.length}</span>
+        <span class="s">${errors.length ? `${errors.length} failing` : ""}${errors.length && degraded.length ? " · " : ""}${degraded.length ? `${degraded.length} degraded` : ""}${!errors.length && !degraded.length ? "all clear" : ""}</span></div>
+      <div class="kpi"><span class="k">Tags good</span><span class="n">${good}<small>/${total}</small></span>
+        <span class="bar"><i style="width:${total ? (good / total) * 100 : 0}%"></i></span></div>
+      <div class="kpi"><span class="k">Updates / s</span><span class="n">${rate}</span><span class="s">last 10 s</span></div>`;
+
+    // Problems first, in words.
+    const problems = [...errors, ...degraded];
+    m.innerHTML = problems.length ? `<div class="attn">${problems.map((s) => `
+      <a href="#/s/${esc(s.id)}" class="attn-row st-${esc(st(s).state)}"><span class="dot"></span><b>${esc(s.name)}</b>
+      <span class="detail">${esc(st(s).detail)}</span></a>`).join("")}</div>` : "";
+
+    // Cards
+    const now = Date.now();
+    document.querySelectorAll(".card[data-id]").forEach((card) => {
+      const s = services.find((x) => x.id === card.dataset.id);
+      if (!s) return;
+      const state = st(s);
+      card.className = `card st-${state.state}`;
+      card.querySelector(".card-d").textContent = state.detail || state.state;
+      let last = 0;
+      card.querySelectorAll(".vrow").forEach((row) => {
+        const t = (tagsBy[s.id] || []).find((x) => x.name === row.dataset.tag);
+        const lv = LIVE.get(liveKey(s.id, row.dataset.tag));
+        const vv = row.querySelector(".vv");
+        vv.innerHTML = valueHtml(lv?.value, t?.units);
+        vv.className = `vv mono q-${lv?.quality || ""} ${lv && now - lv.changedAt < 900 ? "chg" : ""}`;
+        spark(row.querySelector("canvas"), lv?.pts || [], lv?.quality === "good" ? STATE_COLOR[state.state] || "--teal" : "--alert");
+        if (lv?.ts) last = Math.max(last, new Date(lv.ts).getTime());
+      });
+      card.querySelector(".upd").textContent = last ? `updated ${ago(new Date(last).toISOString())}` : "";
+    });
+
+    // Activity feed
+    const names = Object.fromEntries(services.map((s) => [s.id, s.name]));
+    document.getElementById("feed").innerHTML = FEED.filter((f) => names[f.service] && visible(services.find((s) => s.id === f.service)))
+      .slice(0, 18)
+      .map((f) => `<li><time>${esc(new Date(f.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }))}</time>
+        <span class="ft"><span class="muted">${esc(names[f.service])}</span> <span class="mono">${esc(f.tag)}</span></span>
+        <span class="mono fv q-${esc(f.quality)}">${esc(fmtValue(f.value))}</span></li>`).join("") || `<li class="muted">Waiting for changes…</li>`;
+    document.getElementById("pulse").classList.toggle("on", RATE.length && now - RATE[RATE.length - 1] < 1500);
+    document.getElementById("clock").textContent = `Live from every service · ${new Date().toLocaleTimeString()}`;
+  };
+
+  document.getElementById("q").oninput = (e) => { q = e.target.value.trim().toLowerCase(); build(); };
+  document.querySelectorAll(".seg [data-f]").forEach((b) => (b.onclick = () => {
+    filter = b.dataset.f;
+    document.querySelectorAll(".seg [data-f]").forEach((x) => x.classList.toggle("on", x === b));
+    build();
+  }));
+  S.page = { redraw: render, onStatus: () => {
+    // A service added or removed elsewhere: reload the list.
+    const ids = Object.keys(S.statuses || {}).sort().join();
+    if (ids !== services.map((s) => s.id).sort().join()) load(); else render();
+  } };
+  S.timers.push(setInterval(render, 1000));
+  load().catch((e) => flash(m, e.message));
 }
 
 // ---------------------------------------------------------------- services list
@@ -252,11 +488,12 @@ async function tagsTab(svc, body, page, m) {
   const tags = await api("GET", `/api/services/${svc.id}/tags`);
   const writable = (t) => can("operator") && (svc.mode === "server" || t.writable);
   body.innerHTML = `<div class="panel tabbody scroll"><table>
-    <thead><tr><th>Tag</th><th>Type</th><th class="num">Value</th><th class="hide-sm">Updated</th><th>${can("operator") ? "Write" : ""}</th><th></th></tr></thead>
+    <thead><tr><th>Tag</th><th>Type</th><th class="hide-sm">Last 10 min</th><th class="num">Value</th><th class="hide-sm">Updated</th><th>${can("operator") ? "Write" : ""}</th><th></th></tr></thead>
     <tbody>${tags.length ? tags.map((t) => `
       <tr data-tag="${esc(t.name)}">
         <td><span class="mono">${esc(t.name)}</span>${t.description ? `<br><span class="muted">${esc(t.description)}</span>` : ""}</td>
         <td><span class="tag">${esc(t.datatype)}</span></td>
+        <td class="hide-sm"><canvas class="sp sp-row" aria-hidden="true"></canvas></td>
         <td class="num mono val q-${esc(t.quality || "")}">${esc(fmtValue(t.value))}${t.units ? ` <span class="muted">${esc(t.units)}</span>` : ""}</td>
         <td class="hide-sm muted ts" data-ts="${esc(t.ts || "")}">${esc(ago(t.ts))}</td>
         <td>${writable(t) ? `<form class="row w"><input class="mono" name="v" size="9" aria-label="New value for ${esc(t.name)}"><button class="small">Set</button></form>` : `<span class="muted">${can("operator") ? "read-only" : ""}</span>`}</td>
@@ -269,13 +506,26 @@ async function tagsTab(svc, body, page, m) {
     const tr = body.querySelector(`tr[data-tag="${CSS.escape(e.tag)}"]`);
     if (!tr) return;
     const v = tr.querySelector(".val");
-    v.className = `num mono val q-${e.quality}`;
+    const lv = LIVE.get(liveKey(svc.id, e.tag));
+    const fresh = lv && Date.now() - lv.changedAt < 200;
+    v.className = `num mono val q-${e.quality}${fresh ? " chg" : ""}`;
     v.innerHTML = `${esc(fmtValue(e.value))}${units[e.tag] ? ` <span class="muted">${esc(units[e.tag])}</span>` : ""}`;
     const ts = tr.querySelector(".ts");
     ts.dataset.ts = e.ts;
     ts.textContent = ago(e.ts);
   };
-  S.timers.push(setInterval(() => body.querySelectorAll(".ts").forEach((td) => (td.textContent = ago(td.dataset.ts))), 1000));
+  const drawSparks = () => body.querySelectorAll("tr[data-tag]").forEach((tr) => {
+    const lv = LIVE.get(liveKey(svc.id, tr.dataset.tag));
+    const c = tr.querySelector("canvas.sp");
+    if (c) spark(c, lv?.pts || [], lv && lv.quality !== "good" ? "--alert" : "--teal");
+  });
+  for (const t of tags) if (!LIVE.has(liveKey(svc.id, t.name)) && t.value !== null) liveSet(svc.id, t.name, t.value, t.quality, t.ts);
+  drawSparks();
+  page.redraw = drawSparks;
+  S.timers.push(setInterval(() => {
+    body.querySelectorAll(".ts").forEach((td) => (td.textContent = ago(td.dataset.ts)));
+    drawSparks();
+  }, 1000));
   body.querySelectorAll("form.w").forEach((f) => {
     f.onsubmit = async (ev) => {
       ev.preventDefault();
@@ -501,7 +751,8 @@ async function route() {
   if (parts[0] === "new") return newPage();
   if (parts[0] === "users") return usersPage();
   if (parts[0] === "settings") return settingsPage();
-  return servicesPage();
+  if (parts[0] === "services") return servicesPage();
+  return dashboardPage();
 }
 
 window.addEventListener("hashchange", route);

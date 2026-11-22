@@ -5,12 +5,15 @@
 //! `cowpoke agent` runs an edge agent that dials out to a hub and runs the services assigned to it.
 
 mod agent;
+mod alarms;
 mod auth;
 mod codec;
+mod dashboards;
 mod generate;
 mod historian;
 mod manager;
 mod model;
+mod panels;
 mod services;
 mod store;
 mod tags;
@@ -19,6 +22,8 @@ mod web;
 
 #[cfg(test)]
 mod agent_tests;
+#[cfg(test)]
+mod alarm_tests;
 #[cfg(test)]
 mod loopback_tests;
 
@@ -60,6 +65,18 @@ async fn main() -> Result<()> {
     }
 }
 
+/// Start the alarm engine and open the dashboards; the router for their pages and API.
+pub fn setup_panels(app: &web::App) -> Result<panels::Panels> {
+    let store = Arc::new(alarms::AlarmStore::open(&app.data_dir.join("alarms.yaml"))?);
+    let engine = alarms::Engine::new(app.clone(), store);
+    tokio::spawn(engine.clone().run());
+    Ok(panels::Panels {
+        app: app.clone(),
+        engine,
+        dash: Arc::new(dashboards::Dashboards::open(&app.data_dir.join("dashboards.json"))?),
+    })
+}
+
 /// Open a hub's stores, start its services and return the app the web layer serves.
 pub async fn setup_hub(data_dir: &Path, config_path: &Path) -> Result<web::App> {
     std::fs::create_dir_all(data_dir)
@@ -98,7 +115,8 @@ async fn run_hub(data_dir: PathBuf) -> Result<()> {
         .with_context(|| format!("can't listen on {bind}"))?;
     tracing::info!("web UI and API on http://{bind}");
     let (mgr, hist) = (app.mgr.clone(), app.hist.clone());
-    axum::serve(listener, web::router(app))
+    let panels = setup_panels(&app)?;
+    axum::serve(listener, web::router(app).merge(panels::router(panels)))
         .with_graceful_shutdown(async {
             shutdown_signal().await;
             tracing::info!("shutting down");

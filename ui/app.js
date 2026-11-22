@@ -66,14 +66,14 @@ function clearPage() {
 // ---------------------------------------------------------------- shell
 
 function shell(current, inner) {
-  const links = [["#/", "Dashboard", "dashboard"], ["#/services", "Services", "services"], ["#/agents", "Agents", "agents"]];
+  const links = [["#/", "Dashboard", "dashboard"], ["#/boards", "Boards", "boards"], ["#/services", "Services", "services"], ["#/alarms", "Alarms", "alarms"], ["#/agents", "Agents", "agents"]];
   if (can("admin")) links.push(["#/users", "Users", "users"]);
   links.push(["#/settings", "Settings", "settings"]);
   $app.innerHTML = `
     <header class="top">
       <a class="brand" href="#/"><span class="word">COWPOKE</span><span class="by">by Ohmstead</span></a>
       <nav>${links.map(([h, l, k]) => `<a href="${h}" class="${k === current ? "current" : ""}">${l}</a>`).join("")}</nav>
-      <div class="who"><span class="name">${esc(S.me.username)} · ${esc(S.me.role)}</span>
+      <div class="who"><a id="alarm-pill" class="alarm-pill" href="#/alarms/active" hidden></a><span class="name">${esc(S.me.username)} · ${esc(S.me.role)}</span>
         <button class="small" id="theme" title="Switch light and dark">Theme</button>
         <button class="small" id="logout">Sign out</button></div>
     </header>
@@ -843,6 +843,7 @@ async function route() {
   if (parts[0] === "settings") return settingsPage();
   if (parts[0] === "services") return servicesPage();
   if (parts[0] === "agents") return agentsPage();
+  if (typeof panelsRoute === "function" && panelsRoute(parts)) return;
   return dashboardPage();
 }
 

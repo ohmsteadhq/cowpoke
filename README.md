@@ -145,6 +145,69 @@ How it behaves:
 | `DELETE /api/agents/<id>` | admin |
 | `GET /api/agents/connect` (WebSocket, `Authorization: Bearer <agent token>`) | the agent |
 
+## Boards, alarms and hooks
+
+**Boards** are dashboards you build in the UI: a 12-column grid of widgets that everyone sees, edited by operators and admins. They're stored in `<data>/dashboards.json`.
+
+| Widget | Shows |
+|---|---|
+| Trend | Up to 8 tags on one time chart (15 min to 30 days) from the historian, with the live values added on as they arrive |
+| Value | One big number with units and when it last changed |
+| Gauge | A dial with its scale and the tag's high and low alarm limits marked |
+| Lamp | A bool as a light, optionally with a button so operators can switch it |
+| Alarms | The active and unacknowledged alarms, optionally for one service, with Ack buttons |
+
+**Alarms** watch one tag each. Each alarm has one of these conditions:
+
+| Condition | Raises when |
+|---|---|
+| `high` / `low` | The value is past `limit`. `deadband` sets how far back it must go before the alarm clears |
+| `equals` | The value equals `value` (a fault bit, a mode number) |
+| `bad_quality` | The tag goes bad: the device is unreachable or the edge agent is offline |
+| `stale` | The tag hasn't updated for `stale_s` seconds |
+| `rate` | The value changes faster than `rate_per_min`, in either direction |
+
+- `delay_s` makes the condition hold for that many seconds before the alarm raises.
+- Each alarm has a severity: `low`, `medium`, `high` or `critical`.
+- A raised alarm stays listed until it has both cleared and been acknowledged. Operators acknowledge alarms.
+- Values that come in with bad quality never raise or clear a limit alarm.
+- Services on edge agents get alarms too, because alarms are evaluated on the hub.
+- Every raise, clear and acknowledge goes to `<data>/alarm-log.jsonl`. The current alarm states are kept in `alarm-state.json`, so a restart doesn't send the same notifications again.
+
+**Hooks** run when an alarm raises, clears or is acknowledged:
+
+| Kind | Does |
+|---|---|
+| `webhook` | Sends a request to a URL: the alarm event as JSON, or your own body. Works for Slack, Teams, Discord, PagerDuty, n8n and Node-RED |
+| `write` | Writes `value` to any tag when the alarm raises, and `clear_value` when it clears, for example a horn or a stack light |
+| `email` | Sends mail through SMTP (STARTTLS, TLS or none) |
+| `mqtt` | Publishes to a broker topic, at QoS 0 or 1, optionally retained |
+
+- Bodies, subjects, topics and URLs can use placeholders: `{{name}}`, `{{alarm}}`, `{{event}}`, `{{severity}}`, `{{message}}`, `{{value}}`, `{{service}}`, `{{tag}}`, `{{time}}` and `{{user}}`. A JSON string that is just `"{{value}}"` is sent as the value itself, with its type.
+- A failed hook is retried twice.
+- The Hooks tab shows each hook's last result and has a **Test** button.
+
+Alarms and hooks are saved in `<data>/alarms.yaml`. Download or import that file from the Alarms tab, or use `GET`/`PUT /api/alarms/config`.
+
+```yaml
+alarms:
+  - { id: tank-high, name: Tank level high, service: tank, tag: level, kind: high, limit: 80, deadband: 3, severity: high, hooks: [horn, chat] }
+hooks:
+  - { id: horn, kind: write, service: tank, tag: horn, value: true, clear_value: false }
+  - { id: chat, kind: webhook, url: "https://hooks.slack.com/services/…", body: { text: "{{message}}" }, on: [raise, clear] }
+```
+
+`alarms.yaml` holds SMTP and MQTT passwords as plain text, so keep the data volume private.
+
+| Route | Role |
+|---|---|
+| `GET /api/alarms` (definitions with `state` and current value), `GET /api/alarms/log?limit=`, `GET /api/alarms/events` (server-sent events) | viewer |
+| `POST /api/alarms/<id>/ack`, `POST /api/alarms/ack-all` | operator |
+| `POST /api/alarms`, `PUT`/`DELETE /api/alarms/<id>`, `GET`/`PUT /api/alarms/config` | admin |
+| `GET`/`POST /api/hooks`, `PUT`/`DELETE /api/hooks/<id>`, `POST /api/hooks/<id>/test` (an optional body tries an unsaved hook) | admin |
+| `GET /api/dashboards`, `GET /api/dashboards/<id>` | viewer |
+| `POST /api/dashboards`, `PUT`/`DELETE /api/dashboards/<id>` | operator |
+
 ## Historian storage
 
 History lives under `<data>/history/<service>/<tag>/`, one set of files per UTC day:
@@ -184,7 +247,6 @@ These aren't built yet:
 - IO-Link masters other than ifm IoT Core
 - OPC UA subscriptions (the client polls)
 - Built-in HTTPS
-- Alarms
 
 ## License
 

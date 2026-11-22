@@ -139,6 +139,13 @@ const SCHEMAS = {
     ] },
     { k: "ca", label: "CA certificate (PEM)", type: "body", ph: "-----BEGIN CERTIFICATE-----", adv: true, help: "For a broker with its own CA. Blank uses the system's roots." },
   ],
+  "monitor/client": [
+    { k: "interface", label: "Capture interface", type: "text", ph: "eth1", help: "The mirror (SPAN) port. In Docker: --cap-add NET_RAW --network host." },
+    { k: "file", label: "Or replay a capture file", type: "text", ph: "capture.pcapng", help: "pcap or pcapng, relative to the service's data folder." },
+    { k: "learn_minutes", label: "Learning period (min)", type: "number", ph: "60", help: "Talkers first seen after this are flagged as new." },
+    { k: "report_reads", label: "List reads as events", type: "bool", adv: true, help: "Noisy: polling clients read constantly." },
+    { k: "filter", label: "Extra capture filter (BPF)", type: "text", ph: "net 192.168.10.0/24", adv: true },
+  ],
   "eip/server": [
     { k: "port", label: "Port", type: "number", ph: "44818", help: "Answers Logix Read Tag / Write Tag requests, routed to any slot." },
     { k: "product_name", label: "Product name", type: "text", ph: "Cowpoke Logix simulator", help: "What browse tools see in ListIdentity." },

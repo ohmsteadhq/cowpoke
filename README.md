@@ -12,6 +12,7 @@ Create *services* in a web UI, a REST API or a YAML file. Each service speaks on
 | **IO-Link** | Simulated ifm IoT Core master: `pdin`/`pdout`, device info, `getdatamulti` | Reads sensors through a real ifm IoT Core master (AL13xx and similar) by IODD bit offset; writes `pdout` |
 | **MQTT** | Built-in MQTT 3.1.1 broker: publishes every tag on change to `<prefix>/<tag>` (retained), takes writes on `<topic>/set`, optional login; optionally a **Sparkplug B edge node** (or device): NBIRTH/DBIRTH, data on change by alias, NDEATH, writes and rebirth through NCMD/DCMD, on its own broker and optionally an outside one (with an NDEATH will); other clients publish and subscribe as with any broker | Subscribes to a broker's topics (wildcards allowed), picks values from JSON or text payloads with JSON pointers; writes publish to a topic template; TLS, login, QoS 0/1, retain. **Sparkplug B**: reads an edge node's or device's metrics from births and data (aliases included), marks tags bad on death, asks for a rebirth, writes with NCMD/DCMD |
 | **EtherNet/IP** | Simulated Logix controller: Read Tag / Write Tag by symbolic name, direct or via Unconnected Send to any slot, Multiple Service Packet, ListIdentity | Reads and writes ControlLogix / CompactLogix tags by symbolic name (`Program:Main.Level`, `Tank[3].Temp`): BOOL, SINT, INT, DINT, LINT, REAL, LREAL, STRING |
+| **Traffic monitor** | — | Passive: watches a mirror (SPAN) port or replays a pcap/pcapng file, decodes Modbus TCP, EtherNet/IP (CIP), S7comm, OPC UA (unencrypted) and MQTT, and keeps an inventory of who talks to which device plus events: writes, program transfers, run/stop, logins, errors, new talkers |
 
 Every service runs on its own. Cowpoke is not a bridge between them.
 
@@ -293,6 +294,16 @@ The code is laid out like this:
 
 The UI follows the Ohmstead design language (`ohmstead/design/DESIGN.md`).
 
+## Traffic monitor
+
+A `monitor` service (mode `client`) listens without sending anything. Point it at a mirror (SPAN) port with `interface`, or replay a capture with `file`. It reassembles TCP streams and decodes Modbus TCP (including Schneider UMAS program and run/stop functions), EtherNet/IP and CIP (tag reads and writes, Forward Open, reset/start/stop, file transfers, inside Unconnected Send and Multiple Service Packets), S7comm (variable reads and writes, block download and upload, PLC stop and run, passwords, SZL reads), OPC UA binary (services, when the channel isn't encrypted) and MQTT (connects, logins, publishes, subscriptions, refused connections).
+
+The **Traffic** tab lists talkers (client → device, protocol, counts) and events. Reads are counted, not listed; a repeated event from the same talker is listed once a minute. Talkers first seen after `learn_minutes` are flagged as new. The counters (`talkers`, `devices`, `events`, `writes`, `program_changes`, `control_actions`, `logins`, `errors`, `new_talkers`, `last_event`) are tags: record them, alarm on them, put them on boards. `GET /api/services/<id>/monitor` returns the inventory and events.
+
+Live capture in Docker needs `--cap-add NET_RAW --network host` (or the mirror interface passed into the container). Builds without the default `live-capture` feature (no libpcap) can only replay files.
+
+This is change and anomaly monitoring for the industrial traffic it sees, not a certified intrusion detection system.
+
 ## Not yet
 
 These aren't built yet:
@@ -301,6 +312,7 @@ These aren't built yet:
 - IO-Link masters other than ifm IoT Core
 - OPC UA subscriptions (the client polls)
 - Built-in HTTPS
+- Traffic monitor: S7comm-plus (S7-1200/1500) and encrypted OPC UA contents, DNP3, PROFINET, out-of-order TCP reassembly
 - MQTT: Sparkplug datasets and templates, Sparkplug primary-host STATE awareness and a new bdSeq per reconnect (it changes per start), MQTT 5, TLS on the built-in broker, persistent sessions and QoS 2 delivery (QoS 2 publishes are accepted and passed on at QoS 1)
 - EtherNet/IP: connected (Forward Open) messaging, arrays beyond one element, UDTs other than STRING, tag browsing, batching client reads into Multiple Service Packets
 

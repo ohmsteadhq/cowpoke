@@ -27,6 +27,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<()> {
         (Kind::Mqtt, Mode::Client) => mqtt::client(ctx).await,
         (Kind::Eip, Mode::Server) => eip::server(ctx).await,
         (Kind::Eip, Mode::Client) => eip::client(ctx).await,
+        (Kind::Monitor, _) => crate::monitor::run(ctx).await,
     }
 }
 
@@ -58,6 +59,7 @@ pub fn template(kind: Kind, mode: Mode) -> &'static str {
         (Kind::Mqtt, Mode::Client) => include_str!("../../templates/mqtt-client.yaml"),
         (Kind::Eip, Mode::Server) => include_str!("../../templates/eip-server.yaml"),
         (Kind::Eip, Mode::Client) => include_str!("../../templates/eip-client.yaml"),
+        (Kind::Monitor, _) => include_str!("../../templates/monitor-client.yaml"),
     }
 }
 
@@ -91,6 +93,7 @@ pub fn check_settings(def: &crate::model::ServiceDef) -> Result<(), String> {
         Kind::Iolink => iolink::check_settings(def.mode, &def.settings),
         Kind::Mqtt => mqtt::check_settings(def.mode, &def.settings),
         Kind::Eip => eip::check_settings(def.mode, &def.settings),
+        Kind::Monitor => crate::monitor::check_settings(def.mode, &def.settings),
     }
 }
 
@@ -106,6 +109,7 @@ pub fn listen_port(def: &crate::model::ServiceDef) -> Option<u16> {
         Kind::Iolink => Some(explicit.unwrap_or(8080)),
         Kind::Mqtt => Some(explicit.unwrap_or(1883)),
         Kind::Eip => Some(explicit.unwrap_or(44818)),
+        Kind::Monitor => None,
         Kind::Api => explicit,
     }
 }

@@ -432,6 +432,15 @@ async fn restart_service(State(app): State<App>, me: Me, Path(id): Path<String>)
 
 // ------------------------------------------------------------------ tags
 
+/// A monitor service's inventory of talkers and its recent events.
+async fn monitor_state(State(app): State<App>, _me: Me, Path(id): Path<String>) -> R<Json<Value>> {
+    let s = find(&app, &id)?;
+    if s.kind != crate::model::Kind::Monitor {
+        return Err(bad(format!("`{id}` isn't a monitor service")));
+    }
+    Ok(Json(crate::monitor::snapshot(&id).unwrap_or_else(|| json!({"talkers": [], "events": [], "totals": {}}))))
+}
+
 async fn list_tags(State(app): State<App>, _me: Me, Path(id): Path<String>) -> R<Json<Value>> {
     let s = find(&app, &id)?;
     let out: Vec<Value> = s
@@ -761,6 +770,7 @@ pub fn router(app: App) -> Router {
         .route("/api/services/{id}/stop", post(stop_service))
         .route("/api/services/{id}/restart", post(restart_service))
         .route("/api/services/{id}/tags", get(list_tags))
+        .route("/api/services/{id}/monitor", get(monitor_state))
         .route("/api/services/{id}/tags/{tag}", put(write_tag))
         .route("/api/services/{id}/history/{tag}", get(history))
         .route("/api/services/{id}/certs", get(list_certs))

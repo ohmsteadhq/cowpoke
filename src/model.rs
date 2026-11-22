@@ -15,6 +15,8 @@ pub enum Kind {
     Mqtt,
     /// EtherNet/IP (CIP explicit messaging to Logix controllers).
     Eip,
+    /// Passive traffic monitoring on a mirror port (or a capture file).
+    Monitor,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -343,6 +345,15 @@ impl ServiceDef {
                     }
                     let name = t.cip_tag.as_deref().unwrap_or(&t.name);
                     crate::services::eip::tag_path(name).map_err(|e| format!("tag `{}`: {e}", t.name))?;
+                }
+                Kind::Monitor => {
+                    let Some((_, dt, _)) = crate::monitor::COUNTERS.iter().find(|c| c.0 == t.name) else {
+                        let names: Vec<&str> = crate::monitor::COUNTERS.iter().map(|c| c.0).collect();
+                        return Err(format!("tag `{}`: a monitor's tags are its counters: {}", t.name, names.join(", ")));
+                    };
+                    if t.datatype != *dt {
+                        return Err(format!("tag `{}`: this counter is {:?}", t.name, dt).to_lowercase());
+                    }
                 }
                 Kind::Iolink => {
                     if t.port.is_none() {

@@ -14,6 +14,7 @@ mod historian;
 mod import_ohmstead;
 mod manager;
 mod model;
+mod monitor;
 mod panels;
 mod services;
 mod store;

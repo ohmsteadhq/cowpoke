@@ -12,6 +12,7 @@ const KINDS = {
   api: { label: "API request", server: "Mock an HTTP API with canned routes, and serve tags as JSON.", client: "Call an HTTP endpoint on a timer and read values from the JSON." },
   iolink: { label: "IO-Link", server: "A simulated IO-Link master (ifm IoT Core JSON).", client: "Read sensors through a real ifm IoT Core master." },
   mqtt: { label: "MQTT", server: "A built-in broker that publishes every tag on change and takes writes on /set.", client: "Subscribe to a broker's topics and publish writes." },
+  monitor: { label: "Traffic monitor", client: "Watch a mirror port (or replay a capture): who talks to which device, plus writes, program changes, run/stop and errors.", server: null },
   eip: { label: "EtherNet/IP", server: "A simulated Logix controller answering tag reads and writes.", client: "Read and write tags on an Allen-Bradley ControlLogix or CompactLogix." },
 };
 
@@ -208,7 +209,7 @@ function loginPage() {
 
 // ---------------------------------------------------------------- dashboard
 
-const SHORT = { modbus: "Modbus", opcua: "OPC UA", api: "API", iolink: "IO-Link", mqtt: "MQTT", eip: "EtherNet/IP" };
+const SHORT = { modbus: "Modbus", opcua: "OPC UA", api: "API", iolink: "IO-Link", mqtt: "MQTT", eip: "EtherNet/IP", monitor: "Monitor" };
 const STATE_COLOR = { running: "--teal", degraded: "--brass", starting: "--brass", error: "--alert", stopped: "--muted" };
 
 async function dashboardPage() {
@@ -429,10 +430,11 @@ async function newPage() {
   let def = { id: "", name: "", kind, mode, enabled: true, settings: {}, tags: [] };
   const draw = () => {
     document.getElementById("kinds").innerHTML = Object.entries(KINDS).map(([k, v]) =>
-      `<button class="choice ${k === kind ? "on" : ""}" data-k="${k}" aria-pressed="${k === kind}"><b>${esc(v.label)}</b><span>${esc(v[mode])}</span></button>`).join("");
+      `<button class="choice ${k === kind ? "on" : ""}" data-k="${k}" aria-pressed="${k === kind}"><b>${esc(v.label)}</b><span>${esc(v[mode] || v.client)}</span></button>`).join("");
+    // A kind without a server mode (the traffic monitor) only listens.
     document.getElementById("modes").innerHTML = ["server", "client"].map((m) =>
-      `<button class="choice ${m === mode ? "on" : ""}" data-m="${m}" aria-pressed="${m === mode}"><b>${m === "server" ? "Server" : "Client"}</b><span>${m === "server" ? "Cowpoke acts as the device." : "Cowpoke talks to a real device."}</span></button>`).join("");
-    document.querySelectorAll("[data-k]").forEach((b) => (b.onclick = () => { kind = b.dataset.k; restart(); }));
+      `<button class="choice ${m === mode ? "on" : ""}" data-m="${m}" aria-pressed="${m === mode}" ${KINDS[kind][m] === null ? "disabled" : ""}><b>${m === "server" ? "Server" : "Client"}</b><span>${m === "server" ? "Cowpoke acts as the device." : "Cowpoke talks to a real device."}</span></button>`).join("");
+    document.querySelectorAll("[data-k]").forEach((b) => (b.onclick = () => { kind = b.dataset.k; if (KINDS[kind][mode] === null) mode = "client"; restart(); }));
     document.querySelectorAll("[data-m]").forEach((b) => (b.onclick = () => { mode = b.dataset.m; restart(); }));
   };
   // Switching protocol or mode starts over, keeping the name and id.
@@ -454,7 +456,8 @@ async function servicePage(id, tab = "tags") {
   let svc;
   try { svc = await api("GET", `/api/services/${encodeURIComponent(id)}`); }
   catch (e) { shell("services", `<div class="msg err">${esc(e.message)}</div>`); return; }
-  const tabs = [["tags", "Tags"]];
+  const tabs = svc.kind === "monitor" ? [["traffic", "Traffic"], ["tags", "Counters"]] : [["tags", "Tags"]];
+  if (svc.kind === "monitor" && tab === "tags" && !location.hash.endsWith("/tags")) tab = "traffic";
   if (can("admin")) tabs.push(["definition", "Settings"]);
   if (can("admin") && svc.kind === "opcua") tabs.push(["certs", "Certificates"]);
   const mount = svc.kind === "api" && svc.mode === "server" && !(svc.definition.settings || {}).port
@@ -495,6 +498,7 @@ async function servicePage(id, tab = "tags") {
   if (tab === "tags") tagsTab(svc, body, page, m);
   else if (tab === "definition") definitionTab(svc, body, m);
   else if (tab === "certs") certsTab(svc, body, m);
+  else if (tab === "traffic") trafficTab(svc, body, m);
 }
 
 async function tagsTab(svc, body, page, m) {
@@ -627,6 +631,36 @@ async function definitionTab(svc, body, m) {
     def: svc.definition, editing: svc.id, agents,
     onSaved: (s) => { location.hash = `#/s/${s.id}`; },
   });
+}
+
+const ACTION_CLASS = { error: "st-error", write: "st-degraded", program: "st-error", control: "st-degraded", login: "st-degraded" };
+
+async function trafficTab(svc, body, m) {
+  const proto = { modbus: "Modbus", enip: "EtherNet/IP", s7: "S7", opcua: "OPC UA", mqtt: "MQTT" };
+  const time = (t) => esc(new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+  const load = async () => {
+    const r = await api("GET", `/api/services/${svc.id}/monitor`);
+    const counts = (c) => Object.entries(c).map(([k, v]) => `${esc(k)} ${v}`).join(" · ");
+    body.innerHTML = `<div class="panel pad tabbody">
+      <h3>Events</h3>
+      <p class="muted">Writes, program transfers, run/stop, logins, errors, and talkers first seen after the learning period. Repeats within a minute are counted, not listed.</p>
+      <div class="scroll"><table><thead><tr><th>Time</th><th>Client</th><th>Device</th><th>Protocol</th><th>What</th></tr></thead><tbody>
+      ${r.events.length ? r.events.slice(0, 200).map((e) => `<tr>
+        <td class="detail">${time(e.ts)}</td><td class="mono">${esc(e.client)}</td><td class="mono">${esc(e.server)}</td>
+        <td>${esc(proto[e.protocol] || e.protocol)}</td>
+        <td><span class="${ACTION_CLASS[e.action] || ""}"><span class="dot"></span>${esc(e.action)}</span> ${esc(e.what)}${e.new_talker ? ` <span class="tag">new talker</span>` : ""}</td></tr>`).join("")
+        : `<tr><td colspan="5" class="muted">No events yet.</td></tr>`}
+      </tbody></table></div>
+      <h3>Talkers</h3>
+      <div class="scroll"><table><thead><tr><th>Client</th><th>Device</th><th>Protocol</th><th>Seen</th><th>Requests</th><th>Last</th></tr></thead><tbody>
+      ${r.talkers.length ? r.talkers.map((t) => `<tr>
+        <td class="mono">${esc(t.client)}</td><td class="mono">${esc(t.server)}</td><td>${esc(proto[t.protocol] || t.protocol)}</td>
+        <td class="detail">${time(t.first_seen)} → ${time(t.last_seen)}</td><td class="detail">${counts(t.counts)}</td><td class="detail">${esc(t.last)}</td></tr>`).join("")
+        : `<tr><td colspan="6" class="muted">Nothing seen yet.</td></tr>`}
+      </tbody></table></div></div>`;
+  };
+  load().catch((e) => flash(m, e.message));
+  S.timers.push(setInterval(() => load().catch(() => {}), 3000));
 }
 
 async function certsTab(svc, body, m) {

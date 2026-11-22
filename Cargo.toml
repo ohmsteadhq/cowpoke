@@ -20,6 +20,8 @@ futures = "0.3.34"
 hex = "0.4.3"
 lettre = { version = "0.11.24", default-features = false, features = ["tokio1", "tokio1-rustls", "ring", "webpki-roots", "smtp-transport", "builder", "hostname"] }
 parking_lot = "0.12.5"
+pcap = { version = "2", optional = true }
+pcap-file = "3"
 rand = "0.8"
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls", "query"] }
 rumqttc = "0.25.1"
@@ -43,3 +45,8 @@ tempfile = "3.27.0"
 [profile.release]
 lto = "thin"
 strip = true
+
+[features]
+default = ["live-capture"]
+# Live packet capture for the monitor service (needs libpcap). Without it, monitors replay pcap files only.
+live-capture = ["dep:pcap"]

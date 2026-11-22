@@ -1,0 +1,29 @@
+# Passive traffic monitoring: watch a mirror (SPAN) port, or replay a capture file,
+# and build an inventory of who talks to which device plus notable events: writes,
+# program transfers, run/stop, logins, errors and talkers new after the learning period.
+# Decodes Modbus TCP, EtherNet/IP (CIP), S7comm, OPC UA (unencrypted) and MQTT.
+# In Docker, live capture needs `--cap-add NET_RAW --network host`.
+id: ot-monitor
+name: OT traffic monitor
+kind: monitor
+mode: client              # a monitor only listens
+# agent: plant-1          # run on an edge agent with a mirror port
+settings:
+  interface: eth1         # the mirror port
+  # file: capture.pcapng  # or replay a capture (relative to the service's data folder)
+  # filter: "net 192.168.10.0/24"   # extra BPF filter
+  # ports: { modbus: [502, 1502], s7: [102] }   # non-standard ports
+  learn_minutes: 60       # talkers first seen after this are flagged as new
+  report_reads: false
+# The counters, as tags: record them, alarm on them, put them on boards.
+tags:
+  - { name: talkers, datatype: uint32 }
+  - { name: devices, datatype: uint32 }
+  - { name: events, datatype: uint64 }
+  - { name: writes, datatype: uint64, history: { mode: interval, interval_ms: 60000 } }
+  - { name: program_changes, datatype: uint64 }
+  - { name: control_actions, datatype: uint64 }
+  - { name: logins, datatype: uint64 }
+  - { name: errors, datatype: uint64 }
+  - { name: new_talkers, datatype: uint64 }
+  - { name: last_event, datatype: string }

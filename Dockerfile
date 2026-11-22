@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM rust:1.93-bookworm AS build
 WORKDIR /src
+# libpcap for the monitor service's live capture.
+RUN apt-get update && apt-get install -y --no-install-recommends libpcap-dev && rm -rf /var/lib/apt/lists/*
 # Build dependencies first so code changes don't rebuild them.
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release && rm -rf src
@@ -10,7 +12,7 @@ COPY templates templates
 RUN touch src/main.rs && cargo build --release
 
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tini \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tini libpcap0.8 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --home /data cowpoke \
     && mkdir /data && chown cowpoke /data

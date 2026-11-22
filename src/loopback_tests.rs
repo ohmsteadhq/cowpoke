@@ -757,3 +757,94 @@ tags:
     assert_eq!(rig.tags.get("host", "level").map(|s| s.quality), Some(Quality::Bad));
     rig.stop().await;
 }
+
+/// Passive monitoring: real Modbus, EtherNet/IP and MQTT traffic between Cowpoke clients
+/// and simulators is recorded through a tap proxy, then replayed into a monitor service.
+#[tokio::test(flavor = "multi_thread")]
+async fn monitor_replays_recorded_traffic() {
+    use crate::monitor::tap;
+    let (mb, eip, mq) = (free_port(), free_port(), free_port());
+    // Label the recording as plant addresses on the protocols' standard ports.
+    let (mb_tap, mb_rec) = tap::start(([127, 0, 0, 1], mb).into(), "10.0.0.10:502".parse().unwrap(), [10, 0, 0, 50]).await.unwrap();
+    let (eip_tap, eip_rec) = tap::start(([127, 0, 0, 1], eip).into(), "10.0.0.11:44818".parse().unwrap(), [10, 0, 0, 50]).await.unwrap();
+    let (mq_tap, mq_rec) = tap::start(([127, 0, 0, 1], mq).into(), "10.0.0.12:1883".parse().unwrap(), [10, 0, 0, 51]).await.unwrap();
+    let rig = Rig::start(vec![
+        svc(&format!("id: mbs\nkind: modbus\nmode: server\nsettings: {{ bind: 127.0.0.1, port: {mb} }}\ntags: [{{ name: level, datatype: float32, register: 0, initial: 1.5 }}, {{ name: run, datatype: bool, table: coil, register: 2 }}]\n")),
+        svc(&format!("id: mbc\nkind: modbus\nmode: client\nsettings: {{ host: 127.0.0.1, port: {}, poll_ms: 100 }}\ntags: [{{ name: level, datatype: float32, register: 0 }}, {{ name: run, datatype: bool, table: coil, register: 2 }}, {{ name: ghost, datatype: uint16, register: 900, unit: 7 }}]\n", mb_tap.port())),
+        svc(&format!("id: es\nkind: eip\nmode: server\nsettings: {{ bind: 127.0.0.1, port: {eip} }}\ntags: [{{ name: level, datatype: float32, cip_tag: Program:Main.Level, initial: 2.5 }}]\n")),
+        svc(&format!("id: ec\nkind: eip\nmode: client\nsettings: {{ host: 127.0.0.1, port: {}, poll_ms: 100 }}\ntags: [{{ name: level, datatype: float32, cip_tag: Program:Main.Level }}, {{ name: nope, datatype: int32, cip_tag: Missing_Tag }}]\n", eip_tap.port())),
+        svc(&format!("id: ms\nkind: mqtt\nmode: server\nsettings: {{ bind: 127.0.0.1, port: {mq}, prefix: plant, username: u, password: p }}\ntags: [{{ name: level, datatype: float64, initial: 3.5 }}]\n")),
+        svc(&format!("id: mc\nkind: mqtt\nmode: client\nsettings: {{ host: 127.0.0.1, port: {}, username: u, password: p }}\ntags: [{{ name: level, datatype: float64, topic: plant/level }}]\n", mq_tap.port())),
+    ])
+    .await;
+    rig.wait_value("mbc", "level", json!(1.5)).await;
+    rig.wait_value("ec", "level", json!(2.5)).await;
+    rig.wait_value("mc", "level", json!(3.5)).await;
+    rig.write("mbc", "run", json!(true)).await;
+    rig.write("ec", "level", json!(9.0)).await;
+    rig.write("mc", "level", json!(4.5)).await;
+    tokio::time::sleep(Duration::from_millis(400)).await;
+    rig.stop().await;
+
+    // Merge the three recordings into one capture file, in time order.
+    let dir = tempfile::tempdir().unwrap();
+    let mut frames = vec![];
+    for (i, rec) in [mb_rec, eip_rec, mq_rec].iter().enumerate() {
+        let p = dir.path().join(format!("{i}.pcap"));
+        rec.save(&p).unwrap();
+        frames.extend(crate::monitor::packet::read_file(&p).unwrap());
+    }
+    frames.sort_by_key(|f| f.ts);
+    let path = dir.path().join("plant.pcap");
+    {
+        use pcap_file::pcap::{PcapHeader, PcapPacket, PcapWriter};
+        let header = PcapHeader { datalink: pcap_file::DataLink::RAW, ..Default::default() };
+        let mut w = PcapWriter::with_header(std::fs::File::create(&path).unwrap(), header).unwrap();
+        for f in &frames {
+            let ts = std::time::Duration::from_nanos(f.ts.timestamp_nanos_opt().unwrap() as u64);
+            w.write_packet(&PcapPacket::new(ts, f.data.len() as u32, &f.data[..]).unwrap()).unwrap();
+        }
+    }
+
+    // `COWPOKE_KEEP_PCAP=path cargo test monitor_replays` keeps the capture for demos.
+    if let Ok(keep) = std::env::var("COWPOKE_KEEP_PCAP") {
+        std::fs::copy(&path, keep).unwrap();
+    }
+    let mon = svc(&format!(
+        r#"
+id: mon
+kind: monitor
+mode: client
+settings: {{ file: {}, learn_minutes: 0 }}
+tags:
+  - {{ name: talkers, datatype: uint32 }}
+  - {{ name: writes, datatype: uint64 }}
+  - {{ name: errors, datatype: uint64 }}
+  - {{ name: logins, datatype: uint64 }}
+  - {{ name: last_event, datatype: string }}
+"#,
+        path.display()
+    ));
+    let rig = Rig::start(vec![mon]).await;
+    rig.wait_running("mon").await;
+    let snap = crate::monitor::snapshot("mon").unwrap();
+    let events: Vec<String> = snap["events"].as_array().unwrap().iter()
+        .map(|e| format!("{} {} {}", e["protocol"].as_str().unwrap(), e["action"].as_str().unwrap(), e["what"].as_str().unwrap()))
+        .collect();
+    let has = |needle: &str| events.iter().any(|e| e.contains(needle));
+    assert!(has("modbus write write coil 2 (unit 1)"), "{events:#?}");
+    assert!(has("modbus error exception 0B") || has("modbus error exception"), "unit 7 has no device: {events:#?}");
+    assert!(has("enip connect new TCP connection"), "new talker: {events:#?}");
+    // Repeated errors from polling are listed once a minute, not every poll.
+    assert_eq!(events.iter().filter(|e| e.contains("unit 7")).count(), 1, "{events:#?}");
+    assert!(has("enip write write tag Program:Main.Level"), "{events:#?}");
+    assert!(has("enip error CIP status 0x05 (no such object or tag)"), "{events:#?}");
+    assert!(has("mqtt login connect as client"), "{events:#?}");
+    assert!(has("mqtt control publish plant/level/set"), "{events:#?}");
+    let talkers = snap["talkers"].as_array().unwrap();
+    assert_eq!(talkers.len(), 3, "{talkers:#?}");
+    assert_eq!(rig.tags.value("mon", "talkers"), Some(json!(3)));
+    assert!(rig.tags.value("mon", "writes").unwrap().as_u64().unwrap() >= 2);
+    assert!(rig.tags.value("mon", "errors").unwrap().as_u64().unwrap() >= 1);
+    rig.stop().await;
+}

@@ -54,6 +54,8 @@ EOF
   if ! $PY/mlx_lm.fuse --model "$hf" --adapter-path "$dir/adapters" --save-path "$dir/fused" --dequantize > "$dir/fuse.log" 2>&1; then
     say "$name: fuse FAILED: $(tail -1 "$dir/fuse.log" | cut -c1-200)"; continue
   fi
+  # Note: Ollama only finds a chat template for some architectures (Qwen yes, Llama no):
+  # benchmark through mlx_eval.sh, which uses each model's own template.
   printf 'FROM ./fused\nPARAMETER temperature 0\n' > "$dir/Modelfile"
   if ! (cd "$dir" && ollama create "cowpoke-foreman:$name" -f Modelfile --quantize int4 > create.log 2>&1); then
     say "$name: ollama import FAILED: $(tail -1 "$dir/create.log" | tr -d '\r' | cut -c1-200)"; continue
@@ -61,10 +63,10 @@ EOF
   rm -rf "$dir/fused"
   for r in "--rules" ""; do
     out=$(python3 bench.py --model "cowpoke-foreman:$name" --mode evidence $r --no-format --think default --password "$PASS" 2>&1 | tail -1)
-    say "$name ${r:-(no rules)}: $(echo "$out" | python3 -c 'import sys,json
+    say "$name ${r:-(no rules)}: $(python3 -c 'import json,sys
 try:
-  s=json.loads(sys.stdin.read()); print(f"passed {s[\"passed\"]}/12, service {s[\"service_ok\"]}, cause {s[\"cause_ok\"]}, {s[\"avg_seconds\"]} s")
-except Exception as e: print("bench FAILED")')"
+  s=json.loads(sys.argv[1]); print("passed %d/12, service %d, cause %d, %.1f s" % (s["passed"], s["service_ok"], s["cause_ok"], s["avg_seconds"]))
+except Exception: print("bench FAILED")' "$out")"
   done
 done
 say "ALL DONE"

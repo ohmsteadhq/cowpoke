@@ -217,6 +217,7 @@ def first_json(text):
 
 
 FREE_FORM = False  # --no-format: runners without structured output (Ollama's MLX runner)
+OPENAI = None  # --openai URL: an OpenAI-compatible server (e.g. mlx_lm.server) instead of Ollama
 
 
 def run_evidence(sc, cp, url, model, think, rules=False):
@@ -229,6 +230,19 @@ def run_evidence(sc, cp, url, model, think, rules=False):
             "messages": [{"role": "system", "content": SYSTEM.split("When you know")[0] +
                           "Answer with JSON: service (id or none), cause (one of " + ", ".join(CAUSES) + "), explanation, fix."},
                          {"role": "user", "content": text}]}
+    if OPENAI:
+        # OpenAI-compatible chat completions: no schema; the first JSON object is read.
+        # mlx_lm.server serves its --model (with --adapter-path) as "default_model"; naming the
+        # repo instead would make it load the base model without the adapter.
+        oa = {"model": "default_model", "messages": body["messages"], "temperature": 0, "max_tokens": 400}
+        req = urllib.request.Request(OPENAI.rstrip("/") + "/v1/chat/completions", data=json.dumps(oa).encode(),
+                                     headers={"content-type": "application/json"})
+        with urllib.request.urlopen(req, timeout=600) as r:
+            res = json.loads(r.read())
+        content = res["choices"][0]["message"].get("content") or ""
+        n = res.get("usage", {}).get("completion_tokens", 0)
+        secs = round(time.time() - t0, 1)
+        return first_json(content), secs, round(n / secs, 1) if secs else None
     if not FREE_FORM:
         body["format"] = schema
     if think is not None:
@@ -358,6 +372,7 @@ def main():
                     help="thinking for models that have it (qwen3); default leaves it to the model")
     ap.add_argument("--only", help="comma-separated scenario ids")
     ap.add_argument("--max-steps", type=int, default=8)
+    ap.add_argument("--openai", help="evidence mode via an OpenAI-compatible server at this URL (e.g. mlx_lm.server)")
     ap.add_argument("--no-format", action="store_true",
                     help="evidence mode: don't constrain the reply to the JSON schema; read the first JSON object")
     ap.add_argument("--rules", action="store_true", help="add Cowpoke's rule checks to the evidence (evidence/decide)")
@@ -367,8 +382,9 @@ def main():
     a = ap.parse_args()
 
     think = {"on": True, "off": False, "default": None}[a.think]
-    global FREE_FORM
+    global FREE_FORM, OPENAI
     FREE_FORM = a.no_format
+    OPENAI = a.openai
     scenarios = json.load(open(os.path.join(HERE, "scenarios.json")))
     if a.only:
         keep = set(a.only.split(","))

@@ -1,0 +1,283 @@
+{
+ "summary": {
+  "model": "cowpoke-foreman:qwen3-1.7b",
+  "mode": "evidence",
+  "rules": false,
+  "think": "default",
+  "scenarios": 12,
+  "passed": 11,
+  "service_ok": 11,
+  "cause_ok": 12,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 1.6,
+  "avg_tok_s": 45.8
+ },
+ "results": [
+  {
+   "id": "f1",
+   "expected": {
+    "service": "f1-cli",
+    "cause": "address_offset"
+   },
+   "report": {
+    "service": "f1-cli",
+    "cause": "address_offset",
+    "explanation": "The tank level shows 42, but the client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.7,
+   "tok_s": 45.3,
+   "trace": []
+  },
+  {
+   "id": "f2",
+   "expected": {
+    "service": "f2-cli",
+    "cause": "word_order"
+   },
+   "report": {
+    "service": "f2-cli",
+    "cause": "word_order",
+    "explanation": "Line 2 tank level shows a wildly wrong number. The client's settings differ from the device's (word order).",
+    "fix": "Set the client's word order to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.5,
+   "tok_s": 44.8,
+   "trace": []
+  },
+  {
+   "id": "f3",
+   "expected": {
+    "service": "f3-cli",
+    "cause": "unit_id"
+   },
+   "report": {
+    "service": "f3-cli",
+    "cause": "unit_id",
+    "explanation": "Line 3 tank level never updates on the HMI. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.6,
+   "tok_s": 44.8,
+   "trace": []
+  },
+  {
+   "id": "f4",
+   "expected": {
+    "service": "f4-cli",
+    "cause": "scaling"
+   },
+   "report": {
+    "service": "f4-cli",
+    "cause": "scaling",
+    "explanation": "Line 4 temperature reads 215 degrees, but the sensor's own display says 21.5. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.7,
+   "tok_s": 46.0,
+   "trace": []
+  },
+  {
+   "id": "f5",
+   "expected": {
+    "service": "f5-cli",
+    "cause": "tag_name"
+   },
+   "report": {
+    "service": "f5-cli",
+    "cause": "tag_name",
+    "explanation": "The Logix tank level on line 5 shows bad quality. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.5,
+   "tok_s": 45.9,
+   "trace": []
+  },
+  {
+   "id": "f6",
+   "expected": {
+    "service": "f6-cli",
+    "cause": "port_or_host"
+   },
+   "report": {
+    "service": "f6-cli",
+    "cause": "port_or_host",
+    "explanation": "The Logix controller line 6 Logix controller is not responding. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.6,
+   "tok_s": 46.1,
+   "trace": []
+  },
+  {
+   "id": "f7",
+   "expected": {
+    "service": "f7-cli",
+    "cause": "credentials"
+   },
+   "report": {
+    "service": "f7-cli",
+    "cause": "credentials",
+    "explanation": "The MQTT data stopped coming in. The client's settings differ from the device's (credentials).",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.4,
+   "tok_s": 46.0,
+   "trace": []
+  },
+  {
+   "id": "f8",
+   "expected": {
+    "service": "f8-cli",
+    "cause": "topic"
+   },
+   "report": {
+    "service": "f8-cli",
+    "cause": "topic",
+    "explanation": "The flow comes through MQTT fine, but the tank level never shows a value. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.5,
+   "tok_s": 45.9,
+   "trace": []
+  },
+  {
+   "id": "f9",
+   "expected": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids"
+   },
+   "report": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The Sparkplug host shows no data for line 9. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.7,
+   "tok_s": 46.2,
+   "trace": []
+  },
+  {
+   "id": "f10",
+   "expected": {
+    "service": "f10-cli",
+    "cause": "json_pointer"
+   },
+   "report": {
+    "service": "f10-cli",
+    "cause": "json_pointer",
+    "explanation": "The line 10 level read from the API is bad quality. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.6,
+   "tok_s": 46.3,
+   "trace": []
+  },
+  {
+   "id": "f11",
+   "expected": {
+    "service": "f11-cli",
+    "cause": "bit_offset"
+   },
+   "report": {
+    "service": "f11-cli",
+    "cause": "bit_offset",
+    "explanation": "The line 11 IO-Link distance sensor reads wrong. The client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.7,
+   "tok_s": 46.0,
+   "trace": []
+  },
+  {
+   "id": "f12",
+   "expected": {
+    "service": "none",
+    "cause": "none"
+   },
+   "report": {
+    "service": "f12-cli",
+    "cause": "none",
+    "explanation": "The flow meter says 12.5 m3/h, but the client's settings differ from the device's (none).",
+    "fix": "Set the client's flow meter to match the device."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.5,
+   "tok_s": 45.8,
+   "trace": []
+  }
+ ]
+}

@@ -145,7 +145,18 @@ How it behaves:
 
 ## Historian storage
 
-History is stored under `<data>/history/<service>/<tag>/<YYYY-MM-DD>.bin`, one file per tag per UTC day. Each record is 16 bytes: an i64 timestamp in milliseconds and an f64 value. Writes are appended once a second. Retention deletes whole day files. Queries average the points into at most `points` buckets, with each bucket's min and max. String tags aren't recorded.
+History lives under `<data>/history/<service>/<tag>/`, one set of files per UTC day:
+
+| File | What it holds |
+|---|---|
+| `<day>.bin` | Points as they arrive: 16 bytes each (i64 milliseconds, f64 value), appended once a second |
+| `<day>.gor` | A finished day, compressed Gorilla-style: timestamps as delta-of-deltas, values XORed with the previous one |
+| `<day>.hour` | That day's hourly rollups: count, min, max, average, first and last value per hour |
+
+- **Compaction:** finished days are compacted at startup and every hour after. A point that arrives late for a compacted day, such as an edge agent's backfill, goes into a new `.bin` beside the `.gor`. It's readable right away and merged at the next compaction.
+- **Compression:** a sensor whose value changes every second compresses about 4×. A steady value, such as a setpoint or a bool, compresses about 60×. Values recorded on change take less space still.
+- **Queries:** `?points=` sets the most points to return. If the raw points fit, they're returned as they are. If not, they're grouped into buckets with an average, min and max. Buckets an hour wide or wider are built from the hourly rollups, so a month-long trend reads about 720 rollups instead of millions of points. A bucket includes every whole hour that overlaps the range.
+- **Retention** deletes whole days. String tags aren't recorded.
 
 ## Develop
 

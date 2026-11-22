@@ -13,6 +13,7 @@ mod model;
 mod services;
 mod store;
 mod tags;
+mod tsdb;
 mod web;
 
 #[cfg(test)]

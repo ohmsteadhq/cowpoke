@@ -133,7 +133,7 @@ tr.link:hover td { background: var(--sunk); }
 .detail { color: var(--ink-2); font-size: 0.8rem; font-family: var(--font-code); word-break: break-word; }
 
 /* --- chips and status --- */
-.tag { display: inline-block; font-size: 0.74rem; padding: 1px 7px; border: 1px solid var(--rule); color: var(--ink-2); }
+.tag { white-space: nowrap; display: inline-block; font-size: 0.74rem; padding: 1px 7px; border: 1px solid var(--rule); color: var(--ink-2); }
 td[class^="st-"] { white-space: nowrap; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; background: var(--muted); }
 .st-running .dot { background: var(--teal); }
@@ -285,7 +285,7 @@ canvas.sp-row { width: 120px; height: 22px; }
 .agents { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
 .agent { padding: 14px 16px; display: grid; gap: 12px; position: relative; }
 .agent::before { content: ""; position: absolute; left: -1px; right: -1px; top: -1px; height: 3px; background: var(--teal); }
-.agent.off::before { background: var(--alert); }
+.agent.off::before { background: var(--brass); }
 .agent-h { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .agent-h b { font-stretch: 112%; }
 .agent-d { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin: 0; border-top: 1px solid var(--rule); padding-top: 10px; }
@@ -298,3 +298,17 @@ canvas.sp-row { width: 120px; height: 22px; }
 .copyrow { display: flex; gap: 8px; align-items: flex-start; }
 .copyrow code, .copyrow pre { flex: 1; margin: 0; padding: 9px 12px; background: var(--sunk); border: 1px solid var(--rule);
   font-family: var(--font-code); font-size: 0.8rem; overflow-x: auto; word-break: break-all; white-space: pre-wrap; }
+
+/* Five nav items: make room before the phone layout kicks in. */
+@media (max-width: 1100px) {
+  .top { gap: 16px; padding: 0 16px; }
+  nav { gap: 12px; }
+  .brand .by, .who .name { display: none; }
+}
+/* Narrower still: brand and account on one row, the nav on its own row below. */
+@media (max-width: 960px) {
+  .top { flex-wrap: wrap; height: auto; padding: 8px 16px 6px; row-gap: 4px; overflow: visible; }
+  .who { margin-left: auto; }
+  nav { order: 3; flex: 0 0 100%; overflow-x: auto; padding: 4px 0 6px; }
+  .feed { top: 100px; }
+}

@@ -670,7 +670,7 @@ async function agentsPage() {
     ${can("admin") ? `
     <h2>Add an agent</h2>
     <form class="panel pad row" id="add">
-      <label>Id <input name="id" class="mono" required pattern="[a-z0-9_-]{1,64}" placeholder="plant-1" title="a-z, 0-9, - and _"></label>
+      <label>Id <input name="id" class="mono" required pattern="[a-z0-9_\\-]{1,64}" placeholder="plant-1" title="a-z, 0-9, - and _"></label>
       <label>Name <input name="name" placeholder="Plant 1"></label>
       <button class="primary">Create agent</button>
     </form>` : ""}`);
@@ -703,7 +703,7 @@ async function agentsPage() {
     list.innerHTML = agents.length ? agents.map((a) => `
       <div class="panel agent ${a.online ? "on" : "off"}" data-id="${esc(a.id)}">
         <div class="agent-h">
-          <span class="${a.online ? "st-running" : "st-error"}"><span class="dot"></span></span>
+          <span class="${a.online ? "st-running" : "st-degraded"}"><span class="dot"></span></span>
           <b>${esc(a.name)}</b><span class="tag">${esc(a.id)}</span><span class="spacer"></span>
           <span class="badge">${a.online ? "online" : "offline"}</span>
         </div>

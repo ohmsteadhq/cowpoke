@@ -23,7 +23,9 @@ use crate::manager::Ctx;
 use crate::model::DataType;
 use crate::tags::{Origin, Quality};
 pub use decode::{Action, Obs, Proto};
-use packet::{Frame, Link, Streams};
+use packet::{Frame, Streams};
+#[cfg(feature = "live-capture")]
+use packet::Link;
 
 /// The tags a monitor service publishes. A monitor's `tags` may list any of these.
 pub const COUNTERS: &[(&str, DataType, &str)] = &[
@@ -50,6 +52,7 @@ pub struct Settings {
     pub file: Option<String>,
     /// Extra BPF filter for live capture (the protocol ports are always included).
     #[serde(default)]
+    #[cfg_attr(not(feature = "live-capture"), allow(dead_code))]
     pub filter: Option<String>,
     /// Ports per protocol, when devices use non-standard ones. Defaults: Modbus 502,
     /// EtherNet/IP 44818, S7 102, OPC UA 4840, MQTT 1883 and 8883 is skipped (TLS).

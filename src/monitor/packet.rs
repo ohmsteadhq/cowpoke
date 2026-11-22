@@ -19,6 +19,7 @@ pub enum Link {
 }
 
 impl Link {
+    #[cfg_attr(not(feature = "live-capture"), allow(dead_code))]
     pub fn from_dlt(dlt: i32) -> Option<Self> {
         Some(match dlt {
             1 => Link::Ethernet,

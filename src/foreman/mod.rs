@@ -514,12 +514,12 @@ mod tests {
         let v: Value = serde_json::from_str(r#"{"b": [1, 2.5, "x"], "a": {"c": null, "d": true}}"#).unwrap();
         // serde_json sorts keys (as the training data's settings were); spacing matches Python.
         assert_eq!(py_json(&v), r#"{"a": {"c": null, "d": true}, "b": [1, 2.5, "x"]}"#);
-        assert_eq!(py_json(&json!("é\"")), r#""é\"""#);
+        assert_eq!(py_json(&json!("\u{e9}\"")), r#""\u00e9\"""#);
     }
 
     #[test]
     fn reads_the_first_json_object() {
-        assert_eq!(first_json("<think>\n\n</think>\n\n{\"service\": \"a\"} trailing")["service"], "a");
+        assert_eq!(first_json("<think>\n\n</think>\n\n{\"service\": \"a\"} trailing").unwrap()["service"], "a");
         assert_eq!(first_json("text {not json} then {\"cause\": \"x}\"}").unwrap()["cause"], "x}");
         assert!(first_json("no json").is_none());
     }

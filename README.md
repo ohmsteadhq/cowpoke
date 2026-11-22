@@ -316,6 +316,7 @@ Cowpoke watches every tag update and samples every service's status, building a 
 - **Communications:** a client polling far faster than any of its tags change (with a poll interval to use), connections that keep dropping, tags that read bad intermittently, live measurements that never change.
 - **Equipment** (tags read from real devices): readings pinned at a range limit (32767, 65535: a broken wire or overranged sensor), rare spikes, noise rising against the tag's own history, a steady one-way drift over a day, a tag heading for a high or low alarm limit (with an estimate of when), and command/feedback pairs that don't agree.
 - **Process** (on/off tags as steps): a step stuck on or off far longer than ever before, and cycles taking longer than they used to; and **changes and their effects**: values written through Cowpoke, and program downloads, run/stop and resets seen by a traffic monitor, are compared with the hours before and after, naming the tags that shifted.
+- **Data:** one device address read under two names (and, when they disagree, which scale or datatype is off), a tag that stopped updating while the rest of its service carries on, and percentages outside 0–100.
 - **Historian:** deadbands smaller than a tag's noise, and interval recording of tags that rarely change.
 - **Alarms:** chattering, floods (with the alarms behind them), standing alarms and alarms nobody acknowledges.
 

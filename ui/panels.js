@@ -149,7 +149,7 @@ function panelsRoute(parts) {
 
 // ---------------------------------------------------------------- insights
 
-const AREAS = { network: "Network", comms: "Communications", equipment: "Equipment", process: "Process", alarms: "Alarms", historian: "Historian" };
+const AREAS = { network: "Network", comms: "Communications", equipment: "Equipment", process: "Process", data: "Data", alarms: "Alarms", historian: "Historian" };
 const PAIRS_EXAMPLE = `# Commands and the feedback that should follow them.
 pairs:
   - name: Feed pump
@@ -168,11 +168,11 @@ const LEVELS = { warn: ["Check", "pn-sev pn-sev-high"], suggest: ["Suggestion", 
 
 async function insightsPage(tab) {
   clearPage();
-  const tabs = [["open", "Open"], ["network", "Network"], ["comms", "Communications"], ["equipment", "Equipment"], ["process", "Process"], ["alarms", "Alarms"], ["historian", "Historian"], ["dismissed", "Dismissed"]];
+  const tabs = [["open", "Open"], ["network", "Network"], ["comms", "Communications"], ["equipment", "Equipment"], ["process", "Process"], ["data", "Data"], ["alarms", "Alarms"], ["historian", "Historian"], ["dismissed", "Dismissed"]];
   if (can("admin")) tabs.push(["setup", "Setup"]);
   shell("insights", `
     <div class="row"><div><h1>Insights</h1>
-      <p class="sub">What Cowpoke has learned from watching every tag, service and alarm: polling faster than values change, flapping connections, bad reads, noisy history and alarm hygiene. Suggestions only: nothing changes until you change it.</p></div>
+      <p class="sub">What Cowpoke has learned from watching every tag, service, alarm and the wire: network trouble, communication settings, failing instruments and stuck equipment, process steps and the effect of changes, data mistakes, history and alarm hygiene. Suggestions only: nothing changes until you change it.</p></div>
       <span class="spacer"></span>${can("operator") ? `<button id="run">Analyze now</button>` : ""}</div>
     <div id="m"></div>
     <div class="tabs">${tabs.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" data-tab="${k}">${l}</button>`).join("")}</div>

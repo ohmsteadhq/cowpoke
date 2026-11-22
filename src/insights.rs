@@ -214,6 +214,7 @@ pub enum Area {
     Comms,
     Equipment,
     Process,
+    Data,
     Alarms,
     Historian,
 }
@@ -489,6 +490,7 @@ pub fn analyze(s: &Snapshot, t: &Tuning) -> Vec<Insight> {
     pairs(s, &mut out);
     effects(s, &mut out);
     off_hours(s, &mut out);
+    data_quality(s, t, &mut out);
     historian(s, t, &mut out);
     alarms(s, t, &mut out);
     out.sort_by(|a, b| b.level.cmp(&a.level).then(a.area.cmp(&b.area)).then(a.id.cmp(&b.id)));
@@ -1001,6 +1003,123 @@ fn pairs(s: &Snapshot, out: &mut Vec<Insight>) {
             tag: Pair::split(&p.command).map(|x| x.1),
             fix: None,
         });
+    }
+}
+
+/// Where a client tag reads from: the device and the address in it, as one comparable string.
+fn source_key(def: &ServiceDef, t: &crate::model::TagDef) -> Option<String> {
+    use crate::model::Kind::*;
+    let st = &def.settings;
+    let host = st.get("host").and_then(|h| h.as_str()).unwrap_or_default().to_ascii_lowercase();
+    let port = st.get("port").and_then(|p| p.as_u64()).map(|p| p.to_string()).unwrap_or_default();
+    let dev = format!("{host}:{port}");
+    Some(match def.kind {
+        Modbus => format!("modbus {dev} unit {} {:?} {}", t.unit(), t.table(), t.register?),
+        Eip => format!("eip {dev} {}", t.cip_tag.as_deref()?.to_ascii_lowercase()),
+        S7 => format!("s7 {dev} {}", t.s7_address.as_deref()?.to_ascii_uppercase()),
+        Opcua => format!("opcua {} {}", st.get("url").and_then(|u| u.as_str()).unwrap_or_default(), t.node_id.as_deref()?),
+        Iolink => format!("iolink {dev} port {} {:?} {}", t.port?, t.pd(), t.bit_offset.unwrap_or(0)),
+        Mqtt => format!("mqtt {dev} {} {}", t.topic.as_deref().or(t.metric.as_deref())?, t.pointer.as_deref().unwrap_or("")),
+        Api => format!("api {} {}", st.get("url").and_then(|u| u.as_str()).unwrap_or_default(), t.pointer.as_deref().unwrap_or("")),
+        Monitor => return None,
+    })
+}
+
+fn data_quality(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
+    let now_hour = s.now.timestamp().div_euclid(3600);
+    // The same device address read under more than one name.
+    let mut by_source: BTreeMap<String, Vec<(&ServiceDef, &crate::model::TagDef)>> = BTreeMap::new();
+    for def in s.cfg.services.iter().filter(|d| d.mode == Mode::Client) {
+        for tg in &def.tags {
+            if let Some(k) = source_key(def, tg) {
+                by_source.entry(k).or_default().push((def, tg));
+            }
+        }
+    }
+    for (src, readers) in by_source.iter().filter(|(_, r)| r.len() > 1) {
+        let names: Vec<String> = readers.iter().map(|(d, t)| format!("{}/{}", d.id, t.name)).collect();
+        // Do they agree? Compare the last complete hour's averages.
+        let last_mean = |d: &ServiceDef, tg: &crate::model::TagDef| {
+            s.tags.get(&(d.id.clone(), tg.name.clone())).and_then(|st| st.hours.iter().rev().find(|b| b.hour < now_hour && b.n >= 10).map(|b| b.mean))
+        };
+        let means: Vec<Option<f64>> = readers.iter().map(|(d, tg)| last_mean(d, tg)).collect();
+        let known: Vec<f64> = means.iter().flatten().copied().collect();
+        let disagree = known.len() >= 2 && {
+            let (lo, hi) = known.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), x| (a.min(*x), b.max(*x)));
+            (hi - lo).abs() > 0.01 * hi.abs().max(lo.abs()).max(1e-9)
+        };
+        if disagree {
+            out.push(Insight {
+                id: id(&["disagree", src]),
+                area: Area::Data,
+                level: Level::Warn,
+                title: format!("{} read the same address but disagree", names.join(" and ")),
+                detail: "They read the same place in the same device, so they should show the same value. Different scale, offset, word order or datatype make one of them wrong.".into(),
+                evidence: readers.iter().zip(&means).map(|((d, tg), m)| format!("{}/{}: {} (scale {}, {:?})", d.id, tg.name, m.map(|x| format!("{x:.3}")).unwrap_or("-".into()), tg.scale.unwrap_or(1.0), tg.datatype)).collect(),
+                suggestion: "Check which one matches the device's own display, and correct the other's scale, datatype or word order.".into(),
+                service: Some(readers[0].0.id.clone()),
+                tag: Some(readers[0].1.name.clone()),
+                fix: None,
+            });
+        } else {
+            out.push(Insight {
+                id: id(&["duplicate", src]),
+                area: Area::Data,
+                level: Level::Info,
+                title: format!("{} read the same address", names.join(" and ")),
+                detail: "The same value under more than one name: twice the polling, and two names for one thing in history and alarms.".into(),
+                evidence: vec![src.clone()],
+                suggestion: "Keep one tag and point everything that uses the other at it.".into(),
+                service: Some(readers[0].0.id.clone()),
+                tag: Some(readers[0].1.name.clone()),
+                fix: None,
+            });
+        }
+    }
+    for def in s.cfg.services.iter().filter(|d| d.mode == Mode::Client) {
+        // A tag that stopped updating while the rest of its service carries on.
+        if let Some(poll) = poll_ms(def) {
+            let fresh_limit = TimeDelta::milliseconds((poll * 3.0).max(30_000.0) as i64);
+            let stale_limit = TimeDelta::milliseconds((poll * 20.0).max(300_000.0) as i64);
+            let stats: Vec<(&crate::model::TagDef, &TagStats)> = def.tags.iter().filter_map(|tg| s.tags.get(&(def.id.clone(), tg.name.clone())).map(|st| (tg, st))).collect();
+            let siblings_fresh = stats.iter().filter(|(_, st)| st.last_update.is_some_and(|u| s.now - u <= fresh_limit)).count();
+            for (tg, st) in &stats {
+                let Some(last) = st.last_update else { continue };
+                if siblings_fresh >= 1 && s.now - last >= stale_limit && st.updates >= t.min_updates {
+                    out.push(Insight {
+                        id: id(&["gap", &def.id, &tg.name]),
+                        area: Area::Data,
+                        level: Level::Warn,
+                        title: format!("{} · {} stopped updating {} ago", def.name_or_id(), tg.name, secs((s.now - last).num_seconds() as f64)),
+                        detail: "Other tags of the same service still update, so the connection is fine: this one tag isn't being read, or its reads fail silently.".into(),
+                        evidence: vec![format!("last update {}", last.format("%b %d %H:%M:%S"))],
+                        suggestion: "Check the tag's address and the service's status detail; restart the service if it persists.".into(),
+                        service: Some(def.id.clone()),
+                        tag: Some(tg.name.clone()),
+                        fix: None,
+                    });
+                }
+            }
+        }
+        // Percentages outside 0–100: a scale or unit mistake.
+        for tg in &def.tags {
+            let Some(st) = s.tags.get(&(def.id.clone(), tg.name.clone())) else { continue };
+            let pct = tg.units.as_deref().is_some_and(|u| u.trim() == "%");
+            if pct && st.n >= t.min_updates && (st.max.unwrap_or(0.0) > 105.0 || st.min.unwrap_or(0.0) < -5.0) {
+                out.push(Insight {
+                    id: id(&["units", &def.id, &tg.name]),
+                    area: Area::Data,
+                    level: Level::Suggest,
+                    title: format!("{} · {} is in % but reads {:.1} to {:.1}", def.name_or_id(), tg.name, st.min.unwrap_or(0.0), st.max.unwrap_or(0.0)),
+                    detail: "A percentage outside 0–100 usually means a missing scale (raw counts, or tenths of a percent) or the wrong units.".into(),
+                    evidence: vec![format!("{} readings", st.n)],
+                    suggestion: "Set the scale so the range maps to 0–100 (raw 0–1000 → scale 0.1, 0–27648 → 100/27648), or fix the units.".into(),
+                    service: Some(def.id.clone()),
+                    tag: Some(tg.name.clone()),
+                    fix: None,
+                });
+            }
+        }
     }
 }
 
@@ -1719,6 +1838,37 @@ mod tests {
         let out = analyze(&s, &Tuning::default());
         let o = out.iter().find(|i| i.id.starts_with("offhours:")).expect("off-hours insight");
         assert_eq!(o.level, Level::Warn, "a program download");
+    }
+
+    #[test]
+    fn data_quality_checks() {
+        let cfg = Config { services: vec![
+            svc("id: a\nkind: modbus\nmode: client\nsettings: { host: 10.0.0.5, port: 502, poll_ms: 1000 }\ntags:\n  - { name: level, datatype: int16, register: 0, scale: 0.1 }\n  - { name: speed, datatype: uint16, register: 3, units: \"%\" }\n  - { name: temp, datatype: int16, register: 5 }\n"),
+            svc("id: b\nkind: modbus\nmode: client\nsettings: { host: 10.0.0.5, port: 502, poll_ms: 1000 }\ntags:\n  - { name: tank_level, datatype: int16, register: 0 }\n"),
+        ]};
+        let start = (Utc::now() - TimeDelta::hours(3)).duration_trunc(TimeDelta::hours(1)).unwrap();
+        let mut tags = HashMap::new();
+        let mut a = TagStats::default();
+        feed(&mut a, start, 60, 180, |_| json!(42.5));
+        tags.insert(("a".to_string(), "level".to_string()), a);
+        let mut b = TagStats::default();
+        feed(&mut b, start, 60, 180, |_| json!(425));
+        tags.insert(("b".to_string(), "tank_level".to_string()), b);
+        let mut sp = TagStats::default();
+        feed(&mut sp, start, 60, 180, |i| json!(400 + i));
+        tags.insert(("a".to_string(), "speed".to_string()), sp);
+        // temp stopped updating an hour ago; the rest of service a is fresh.
+        let mut tt = TagStats::default();
+        feed(&mut tt, Utc::now() - TimeDelta::hours(3), 60, 120, |i| json!(20 + i % 3));
+        tags.insert(("a".to_string(), "temp".to_string()), tt);
+        let mut fresh = TagStats::default();
+        feed(&mut fresh, Utc::now() - TimeDelta::minutes(5), 1, 300, |_| json!(1));
+        tags.get_mut(&("a".to_string(), "speed".to_string())).unwrap().last_update = fresh.last_update;
+        let out = snap_with(&cfg, &tags, &[], &[]);
+        let ids: Vec<&str> = out.iter().map(|i| i.id.as_str()).collect();
+        assert!(ids.iter().any(|i| i.starts_with("disagree:")), "{ids:?}");
+        assert!(ids.contains(&"units:a:speed"), "{ids:?}");
+        assert!(ids.contains(&"gap:a:temp"), "{ids:?}");
     }
 
     #[test]

@@ -68,9 +68,31 @@ fn le32(b: &[u8], i: usize) -> Option<u32> {
 
 /// Decode as many whole PDUs as `buf` holds. Returns observations and bytes consumed;
 /// `None` means the stream doesn't look like this protocol (drop it).
+#[cfg(test)]
 pub fn decode(proto: Proto, to_server: bool, buf: &[u8]) -> Option<(Vec<Obs>, usize)> {
+    decode_counted(proto, to_server, buf).map(|(o, used, _)| (o, used))
+}
+
+/// The id an answer echoes from its request, where the protocol has one: the Modbus
+/// transaction id, the S7 PDU reference, the EtherNet/IP sender context.
+fn pdu_id(proto: Proto, p: &[u8]) -> Option<u64> {
+    match proto {
+        Proto::Modbus => be16(p, 0).map(u64::from),
+        Proto::Enip => p.get(12..20).map(|c| u64::from_le_bytes(c.try_into().unwrap())),
+        Proto::S7 => {
+            let cl = *p.get(4)? as usize;
+            let s7 = p.get(5 + cl..)?;
+            (s7.first() == Some(&0x32)).then(|| be16(s7, 4)).flatten().map(u64::from)
+        }
+        _ => None,
+    }
+}
+
+/// Like [`decode`], also giving each whole PDU's request id (for response timing).
+pub fn decode_counted(proto: Proto, to_server: bool, buf: &[u8]) -> Option<(Vec<Obs>, usize, Vec<Option<u64>>)> {
     let mut out = vec![];
     let mut at = 0;
+    let mut pdus = vec![];
     while at < buf.len() {
         let rest = &buf[at..];
         let step = match proto {
@@ -83,9 +105,17 @@ pub fn decode(proto: Proto, to_server: bool, buf: &[u8]) -> Option<(Vec<Obs>, us
         if step == 0 {
             break; // incomplete
         }
+        pdus.push(pdu_id(proto, rest));
         at += step;
     }
-    Some((out, at))
+    Some((out, at, pdus))
+}
+
+impl Proto {
+    /// Answers every request, in order: responses can be timed against requests.
+    pub fn request_response(self) -> bool {
+        matches!(self, Proto::Modbus | Proto::Enip | Proto::S7)
+    }
 }
 
 // ------------------------------------------------------------------ Modbus TCP

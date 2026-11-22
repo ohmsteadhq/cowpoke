@@ -126,6 +126,7 @@ pub struct ServiceStats {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum Area {
+    Network,
     Comms,
     Alarms,
     Historian,
@@ -268,16 +269,127 @@ pub struct Snapshot<'a> {
     pub alarm_log: &'a [AlarmEvent],
     pub alarm_states: &'a HashMap<String, AlarmState>,
     pub alarm_names: &'a HashMap<String, String>,
+    /// Each traffic monitor's talkers and address conflicts.
+    pub monitors: &'a [(String, Vec<crate::monitor::Talker>, Vec<crate::monitor::AddressConflict>)],
 }
 
 /// Run every analyzer.
 pub fn analyze(s: &Snapshot, t: &Tuning) -> Vec<Insight> {
     let mut out = vec![];
+    network(s, &mut out);
     comms(s, t, &mut out);
     historian(s, t, &mut out);
     alarms(s, t, &mut out);
     out.sort_by(|a, b| b.level.cmp(&a.level).then(a.area.cmp(&b.area)).then(a.id.cmp(&b.id)));
     out
+}
+
+/// From the traffic monitor: what the wire says about devices and links.
+fn network(s: &Snapshot, out: &mut Vec<Insight>) {
+    for (mon, talkers, conflicts) in s.monitors {
+        for c in conflicts {
+            out.push(Insight {
+                id: id(&["dupip", mon, &c.ip]),
+                area: Area::Network,
+                level: Level::Warn,
+                title: format!("Two network cards answer for {}", c.ip),
+                detail: "More than one device is using this IP address, so traffic for one goes to the other at random: intermittent timeouts and wrong values.".into(),
+                evidence: c.macs.iter().map(|m| format!("MAC {m}")).chain([format!("since {}", c.first_seen.format("%b %d %H:%M"))]).collect(),
+                suggestion: "Find both devices by MAC (switch tables) and give one a free address. A redundant router pair (VRRP) can look like this too.".into(),
+                service: Some(mon.clone()),
+                tag: None,
+                fix: None,
+            });
+        }
+        let mut open_per_device: HashMap<&str, (i64, usize)> = HashMap::new();
+        for tk in talkers {
+            let pair = format!("{} → {}", tk.client, tk.server);
+            let tid = format!("{}>{}", tk.client, tk.server);
+            let span = (tk.last_seen - tk.first_seen).num_seconds().max(1) as f64;
+            let e = open_per_device.entry(&tk.server).or_default();
+            e.0 += tk.open;
+            e.1 += (tk.open > 0) as usize;
+            let asked = tk.answered + tk.timeouts;
+            if tk.timeouts >= 5 && tk.timeouts as f64 / asked.max(1) as f64 >= 0.02 {
+                out.push(Insight {
+                    id: id(&["timeouts", mon, &tid]),
+                    area: Area::Network,
+                    level: Level::Warn,
+                    title: format!("{pair}: {} requests went unanswered", tk.timeouts),
+                    detail: format!("{:.1}% of requests got no answer within 5 s. The device is overloaded, rebooting, or the path drops packets.", tk.timeouts as f64 * 100.0 / asked as f64),
+                    evidence: vec![format!("{} answered, {} unanswered", tk.answered, tk.timeouts)],
+                    suggestion: "Check the device's load and connection limit, and the switch port's error counters.".into(),
+                    service: Some(mon.clone()), tag: None, fix: None,
+                });
+            }
+            if let (Some(p50), Some(p95)) = (tk.latency_p50_ms, tk.latency_p95_ms) {
+                if tk.answered >= 50 && p95 >= 250.0 {
+                    out.push(Insight {
+                        id: id(&["slow", mon, &tid]),
+                        area: Area::Network,
+                        level: Level::Suggest,
+                        title: format!("{} answers slowly", tk.server),
+                        detail: "On a plant network a PLC normally answers within a few tens of milliseconds. Slow answers mean a busy CPU, too many clients, or a congested link.".into(),
+                        evidence: vec![format!("median {p50:.0} ms, 95th percentile {p95:.0} ms over {} requests from {}", tk.answered, tk.client)],
+                        suggestion: "Poll less often or in bigger blocks, spread clients over time, and check the PLC's cycle and communication load.".into(),
+                        service: Some(mon.clone()), tag: None, fix: None,
+                    });
+                }
+            }
+            if tk.retransmits >= 10 && tk.retransmits as f64 / tk.segments.max(1) as f64 >= 0.01 {
+                out.push(Insight {
+                    id: id(&["retrans", mon, &tid]),
+                    area: Area::Network,
+                    level: Level::Warn,
+                    title: format!("{pair}: packets are being resent"),
+                    detail: format!("{:.1}% of data packets were retransmissions: something on the path drops packets.", tk.retransmits as f64 * 100.0 / tk.segments.max(1) as f64),
+                    evidence: vec![format!("{} of {} segments", tk.retransmits, tk.segments)],
+                    suggestion: "Check cables and connectors, the switch port's CRC and error counters, duplex settings, and noise near VFD wiring.".into(),
+                    service: Some(mon.clone()), tag: None, fix: None,
+                });
+            }
+            let per_hour = tk.connections as f64 * 3600.0 / span;
+            if span >= 600.0 && tk.connections >= 10 && per_hour >= 30.0 {
+                out.push(Insight {
+                    id: id(&["churn", mon, &tid]),
+                    area: Area::Network,
+                    level: Level::Suggest,
+                    title: format!("{pair}: reconnects about {per_hour:.0} times an hour"),
+                    detail: "Opening a new connection for every few requests costs the device time and can hit its connection limit.".into(),
+                    evidence: vec![format!("{} connections in {}", tk.connections, secs(span))],
+                    suggestion: "Configure the client to keep its connection open, or check why the device closes it.".into(),
+                    service: Some(mon.clone()), tag: None, fix: None,
+                });
+            }
+            let rate = (tk.bytes_up + tk.bytes_down) as f64 / span;
+            if span >= 60.0 && rate >= 1_000_000.0 {
+                out.push(Insight {
+                    id: id(&["bandwidth", mon, &tid]),
+                    area: Area::Network,
+                    level: Level::Info,
+                    title: format!("{pair} moves {:.1} MB/s", rate / 1e6),
+                    detail: "Far more traffic than polling usually needs.".into(),
+                    evidence: vec![format!("{:.0} MB up, {:.0} MB down", tk.bytes_up as f64 / 1e6, tk.bytes_down as f64 / 1e6)],
+                    suggestion: "Check what it reads: large blocks polled fast, file transfers, or a misconfigured client.".into(),
+                    service: Some(mon.clone()), tag: None, fix: None,
+                });
+            }
+        }
+        for (dev, (open, clients)) in open_per_device {
+            if open >= 8 {
+                out.push(Insight {
+                    id: id(&["crowded", mon, dev]),
+                    area: Area::Network,
+                    level: Level::Info,
+                    title: format!("{dev} has {open} connections open from {clients} clients"),
+                    detail: "PLCs allow a limited number of connections (an S7-1200 a handful for HMIs and PUT/GET). New clients get refused once it's full.".into(),
+                    evidence: vec![],
+                    suggestion: "Let fewer clients read the device directly: one gateway (or Cowpoke) reading, the others reading from it.".into(),
+                    service: Some(mon.clone()), tag: None, fix: None,
+                });
+            }
+        }
+    }
 }
 
 fn comms(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
@@ -638,7 +750,8 @@ impl Insights {
     pub fn recompute(&self, cfg: &Config, alarm_log: &[AlarmEvent], alarm_states: &HashMap<String, AlarmState>, alarm_names: &HashMap<String, String>) {
         let tags = self.tags.lock().clone();
         let services = self.services.lock().clone();
-        let snap = Snapshot { now: Utc::now(), cfg, tags: &tags, services: &services, alarm_log, alarm_states, alarm_names };
+        let monitors = crate::monitor::health();
+        let snap = Snapshot { now: Utc::now(), cfg, tags: &tags, services: &services, alarm_log, alarm_states, alarm_names, monitors: &monitors };
         let all = analyze(&snap, &self.tuning);
         let dismissed = self.dismissed.lock().clone();
         let mut r = self.report.lock();
@@ -734,7 +847,7 @@ mod tests {
         let services = HashMap::new();
         let states = HashMap::new();
         let names = HashMap::new();
-        let s = Snapshot { now: Utc::now(), cfg, tags, services: &services, alarm_log: log, alarm_states: &states, alarm_names: &names };
+        let s = Snapshot { now: Utc::now(), cfg, tags, services: &services, alarm_log: log, alarm_states: &states, alarm_names: &names, monitors: &[] };
         analyze(&s, &Tuning::default())
     }
 

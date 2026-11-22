@@ -72,6 +72,30 @@ fn ip_payload(link: Link, f: &[u8]) -> Option<&[u8]> {
     }
 }
 
+/// The sender's MAC and IPv4 address of an Ethernet frame (IP or ARP), for
+/// duplicate-address checks.
+pub fn ether_sender(link: Link, f: &[u8]) -> Option<([u8; 6], Ipv4Addr)> {
+    if link != Link::Ethernet {
+        return None;
+    }
+    let mac: [u8; 6] = f.get(6..12)?.try_into().ok()?;
+    let mut et = be16(f, 12)?;
+    let mut off = 14;
+    while et == 0x8100 || et == 0x88A8 {
+        et = be16(f, off + 2)?;
+        off += 4;
+    }
+    let p = f.get(off..)?;
+    let ip = match et {
+        0x0800 if p.first()? >> 4 == 4 => <[u8; 4]>::try_from(p.get(12..16)?).ok()?,
+        // ARP for IPv4 over Ethernet: sender protocol address at 14.
+        0x0806 if be16(p, 2)? == 0x0800 => <[u8; 4]>::try_from(p.get(14..18)?).ok()?,
+        _ => return None,
+    };
+    let ip = Ipv4Addr::from(ip);
+    (!ip.is_unspecified()).then_some((mac, ip))
+}
+
 /// Parse a captured frame down to a TCP segment.
 pub fn tcp_segment(link: Link, frame: &[u8]) -> Option<Segment<'_>> {
     let ip = ip_payload(link, frame)?;
@@ -119,6 +143,10 @@ pub struct Stream {
     pub buf: Vec<u8>,
     /// True once a gap was seen and the buffer restarted mid-stream.
     pub resynced: bool,
+    /// Segments whose bytes had all been seen already (TCP retransmissions).
+    pub retransmits: u64,
+    /// Segments with data.
+    pub segments: u64,
 }
 
 const MAX_BUF: usize = 1 << 20;
@@ -156,6 +184,10 @@ impl Stream {
             return false;
         }
         let skip = (-delta) as usize;
+        self.segments += 1;
+        if skip >= data.len() {
+            self.retransmits += 1;
+        }
         if skip < data.len() {
             self.buf.extend_from_slice(&data[skip..]);
             self.next = Some(seq.wrapping_add(data.len() as u32));

@@ -103,6 +103,68 @@ pub struct Talker {
     pub last_seen: DateTime<Utc>,
     pub counts: BTreeMap<String, u64>,
     pub last: String,
+    /// Payload bytes, client → device and back.
+    pub bytes_up: u64,
+    pub bytes_down: u64,
+    /// TCP connections opened, and those still open.
+    pub connections: u64,
+    pub open: i64,
+    /// Data segments seen, and how many were retransmissions.
+    pub segments: u64,
+    pub retransmits: u64,
+    /// Requests answered, and requests that got no answer within 5 s.
+    pub answered: u64,
+    pub timeouts: u64,
+    /// Response time percentiles over recent requests (Modbus, EtherNet/IP, S7).
+    pub latency_p50_ms: Option<f64>,
+    pub latency_p95_ms: Option<f64>,
+    #[serde(skip)]
+    latencies: Vec<f64>,
+}
+
+impl Talker {
+    fn new(client: String, server: String, protocol: Proto, ts: DateTime<Utc>) -> Self {
+        Self {
+            client,
+            server,
+            protocol,
+            first_seen: ts,
+            last_seen: ts,
+            counts: BTreeMap::new(),
+            last: String::new(),
+            bytes_up: 0,
+            bytes_down: 0,
+            connections: 0,
+            open: 0,
+            segments: 0,
+            retransmits: 0,
+            answered: 0,
+            timeouts: 0,
+            latency_p50_ms: None,
+            latency_p95_ms: None,
+            latencies: vec![],
+        }
+    }
+
+    fn latency(&mut self, ms: f64) {
+        if self.latencies.len() >= 512 {
+            self.latencies.remove(0);
+        }
+        self.latencies.push(ms);
+        let mut s = self.latencies.clone();
+        s.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let pct = |p: f64| s[((s.len() - 1) as f64 * p).round() as usize];
+        self.latency_p50_ms = Some(pct(0.5));
+        self.latency_p95_ms = Some(pct(0.95));
+    }
+}
+
+/// One IPv4 address seen from more than one MAC address.
+#[derive(Serialize, Clone, Debug)]
+pub struct AddressConflict {
+    pub ip: String,
+    pub macs: Vec<String>,
+    pub first_seen: DateTime<Utc>,
 }
 
 #[derive(Serialize, Clone)]
@@ -127,6 +189,24 @@ pub struct State {
     pub totals: BTreeMap<&'static str, u64>,
     pub started: Option<DateTime<Utc>>,
     pub frames: u64,
+    /// IPv4 address → MAC addresses seen sending from it (Ethernet captures only).
+    pub macs: BTreeMap<std::net::Ipv4Addr, Vec<[u8; 6]>>,
+    pub conflicts: Vec<AddressConflict>,
+}
+
+/// A running monitor's talkers and address conflicts, for the insights engine.
+pub fn health() -> Vec<(String, Vec<Talker>, Vec<AddressConflict>)> {
+    MONITORS
+        .iter()
+        .map(|e| {
+            let st = e.value().lock();
+            (e.key().clone(), st.talkers.values().cloned().collect(), st.conflicts.clone())
+        })
+        .collect()
+}
+
+fn mac_text(m: &[u8; 6]) -> String {
+    m.iter().map(|b| format!("{b:02x}")).collect::<Vec<_>>().join(":")
 }
 
 static MONITORS: LazyLock<dashmap::DashMap<String, Arc<Mutex<State>>>> = LazyLock::new(Default::default);
@@ -140,6 +220,7 @@ pub fn snapshot(id: &str) -> Option<Value> {
         "frames": st.frames,
         "totals": st.totals,
         "talkers": st.talkers.values().collect::<Vec<_>>(),
+        "conflicts": st.conflicts,
         "events": st.events.iter().rev().collect::<Vec<_>>(),
     }))
 }
@@ -155,8 +236,15 @@ pub struct Monitor {
     /// When each (talker, event text) was last reported: repeats within a minute are
     /// counted but not listed again (a polling client hitting an error every 100 ms).
     recent: HashMap<(String, String, Proto, String), DateTime<Utc>>,
+    /// Requests waiting for an answer, per connection (client, device), oldest first.
+    pending: HashMap<(SocketAddr, SocketAddr), VecDeque<(DateTime<Utc>, Option<u64>)>>,
+    /// Retransmissions already counted, per stream direction.
+    retrans_seen: HashMap<(SocketAddr, SocketAddr, bool), u64>,
     pub state: Arc<Mutex<State>>,
 }
+
+/// A request with no answer after this long counts as a timeout.
+const ANSWER_TIMEOUT: chrono::TimeDelta = chrono::TimeDelta::seconds(5);
 
 const REPEAT_QUIET: chrono::TimeDelta = chrono::TimeDelta::seconds(60);
 
@@ -183,12 +271,59 @@ impl Monitor {
             learn: Duration::from_secs(s.learn_minutes * 60),
             report_reads: s.report_reads,
             recent: HashMap::new(),
+            pending: HashMap::new(),
+            retrans_seen: HashMap::new(),
             state: Arc::new(Mutex::new(State::default())),
         }
     }
 
     /// Feed one frame; returns the notable events it produced.
     pub fn frame(&mut self, f: &Frame) -> Vec<Event> {
+        let mut out = vec![];
+        if let Some((mac, ip)) = packet::ether_sender(f.link, &f.data) {
+            if let Some(e) = self.note_mac(f.ts, mac, ip) {
+                out.push(e);
+            }
+        }
+        out.extend(self.tcp_frame(f));
+        out
+    }
+
+    /// Remember which MAC sends from which IPv4 address; a second MAC is a conflict.
+    fn note_mac(&mut self, ts: DateTime<Utc>, mac: [u8; 6], ip: std::net::Ipv4Addr) -> Option<Event> {
+        let mut st = self.state.lock();
+        let macs = st.macs.entry(ip).or_default();
+        if macs.contains(&mac) {
+            return None;
+        }
+        macs.push(mac);
+        if macs.len() < 2 {
+            return None;
+        }
+        let list: Vec<String> = macs.iter().map(mac_text).collect();
+        let what = format!("address {ip} used by {} network cards: {}", list.len(), list.join(", "));
+        match st.conflicts.iter_mut().find(|c| c.ip == ip.to_string()) {
+            Some(c) => c.macs = list,
+            None => st.conflicts.push(AddressConflict { ip: ip.to_string(), macs: list, first_seen: ts }),
+        }
+        // Not a protocol's event: it names the address, with no device.
+        let e = Event { ts, protocol: Proto::Modbus, client: ip.to_string(), server: String::new(), action: Action::Error, what, new_talker: false };
+        drop(st);
+        Some(self.push_event(e))
+    }
+
+    fn push_event(&mut self, e: Event) -> Event {
+        let mut st = self.state.lock();
+        if st.events.len() >= MAX_EVENTS {
+            st.events.pop_front();
+        }
+        st.events.push_back(e.clone());
+        *st.totals.entry("events").or_default() += 1;
+        *st.totals.entry("errors").or_default() += 1;
+        e
+    }
+
+    fn tcp_frame(&mut self, f: &Frame) -> Vec<Event> {
         let Some(seg) = packet::tcp_segment(f.link, &f.data) else { return vec![] };
         let (proto, to_server) = match (self.ports.get(&seg.dst.port()), self.ports.get(&seg.src.port())) {
             (Some(p), _) => (*p, true),
@@ -206,12 +341,15 @@ impl Monitor {
         }
         let (client, server) = if to_server { (seg.src, seg.dst) } else { (seg.dst, seg.src) };
         let fin = seg.fin_or_rst;
+        let payload = seg.payload.len() as u64;
         let stream = self.streams.push(&seg);
         let mut found = vec![];
-        match decode::decode(proto, to_server, &stream.buf) {
-            Some((obs, used)) => {
+        let mut pdus = vec![];
+        match decode::decode_counted(proto, to_server, &stream.buf) {
+            Some((obs, used, n)) => {
                 stream.consume(used);
                 found = obs;
+                pdus = n;
             }
             None => {
                 // Not this protocol (or we joined mid-PDU): drop the buffer; if it never
@@ -223,14 +361,82 @@ impl Monitor {
                 }
             }
         }
+        let (segs, retrans) = (stream.segments, stream.retransmits);
         if fin {
             self.streams.close(&seg);
         }
+        let _ = segs;
         // A new connection is worth recording even before any PDU decodes.
         if seg.syn && to_server {
             found.insert(0, Obs { action: Action::Other, what: "new TCP connection".into() });
         }
-        self.record(f.ts, proto, client, server, found)
+        // Record first: it decides whether this talker is new.
+        let events = self.record(f.ts, proto, client, server, found);
+        self.wire(f.ts, proto, client, server, to_server, payload, pdus, seg.syn && to_server, fin, retrans);
+        events
+    }
+
+    /// Bytes, connections, retransmissions and response times per talker.
+    #[allow(clippy::too_many_arguments)]
+    fn wire(&mut self, ts: DateTime<Utc>, proto: Proto, client: SocketAddr, server: SocketAddr, to_server: bool,
+            payload: u64, pdus: Vec<Option<u64>>, syn: bool, fin: bool, retrans: u64) {
+        let conn = (client, server);
+        // The stream counts retransmissions cumulatively; take what's new.
+        let dir = (client, server, to_server);
+        let prev = self.retrans_seen.insert(dir, retrans).unwrap_or(0);
+        let new_retrans = retrans.saturating_sub(prev);
+        if fin {
+            self.retrans_seen.remove(&dir);
+        }
+        let mut answered: Vec<f64> = vec![];
+        let mut timeouts = 0u64;
+        if proto.request_response() {
+            let q = self.pending.entry(conn).or_default();
+            let before = q.len();
+            q.retain(|(t, _)| ts - *t <= ANSWER_TIMEOUT);
+            timeouts += (before - q.len()) as u64;
+            for pid in pdus {
+                if to_server {
+                    if q.len() < 256 {
+                        q.push_back((ts, pid));
+                    }
+                    continue;
+                }
+                // The oldest request with the same id; without ids, the oldest request.
+                let hit = match pid {
+                    Some(_) => q.iter().position(|(_, r)| *r == pid),
+                    None => (!q.is_empty()).then_some(0),
+                };
+                if let Some((sent, _)) = hit.and_then(|i| q.remove(i)) {
+                    answered.push((ts - sent).num_microseconds().unwrap_or(0) as f64 / 1000.0);
+                }
+            }
+            if fin {
+                self.pending.remove(&conn);
+            }
+        }
+        let mut st = self.state.lock();
+        let tk = (client.ip().to_string(), server.to_string(), proto);
+        let t = st.talkers.entry(tk.clone()).or_insert_with(|| Talker::new(tk.0.clone(), tk.1.clone(), proto, ts));
+        t.last_seen = ts;
+        if to_server { t.bytes_up += payload } else { t.bytes_down += payload }
+        if syn {
+            t.connections += 1;
+            t.open += 1;
+        }
+        if fin && to_server {
+            t.open = (t.open - 1).max(0);
+        }
+        // The stream's own counters only grow; take this segment's share.
+        if payload > 0 {
+            t.segments += 1;
+        }
+        t.retransmits += new_retrans;
+        t.timeouts += timeouts;
+        for ms in answered {
+            t.answered += 1;
+            t.latency(ms);
+        }
     }
 
     fn record(&mut self, ts: DateTime<Utc>, proto: Proto, client: SocketAddr, server: SocketAddr, found: Vec<Obs>) -> Vec<Event> {
@@ -244,15 +450,7 @@ impl Monitor {
         let is_new = !st.talkers.contains_key(&tk);
         let learned = (ts - started).to_std().unwrap_or_default() >= self.learn;
         let new_talker = is_new && learned;
-        let t = st.talkers.entry(tk.clone()).or_insert_with(|| Talker {
-            client: tk.0.clone(),
-            server: tk.1.clone(),
-            protocol: proto,
-            first_seen: ts,
-            last_seen: ts,
-            counts: BTreeMap::new(),
-            last: String::new(),
-        });
+        let t = st.talkers.entry(tk.clone()).or_insert_with(|| Talker::new(tk.0.clone(), tk.1.clone(), proto, ts));
         t.last_seen = ts;
         let mut events = vec![];
         let mut flagged_new = false;
@@ -393,7 +591,8 @@ pub async fn run(ctx: &mut Ctx) -> Result<()> {
 async fn live(ctx: &mut Ctx, m: &mut Monitor, s: &Settings, iface: &str) -> Result<()> {
     use anyhow::Context as _;
     let ports: Vec<String> = s.port_map().keys().map(|p| format!("tcp port {p}")).collect();
-    let mut filter = format!("({})", ports.join(" or "));
+    // ARP too: it shows which network card answers for which address.
+    let mut filter = format!("({} or arp)", ports.join(" or "));
     if let Some(extra) = &s.filter {
         filter = format!("{filter} and ({extra})");
     }
@@ -563,5 +762,77 @@ pub mod tap {
             }
         });
         Ok((addr, rec))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::packet::{Frame, Link, ipv4_tcp_frame};
+    use super::*;
+    use chrono::TimeDelta;
+
+    fn eth(src_mac: [u8; 6], ip_frame: &[u8]) -> Vec<u8> {
+        let mut f = vec![0xff; 6];
+        f.extend_from_slice(&src_mac);
+        f.extend_from_slice(&[0x08, 0x00]);
+        f.extend_from_slice(ip_frame);
+        f
+    }
+
+    #[test]
+    fn network_health_from_traffic() {
+        let s: Settings = serde_json::from_value(json!({"file": "x", "learn_minutes": 0})).unwrap();
+        let mut m = Monitor::new(&s);
+        let hmi: SocketAddr = "10.0.0.5:50000".parse().unwrap();
+        let plc: SocketAddr = "10.0.0.10:502".parse().unwrap();
+        let mac_a = [2, 0, 0, 0, 0, 1];
+        let t0 = Utc::now() - TimeDelta::minutes(30);
+        let frame = |ts, mac, data: Vec<u8>| Frame { ts, link: Link::Ethernet, data: eth(mac, &data) };
+        let req = |tid: u16| { let t = tid.to_be_bytes(); [t[0], t[1], 0, 0, 0, 6, 1, 3, 0, 0, 0, 2] };
+        let resp = |tid: u16| { let t = tid.to_be_bytes(); [t[0], t[1], 0, 0, 0, 7, 1, 3, 4, 0, 1, 0, 2] };
+        let (mut cseq, mut sseq) = (1000u32, 5000u32);
+        m.frame(&frame(t0, mac_a, ipv4_tcp_frame(hmi, plc, cseq - 1, 0x02, &[])));
+        let mut ts = t0;
+        for i in 0..120 {
+            ts += TimeDelta::seconds(1);
+            let q = req(i as u16);
+            m.frame(&frame(ts, mac_a, ipv4_tcp_frame(hmi, plc, cseq, 0x18, &q)));
+            // Every 10th request is sent twice (a retransmission).
+            if i % 10 == 0 {
+                m.frame(&frame(ts, mac_a, ipv4_tcp_frame(hmi, plc, cseq, 0x18, &q)));
+            }
+            cseq += q.len() as u32;
+            // Every 20th gets no answer; the rest are answered after 300 ms.
+            if i % 20 != 19 {
+                let r = resp(i as u16);
+                m.frame(&frame(ts + TimeDelta::milliseconds(300), [2, 0, 0, 0, 0, 2], ipv4_tcp_frame(plc, hmi, sseq, 0x18, &r)));
+                sseq += r.len() as u32;
+            }
+        }
+        // The same IP from another network card.
+        m.frame(&frame(ts, [2, 0, 0, 0, 0, 9], ipv4_tcp_frame("10.0.0.5:50001".parse().unwrap(), plc, 1, 0x02, &[])));
+
+        let st = m.state.lock();
+        let t = st.talkers.values().next().unwrap();
+        assert_eq!(t.answered, 114, "{:?}", (t.answered, t.timeouts));
+        assert!(t.timeouts >= 5, "{}", t.timeouts);
+        assert_eq!(t.retransmits, 12);
+        assert!((t.latency_p50_ms.unwrap() - 300.0).abs() < 1.0);
+        assert_eq!(st.conflicts.len(), 1, "{:?}", st.conflicts);
+        assert_eq!(st.conflicts[0].ip, "10.0.0.5");
+        let mons = vec![("mon".to_string(), st.talkers.values().cloned().collect::<Vec<_>>(), st.conflicts.clone())];
+        drop(st);
+
+        let cfg = crate::model::Config::default();
+        let (tags, svcs, states, names) = (HashMap::new(), HashMap::new(), HashMap::new(), HashMap::new());
+        let snap = crate::insights::Snapshot {
+            now: Utc::now(), cfg: &cfg, tags: &tags, services: &svcs, alarm_log: &[], alarm_states: &states,
+            alarm_names: &names, monitors: &mons,
+        };
+        let out = crate::insights::analyze(&snap, &crate::insights::Tuning::default());
+        let ids: Vec<&str> = out.iter().map(|i| i.id.as_str()).collect();
+        for want in ["dupip:mon:10.0.0.5", "timeouts:mon:10.0.0.5>10.0.0.10:502", "slow:mon:10.0.0.5>10.0.0.10:502", "retrans:mon:10.0.0.5>10.0.0.10:502"] {
+            assert!(ids.contains(&want), "{want}: {ids:?}");
+        }
     }
 }

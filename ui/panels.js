@@ -149,12 +149,12 @@ function panelsRoute(parts) {
 
 // ---------------------------------------------------------------- insights
 
-const AREAS = { comms: "Communications", alarms: "Alarms", historian: "Historian" };
+const AREAS = { network: "Network", comms: "Communications", alarms: "Alarms", historian: "Historian" };
 const LEVELS = { warn: ["Check", "pn-sev pn-sev-high"], suggest: ["Suggestion", "pn-sev pn-sev-medium"], info: ["Note", "pn-sev"] };
 
 async function insightsPage(tab) {
   clearPage();
-  const tabs = [["open", "Open"], ["comms", "Communications"], ["alarms", "Alarms"], ["historian", "Historian"], ["dismissed", "Dismissed"]];
+  const tabs = [["open", "Open"], ["network", "Network"], ["comms", "Communications"], ["alarms", "Alarms"], ["historian", "Historian"], ["dismissed", "Dismissed"]];
   shell("insights", `
     <div class="row"><div><h1>Insights</h1>
       <p class="sub">What Cowpoke has learned from watching every tag, service and alarm: polling faster than values change, flapping connections, bad reads, noisy history and alarm hygiene. Suggestions only: nothing changes until you change it.</p></div>

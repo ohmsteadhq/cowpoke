@@ -705,12 +705,16 @@ async function trafficTab(svc, body, m) {
         <td><span class="${ACTION_CLASS[e.action] || ""}"><span class="dot"></span>${esc(e.action)}</span> ${esc(e.what)}${e.new_talker ? ` <span class="tag">new talker</span>` : ""}</td></tr>`).join("")
         : `<tr><td colspan="5" class="muted">No events yet.</td></tr>`}
       </tbody></table></div>
+      ${(r.conflicts || []).length ? `<div class="msg err">${r.conflicts.map((c) => `Address ${esc(c.ip)} is used by ${c.macs.length} network cards: ${esc(c.macs.join(", "))}`).join("\n")}</div>` : ""}
       <h3>Talkers</h3>
-      <div class="scroll"><table><thead><tr><th>Client</th><th>Device</th><th>Protocol</th><th>Seen</th><th>Requests</th><th>Last</th></tr></thead><tbody>
+      <div class="scroll"><table><thead><tr><th>Client</th><th>Device</th><th>Protocol</th><th>Seen</th><th>Requests</th><th>Response</th><th>Link</th><th>Last</th></tr></thead><tbody>
       ${r.talkers.length ? r.talkers.map((t) => `<tr>
         <td class="mono">${esc(t.client)}</td><td class="mono">${esc(t.server)}</td><td>${esc(proto[t.protocol] || t.protocol)}</td>
-        <td class="detail">${time(t.first_seen)} → ${time(t.last_seen)}</td><td class="detail">${counts(t.counts)}</td><td class="detail">${esc(t.last)}</td></tr>`).join("")
-        : `<tr><td colspan="6" class="muted">Nothing seen yet.</td></tr>`}
+        <td class="detail">${time(t.first_seen)} → ${time(t.last_seen)}</td><td class="detail">${counts(t.counts)}</td>
+        <td class="detail">${t.latency_p50_ms != null ? `${t.latency_p50_ms.toFixed(0)} / ${t.latency_p95_ms.toFixed(0)} ms` : "–"}${t.timeouts ? ` · ${t.timeouts} unanswered` : ""}</td>
+        <td class="detail">${t.connections} conn · ${(t.bytes_up / 1e3 + t.bytes_down / 1e3).toFixed(0)} kB${t.retransmits ? ` · ${t.retransmits} resent` : ""}</td>
+        <td class="detail">${esc(t.last)}</td></tr>`).join("")
+        : `<tr><td colspan="8" class="muted">Nothing seen yet.</td></tr>`}
       </tbody></table></div></div>`;
   };
   load().catch((e) => flash(m, e.message));

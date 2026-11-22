@@ -7,6 +7,7 @@
 mod agent;
 mod auth;
 mod codec;
+mod generate;
 mod historian;
 mod manager;
 mod model;

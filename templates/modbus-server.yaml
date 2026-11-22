@@ -17,6 +17,8 @@ tags:
     initial: 42.5
     units: "%"
     history: { mode: deadband, deadband: 0.5 }
+    # Moves on its own: sine, triangle, ramp, square, random, walk, counter, toggle or sequence.
+    simulate: { kind: sine, min: 30, max: 60, period_ms: 60000, noise: 0.2 }
   - name: pump_run
     datatype: bool
     table: coil

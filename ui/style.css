@@ -397,3 +397,15 @@ table.mini td { padding: 4px 6px; }
   .pick { grid-template-columns: 1fr; }
 }
 .b-table .fgrid.hist .fld:first-child { grid-column: span 2; }
+
+/* ---- simulate (value generators) */
+.sim { border-top: 1px dashed var(--rule); padding-top: 12px; margin-top: 12px; display: grid; gap: 10px; }
+.sim-h { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.8rem; color: var(--ink-2); }
+.gen-btns { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--rule); background: var(--card); }
+.gen-btns button { border: 0; border-right: 1px solid var(--rule); background: none; padding: 5px 10px; font-size: 0.78rem; font-weight: 500; color: var(--ink-2); }
+.gen-btns button:last-child { border-right: 0; }
+.gen-btns button.on { background: var(--teal); color: var(--on-teal); }
+.gen-chip { font: 500 0.76rem var(--font-code); padding: 3px 8px; color: var(--teal-hi); border-color: var(--teal); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.small-link { padding: 0; font-size: 0.78rem; }
+.b-table td:nth-child(2) input { min-width: 140px; }
+.b-table .dd { white-space: nowrap; }

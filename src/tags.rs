@@ -30,6 +30,8 @@ pub enum Origin {
     User,
     /// The service itself (a poll result or a protocol write).
     Service,
+    /// A tag's value generator (`simulate:`).
+    Generator,
 }
 
 #[derive(Clone, Debug)]

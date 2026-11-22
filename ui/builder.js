@@ -125,6 +125,25 @@ function tagColumns(kind, mode) {
   return [];
 }
 
+// Value generators for server-mode tags.
+const GENS = [
+  ["sine", "Sine", "num"], ["triangle", "Triangle", "num"], ["ramp", "Ramp", "num"], ["square", "Square", "numbool"],
+  ["random", "Random", "numbool"], ["walk", "Walk", "num"], ["counter", "Counter", "num"], ["toggle", "Toggle", "numbool"],
+  ["sequence", "Sequence", "all"],
+];
+const WAVES = new Set(["sine", "triangle", "ramp", "square"]);
+function gensFor(dt) {
+  return GENS.filter(([, , k]) => k === "all" || (dt === "bool" ? k === "numbool" : dt === "string" ? false : true));
+}
+function genLabel(g, dt) {
+  if (!g) return "";
+  const name = GENS.find((x) => x[0] === g.kind)?.[1] || g.kind;
+  if (g.kind === "sequence") return `${name} (${(g.values || []).length})`;
+  if (dt === "bool") return name;
+  const lo = g.min ?? 0, hi = g.max ?? (g.kind === "counter" ? 65535 : 100);
+  return `${name} ${lo}–${hi}`;
+}
+
 // ---------------------------------------------------------------- small helpers
 
 function getPath(o, path) {
@@ -312,6 +331,8 @@ function serviceBuilder(root, opts) {
           </section>
           <section class="panel b-sec b-tags">
             <div class="row pad-x"><h3>Tags <span class="muted count">${(d.tags || []).length}</span></h3><span class="spacer"></span>
+              ${d.mode === "server" && (d.tags || []).length ? `<button type="button" class="small" id="b-simall" title="Give every tag without one a generator">∿ Simulate all</button>
+                ${(d.tags || []).some((t) => t.simulate) ? `<button type="button" class="small" id="b-simnone">Stop all</button>` : ""}` : ""}
               <button type="button" class="small" id="b-example">Load example tags</button>
               <button type="button" class="small primary" id="b-addtag">+ Add tag</button></div>
             ${tagsTable()}
@@ -345,13 +366,62 @@ function serviceBuilder(root, opts) {
     { k: "length", label: "String length (registers)", type: "number", ph: "10", kind: "modbus", stringOnly: true },
   ];
 
+  const simulateHtml = (t, i) => {
+    const g = t.simulate;
+    const opts = gensFor(t.datatype);
+    const base = `tags.${i}.simulate`;
+    const num = (k, label, ph, help) => field({ k, label, type: "number", ph, help }, base, g?.[k]);
+    let fields = "";
+    if (g) {
+      const isBool = t.datatype === "bool";
+      if (g.kind === "sequence") {
+        fields = `<label class="fld wide" for="seq-${i}"><span class="lbl">Values, in order</span>
+          <input id="seq-${i}" class="mono" data-seq="${i}" value="${esc((g.values || []).map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join(", "))}" placeholder="idle, running, fault">
+          <span class="hint">Comma-separated. One per interval, then it starts over.</span></label>`;
+      } else if (!isBool && g.kind !== "toggle") {
+        fields += num("min", "Min", "0") + num("max", "Max", g.kind === "counter" ? "65535" : "100");
+      } else if (!isBool) {
+        fields += num("min", "Low", "0") + num("max", "High", "100");
+      }
+      if (WAVES.has(g.kind)) fields += num("period_ms", "Period (ms)", "60000", "One full cycle.");
+      if (g.kind === "counter" || g.kind === "walk") fields += num("step", g.kind === "counter" ? "Step" : "Largest step", g.kind === "counter" ? "1" : "span ÷ 50");
+      if (!isBool && ["sine", "triangle", "ramp", "square", "random", "toggle"].includes(g.kind)) fields += num("noise", "Noise (±)", "0");
+      fields += num("interval_ms", "Update every (ms)", "1000");
+    }
+    return `<div class="sim">
+      <div class="sim-h"><span class="lbl">Simulate</span>
+        ${opts.length ? `<span class="gen-btns">
+          <button type="button" class="${g ? "" : "on"}" data-gen="${i}" data-v="">None</button>
+          ${opts.map(([k, l]) => `<button type="button" class="${g?.kind === k ? "on" : ""}" data-gen="${i}" data-v="${k}">${esc(l)}</button>`).join("")}
+        </span>` : `<span class="muted small">Not for this data type.</span>`}</div>
+      ${g ? `<div class="fgrid">${fields}</div>` : `<p class="hint">Without a generator the value only changes when something writes it.</p>`}
+    </div>`;
+  };
+
+  // A sensible generator for a tag, staggered so tags don't move in step.
+  const defaultGen = (t, i, kind) => {
+    const dt = t.datatype || "uint16";
+    kind = kind || (dt === "bool" ? "toggle" : dt === "string" ? "sequence" : /int/.test(dt) ? "walk" : "sine");
+    const g = { kind };
+    if (kind === "sequence") g.values = dt === "string" ? ["idle", "running", "stopped"] : dt === "bool" ? [true, false] : [0, 1, 2];
+    if (dt === "bool") { if (kind === "toggle") g.interval_ms = 5000; return g; }
+    if (dt === "string") return g;
+    const init = typeof t.initial === "number" ? t.initial : null;
+    if (init !== null && init !== 0 && kind !== "counter") { g.min = +(init * 0.8).toFixed(2); g.max = +(init * 1.2).toFixed(2); }
+    else { g.min = 0; g.max = kind === "counter" ? 1000 : 100; }
+    if (/int/.test(dt) && dt !== "int16" && g.min < 0 && dt.startsWith("u")) g.min = 0;
+    if (WAVES.has(kind)) g.period_ms = [60000, 45000, 90000, 30000, 120000][i % 5];
+    if (kind === "sine" && !/int/.test(dt)) g.noise = +((g.max - g.min) / 100).toFixed(3);
+    return g;
+  };
+
   const tagsTable = () => {
     const d = st.def, cols = tagColumns(d.kind, d.mode);
     const tags = d.tags || [];
     if (!tags.length) return `<div class="pad muted b-empty">No tags yet. Add one, or load the example tags for ${esc(KINDS[d.kind].label)} ${esc(d.mode)}.</div>`;
     return `<div class="scroll"><table class="b-table">
       <thead><tr><th style="width:28px"></th><th>Name</th><th style="width:120px">Type</th>${cols.map((c) => `<th style="width:${c.w}px" title="${esc(c.help || "")}">${esc(c.label)}</th>`).join("")}
-        <th style="width:84px">Writable</th><th style="width:90px">History</th><th style="width:72px"></th></tr></thead>
+        <th style="width:84px">Writable</th>${d.mode === "server" ? '<th style="width:130px">Simulate</th>' : ""}<th style="width:90px">History</th><th style="width:72px"></th></tr></thead>
       <tbody>${tags.map((t, i) => {
         const open = st.open.has(i);
         const hist = t.history ? (t.history.mode || "deadband") : "off";
@@ -362,12 +432,14 @@ function serviceBuilder(root, opts) {
           ${cols.map((c) => `<td>${c.type === "choice" ? ddButton(`tags.${i}.${c.k}`, c.options, t[c.k], c.dflt)
             : `<input class="mono" data-path="tags.${i}.${c.k}" data-type="${c.type}" value="${esc(t[c.k] ?? "")}" placeholder="${esc(c.ph || "")}" aria-label="${esc(c.label)}">`}</td>`).join("")}
           <td><button type="button" class="chk ${t.writable === false ? "" : "on"}" data-writable="${i}" aria-pressed="${t.writable !== false}">${t.writable === false ? "No" : "Yes"}</button></td>
+          ${d.mode === "server" ? `<td>${t.simulate ? `<button type="button" class="gen-chip" data-tag-open="${i}" title="Change the generator">∿ ${esc(genLabel(t.simulate, t.datatype))}</button>` : `<button type="button" class="linkish small-link" data-tag-open="${i}">add</button>`}</td>` : ""}
           <td><span class="hist-tag ${hist === "off" ? "muted" : ""}">${hist === "off" ? "off" : hist === "interval" ? "interval" : "on change"}</span></td>
           <td class="row-acts"><button type="button" class="small icon" data-tag-dup="${i}" title="Duplicate">⧉</button><button type="button" class="small icon danger" data-tag-del="${i}" title="Delete">×</button></td>
         </tr>
-        ${open ? `<tr class="detail-row"><td></td><td colspan="${cols.length + 5}">
+        ${open ? `<tr class="detail-row"><td></td><td colspan="${cols.length + (d.mode === "server" ? 6 : 5)}">
           <div class="fgrid">${TAG_DETAIL.filter((f) => (!f.serverOnly || d.mode === "server") && (!f.kind || f.kind === d.kind) && (!f.stringOnly || t.datatype === "string"))
             .map((f) => field(f, `tags.${i}`, t[f.k])).join("")}</div>
+          ${d.mode === "server" ? simulateHtml(t, i) : ""}
           <div class="fgrid hist">${field(HIST[0], `tags.${i}.history`, hist)}
             ${hist === "deadband" ? field(HIST[1], `tags.${i}.history`, t.history?.deadband) : ""}
             ${hist === "interval" ? field(HIST[2], `tags.${i}.history`, t.history?.interval_ms) : ""}
@@ -464,6 +536,11 @@ function serviceBuilder(root, opts) {
       openDropdown(b, f.options, getPath(st.def, path) ?? b.dataset.dflt, (v) => {
         setPath(st.def, path, v);
         // Coils and discrete inputs only hold bools.
+        const dm = path.match(/^tags\.(\d+)\.datatype$/);
+        if (dm) {
+          const t = st.def.tags[+dm[1]];
+          if (t.simulate && !gensFor(v).some(([k]) => k === t.simulate.kind)) delete t.simulate;
+        }
         const m = path.match(/^tags\.(\d+)\.table$/);
         if (m && (v === "coil" || v === "discrete_input")) st.def.tags[+m[1]].datatype = "bool";
         render(); scheduleCheck();
@@ -538,6 +615,33 @@ function serviceBuilder(root, opts) {
       const inputs = root.querySelectorAll('[data-path$=".name"][data-path^="tags."]');
       inputs[inputs.length - 1]?.select();
       scheduleCheck();
+    });
+    root.querySelectorAll("[data-gen]").forEach((b) => (b.onclick = () => {
+      const i = +b.dataset.gen, t = st.def.tags[i];
+      if (!b.dataset.v) delete t.simulate;
+      else if (t.simulate?.kind !== b.dataset.v) {
+        // Keep min and max when switching between kinds.
+        const keep = t.simulate ? { min: t.simulate.min, max: t.simulate.max } : {};
+        t.simulate = { ...defaultGen(t, i, b.dataset.v), ...Object.fromEntries(Object.entries(keep).filter(([, v]) => v !== undefined)) };
+      }
+      render(); scheduleCheck();
+    }));
+    root.querySelectorAll("[data-seq]").forEach((el) => el.addEventListener("input", () => {
+      const t = st.def.tags[+el.dataset.seq];
+      t.simulate.values = el.value.split(",").map((x) => x.trim()).filter((x) => x !== "").map((x) => {
+        if (/^-?\d+(\.\d+)?$/.test(x)) return Number(x);
+        if (/^(true|false)$/i.test(x)) return /^true$/i.test(x);
+        return x;
+      });
+      scheduleCheck();
+    }));
+    root.querySelector("#b-simall")?.addEventListener("click", () => {
+      st.def.tags.forEach((t, i) => { if (!t.simulate && gensFor(t.datatype || "uint16").length) t.simulate = defaultGen(t, i); });
+      render(); scheduleCheck();
+    });
+    root.querySelector("#b-simnone")?.addEventListener("click", () => {
+      st.def.tags.forEach((t) => delete t.simulate);
+      render(); scheduleCheck();
     });
     root.querySelector("#b-example")?.addEventListener("click", async () => {
       const yaml = await api("GET", `/api/templates/${st.def.kind}/${st.def.mode}`);

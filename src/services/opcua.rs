@@ -332,7 +332,7 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
                 }
             }
             ev = events.recv() => match ev {
-                Ok(e) if e.service == id && e.origin == Origin::User => {
+                Ok(e) if e.service == id && e.origin != Origin::Service => {
                     if let (Some(t), Some((_, node))) = (tags.iter().find(|t| t.name == e.tag), node_of.iter().find(|(n, _)| *n == e.tag)) {
                         let _ = nm.set_value(handle.subscriptions(), node, None, DataValue::new_now(to_variant(t, &e.state.value)));
                     }

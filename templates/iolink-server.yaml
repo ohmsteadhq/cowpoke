@@ -14,7 +14,7 @@ settings:
     - { port: 2, product_name: Signal lamp, vendor_id: 310, device_id: 2001, pdout_bytes: 1 }
 tags:
   # bit_offset counts from the least significant bit of the last byte, as in the IODD.
-  - { name: temperature, datatype: int16, port: 1, pd: in, bit_offset: 16, bit_length: 16, scale: 0.1, initial: 21.5, units: "°C" }
+  - { name: temperature, datatype: int16, port: 1, pd: in, bit_offset: 16, bit_length: 16, scale: 0.1, initial: 21.5, units: "°C", simulate: { kind: sine, min: 19, max: 25, period_ms: 90000 } }
   - { name: out1, datatype: bool, port: 1, pd: in, bit_offset: 0 }
   - { name: out2, datatype: bool, port: 1, pd: in, bit_offset: 1 }
   - { name: lamp_green, datatype: bool, port: 2, pd: out, bit_offset: 0 }

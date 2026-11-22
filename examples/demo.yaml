@@ -7,9 +7,9 @@ services:
     mode: server
     settings: { port: 5020 }
     tags:
-      - { name: tank_level, datatype: float32, register: 0, initial: 42.5, units: "%", history: { mode: interval, interval_ms: 2000 } }
-      - { name: pump_run, datatype: bool, table: coil, register: 0 }
-      - { name: flow, datatype: int16, table: input_register, register: 10, scale: 0.1, initial: 12.3, units: m³/h }
+      - { name: tank_level, datatype: float32, register: 0, initial: 42.5, units: "%", history: { mode: interval, interval_ms: 2000 }, simulate: { kind: sine, min: 30, max: 70, period_ms: 60000, noise: 0.3 } }
+      - { name: pump_run, datatype: bool, table: coil, register: 0, simulate: { kind: square, period_ms: 40000 } }
+      - { name: flow, datatype: int16, table: input_register, register: 10, scale: 0.1, initial: 12.3, units: m³/h, simulate: { kind: walk, min: 8, max: 16, step: 0.4 } }
   - id: plc-reader
     name: PLC reader
     kind: modbus
@@ -26,7 +26,7 @@ services:
     mode: server
     settings: { port: 4841, hostname: localhost, trust_client_certs: true }
     tags:
-      - { name: Temperature, datatype: float64, initial: 21.5, units: °C }
+      - { name: Temperature, datatype: float64, initial: 21.5, units: °C, simulate: { kind: sine, min: 19, max: 24, period_ms: 90000, noise: 0.05 } }
       - { name: Running, datatype: bool }
   - id: ua-reader
     name: OPC UA reader
@@ -46,7 +46,7 @@ services:
       routes:
         - { method: GET, path: /v1/current, body: { main: { temp: "{{tags.temperature}}" }, updated: "{{now}}" } }
     tags:
-      - { name: temperature, datatype: float64, initial: 18.4 }
+      - { name: temperature, datatype: float64, initial: 18.4, simulate: { kind: walk, min: 12, max: 26, step: 0.3, interval_ms: 2000 } }
   - id: weather
     name: Weather reader
     kind: api
@@ -63,8 +63,8 @@ services:
       port: 8081
       devices: [{ port: 1, product_name: TV7105, vendor_id: 310, pdin_bytes: 4 }]
     tags:
-      - { name: temperature, datatype: int16, port: 1, bit_offset: 16, bit_length: 16, scale: 0.1, initial: 21.5, units: °C }
-      - { name: out1, datatype: bool, port: 1, bit_offset: 0 }
+      - { name: temperature, datatype: int16, port: 1, bit_offset: 16, bit_length: 16, scale: 0.1, initial: 21.5, units: °C, simulate: { kind: triangle, min: 20, max: 26, period_ms: 120000 } }
+      - { name: out1, datatype: bool, port: 1, bit_offset: 0, simulate: { kind: toggle, interval_ms: 7000 } }
       - { name: lamp, datatype: bool, port: 2, pd: out, bit_offset: 0 }
   - id: iolink-reader
     name: IO-Link reader

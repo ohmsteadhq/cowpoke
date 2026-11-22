@@ -174,6 +174,11 @@ pub struct TagDef {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bit_length: Option<u16>,
 
+    // --- Simulation (server mode) ---
+    /// Generate values for this tag: a wave, noise, a counter or a sequence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub simulate: Option<crate::generate::Generator>,
+
     // --- Historian ---
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history: Option<HistoryCfg>,
@@ -269,6 +274,15 @@ impl ServiceDef {
         }
         let mut seen = std::collections::HashSet::new();
         for t in &self.tags {
+            if let Some(g) = &t.simulate {
+                if self.mode == Mode::Client {
+                    return Err(format!(
+                        "tag `{}`: simulate is for server-mode services; a client reads its values from the device",
+                        t.name
+                    ));
+                }
+                g.validate(t)?;
+            }
             if t.name.trim().is_empty() {
                 return Err("every tag needs a name".into());
             }

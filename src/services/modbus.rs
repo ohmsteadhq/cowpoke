@@ -255,7 +255,7 @@ pub async fn server(ctx: &mut Ctx) -> Result<()> {
         async move {
             loop {
                 match events.recv().await {
-                    Ok(e) if e.service == id && e.origin == Origin::User => {
+                    Ok(e) if e.service == id && e.origin != Origin::Service => {
                         if let Some(t) = shared.tags.iter().find(|t| t.name == e.tag) {
                             let mut img = shared.image.lock();
                             shared.put_tag(&mut img, t, &e.state.value);

@@ -332,3 +332,49 @@ tags:
     assert_eq!(r, json!({"cid": 9, "code": 200, "data": {"value": "FFD30002"}}));
     rig.stop().await;
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn generated_values_reach_clients() {
+    let p = free_port();
+    let rig = Rig::start(vec![
+        svc(&format!(
+            r#"
+id: srv
+kind: modbus
+mode: server
+settings: {{ bind: 127.0.0.1, port: {p} }}
+tags:
+  - {{ name: count, datatype: uint16, register: 0, simulate: {{ kind: counter, min: 0, max: 1000, interval_ms: 100 }} }}
+  - {{ name: wave, datatype: float32, register: 1, simulate: {{ kind: sine, min: 10, max: 20, period_ms: 2000, interval_ms: 100 }} }}
+"#
+        )),
+        svc(&format!(
+            r#"
+id: cli
+kind: modbus
+mode: client
+settings: {{ host: 127.0.0.1, port: {p}, poll_ms: 100 }}
+tags:
+  - {{ name: count, datatype: uint16, register: 0 }}
+  - {{ name: wave, datatype: float32, register: 1 }}
+"#
+        )),
+    ])
+    .await;
+    rig.wait_running("srv").await;
+    let mut counts = std::collections::BTreeSet::new();
+    let mut waves = std::collections::BTreeSet::new();
+    for _ in 0..60 {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        if let Some(v) = rig.tags.value("cli", "count").and_then(|v| v.as_u64()) {
+            counts.insert(v);
+        }
+        if let Some(v) = rig.tags.value("cli", "wave").and_then(|v| v.as_f64()) {
+            assert!((10.0..=20.0).contains(&v), "wave out of range: {v}");
+            waves.insert((v * 10.0) as i64);
+        }
+    }
+    assert!(counts.len() >= 5, "the counter should climb at the client: {counts:?}");
+    assert!(waves.len() >= 5, "the sine should move at the client: {waves:?}");
+    rig.stop().await;
+}

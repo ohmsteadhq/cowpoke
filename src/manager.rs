@@ -252,6 +252,9 @@ impl Manager {
             writes: wrx,
             status: status.clone(),
         };
+        if def.mode == Mode::Server {
+            tokio::spawn(crate::generate::run(def.clone(), self.tags.clone(), cancel.child_token()));
+        }
         let task = tokio::spawn(async move {
             let mut backoff = Duration::from_secs(1);
             loop {

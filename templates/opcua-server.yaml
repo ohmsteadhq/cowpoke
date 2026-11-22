@@ -17,6 +17,7 @@ tags:
     datatype: float64
     initial: 21.5
     history: { mode: deadband, deadband: 0.1 }
+    simulate: { kind: walk, min: 18, max: 26, step: 0.2 }
   - name: Running
     datatype: bool
   - name: Recipe

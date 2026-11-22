@@ -3,6 +3,7 @@ id: ua-sim
 name: OPC UA simulator
 kind: opcua
 mode: server
+# agent: plant-1          # run this service on an edge agent instead of the hub
 settings:
   port: 4840
   # hostname: cowpoke.local         # name clients use; goes into the endpoint URL

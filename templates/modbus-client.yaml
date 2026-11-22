@@ -3,6 +3,7 @@ id: plc-line1
 name: Line 1 PLC
 kind: modbus
 mode: client
+# agent: plant-1          # run this service on an edge agent instead of the hub
 settings:
   host: 192.168.1.50
   port: 502

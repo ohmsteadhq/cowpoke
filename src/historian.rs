@@ -165,6 +165,22 @@ impl Historian {
         }
     }
 
+    /// Add points recorded elsewhere (an edge agent's backfill). Untracked tags are ignored.
+    pub fn insert(&self, points: Vec<(String, String, i64, f64)>) {
+        let tr = self.tracked.lock();
+        let mut p = self.pending.lock();
+        for pt in points {
+            if tr.contains_key(&(pt.0.clone(), pt.1.clone())) {
+                p.push(pt);
+            }
+        }
+    }
+
+    /// Every historized (service, tag).
+    pub fn tracked(&self) -> Vec<(String, String)> {
+        self.tracked.lock().keys().cloned().collect()
+    }
+
     pub fn flush(&self) {
         let batch = std::mem::take(&mut *self.pending.lock());
         let mut by_file: HashMap<PathBuf, Vec<u8>> = HashMap::new();
@@ -214,31 +230,46 @@ impl Historian {
         to: DateTime<Utc>,
         max_points: usize,
     ) -> Vec<Point> {
-        self.flush();
         let (f, t) = (from.timestamp_millis(), to.timestamp_millis());
-        let dir = self.tag_dir(service, tag);
+        let raw = self.raw(service, tag, f, t);
+        Self::downsample(raw, f, t, max_points)
+    }
+
+    /// Every stored point between `f` and `t` (milliseconds), sorted by time.
+    pub fn raw(&self, service: &str, tag: &str, f: i64, t: i64) -> Vec<(i64, f64)> {
+        self.flush();
+        let day_of = |ms: i64| Utc.timestamp_millis_opt(ms).single().map(|d| d.date_naive());
+        let (from_day, to_day) = (day_of(f), day_of(t));
         let mut raw: Vec<(i64, f64)> = vec![];
-        let mut day = from.date_naive();
-        while day <= to.date_naive() {
-            let path = dir.join(format!("{day}.bin"));
-            if let Ok(mut file) = std::fs::File::open(&path) {
-                let mut buf = vec![];
-                if file.read_to_end(&mut buf).is_ok() {
-                    for rec in buf.chunks_exact(16) {
-                        let ts = i64::from_le_bytes(rec[..8].try_into().unwrap());
-                        let v = f64::from_le_bytes(rec[8..].try_into().unwrap());
-                        if ts >= f && ts <= t {
-                            raw.push((ts, v));
-                        }
-                    }
-                }
+        // Only the day files that exist, so wide ranges cost nothing.
+        let Ok(rd) = std::fs::read_dir(self.tag_dir(service, tag)) else {
+            return raw;
+        };
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().into_owned();
+            let Some(day) = name.strip_suffix(".bin").and_then(|d| d.parse::<NaiveDate>().ok()) else {
+                continue;
+            };
+            if from_day.is_some_and(|d| day < d) || to_day.is_some_and(|d| day > d) {
+                continue;
             }
-            day = day.succ_opt().unwrap_or(day);
-            if day == NaiveDate::MAX {
-                break;
+            let mut buf = vec![];
+            if std::fs::File::open(e.path()).and_then(|mut f| f.read_to_end(&mut buf)).is_err() {
+                continue;
+            }
+            for rec in buf.chunks_exact(16) {
+                let ts = i64::from_le_bytes(rec[..8].try_into().unwrap());
+                let v = f64::from_le_bytes(rec[8..].try_into().unwrap());
+                if ts >= f && ts <= t {
+                    raw.push((ts, v));
+                }
             }
         }
         raw.sort_by_key(|p| p.0);
+        raw
+    }
+
+    fn downsample(raw: Vec<(i64, f64)>, f: i64, t: i64, max_points: usize) -> Vec<Point> {
         let max_points = max_points.clamp(10, 10_000);
         if raw.len() <= max_points {
             return raw.into_iter().map(|(t, v)| Point { t, v, min: None, max: None }).collect();
@@ -295,6 +326,7 @@ mod tests {
                 kind: Kind::Api,
                 mode: Mode::Server,
                 enabled: true,
+                agent: None,
                 settings: serde_json::json!({}),
                 tags: vec![TagDef {
                     name: "temp".into(),

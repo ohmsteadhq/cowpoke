@@ -3,6 +3,7 @@ id: weather
 name: Weather service
 kind: api
 mode: client
+# agent: plant-1          # run this service on an edge agent instead of the hub
 settings:
   url: https://api.example.com/v1/current?site=plant-1
   method: GET

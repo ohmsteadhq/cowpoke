@@ -16,7 +16,7 @@ use crate::model::{Config, Mode, ServiceDef};
 use crate::services;
 use crate::tags::{Origin, Quality, TagStore, coerce_tag};
 
-#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum State {
     Stopped,
@@ -27,7 +27,7 @@ pub enum State {
     Error,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Status {
     pub state: State,
     /// What the service is doing (`listening on 0.0.0.0:502`) or why it failed.
@@ -99,16 +99,60 @@ pub struct Manager {
     data_dir: PathBuf,
     running: tokio::sync::Mutex<HashMap<String, Running>>,
     statuses: Mutex<HashMap<String, StatusHandle>>,
+    /// True on an edge agent: run every service, including ones assigned to an agent.
+    /// On the hub, agent services run remotely and only their status is kept here.
+    edge: bool,
 }
 
 impl Manager {
     pub fn new(tags: TagStore, data_dir: PathBuf) -> Arc<Self> {
+        Self::build(tags, data_dir, false)
+    }
+
+    /// A manager for an edge agent, which runs the services the hub assigns it.
+    pub fn new_edge(tags: TagStore, data_dir: PathBuf) -> Arc<Self> {
+        Self::build(tags, data_dir, true)
+    }
+
+    fn build(tags: TagStore, data_dir: PathBuf, edge: bool) -> Arc<Self> {
         Arc::new(Self {
             tags,
             data_dir,
             running: Default::default(),
             statuses: Default::default(),
+            edge,
         })
+    }
+
+    /// Status of a service that runs on an edge agent, as the agent (or its absence) reports it.
+    pub fn set_remote_status(&self, id: &str, state: State, detail: impl Into<String>) {
+        let st = Status::new(state, detail);
+        let mut map = self.statuses.lock();
+        match map.get(id) {
+            Some(h) => h.set(st),
+            None => {
+                map.insert(id.to_string(), StatusHandle(Arc::new(Mutex::new(st))));
+            }
+        }
+    }
+
+    /// Status as reported, with its original timestamp kept (for relayed agent statuses).
+    pub fn set_remote_status_full(&self, id: &str, st: Status) {
+        let mut map = self.statuses.lock();
+        match map.get(id) {
+            Some(h) => h.set(st),
+            None => {
+                map.insert(id.to_string(), StatusHandle(Arc::new(Mutex::new(st))));
+            }
+        }
+    }
+
+    pub fn all_statuses(&self) -> HashMap<String, Status> {
+        self.statuses
+            .lock()
+            .iter()
+            .map(|(k, h)| (k.clone(), h.get()))
+            .collect()
     }
 
     pub fn status(&self, id: &str) -> Status {
@@ -126,7 +170,7 @@ impl Manager {
         let wanted: HashMap<&str, &ServiceDef> = cfg
             .services
             .iter()
-            .filter(|s| s.enabled)
+            .filter(|s| s.enabled && (self.edge || s.agent.is_none()))
             .map(|s| (s.id.as_str(), s))
             .collect();
 
@@ -150,6 +194,26 @@ impl Manager {
         for s in &cfg.services {
             if !s.enabled && !running.contains_key(&s.id) {
                 self.tags.remove_service(&s.id);
+            }
+        }
+
+        // Agent services on the hub: show that they wait for their agent until it reports.
+        if !self.edge {
+            let mut map = self.statuses.lock();
+            for s in cfg.services.iter().filter(|s| s.agent.is_some()) {
+                let agent = s.agent.as_deref().unwrap_or_default();
+                let st = if s.enabled {
+                    Status::new(State::Starting, format!("waiting for agent {agent}"))
+                } else {
+                    Status::new(State::Stopped, "")
+                };
+                match map.get(&s.id) {
+                    Some(h) if s.enabled && h.get().state != State::Stopped => {}
+                    Some(h) => h.set(st),
+                    None => {
+                        map.insert(s.id.clone(), StatusHandle(Arc::new(Mutex::new(st))));
+                    }
+                }
             }
         }
 

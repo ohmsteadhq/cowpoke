@@ -51,6 +51,8 @@ COWPOKE_CONFIG=examples/demo.yaml COWPOKE_ADMIN_PASSWORD=dev-password cargo run
 | `COWPOKE_BIND` | `0.0.0.0:8080` | Web UI and API address |
 | `COWPOKE_ADMIN_PASSWORD` | random, logged once | Password for the first `admin` user |
 | `COWPOKE_LOG` | `info` | Log filter, for example `debug` or `cowpoke=debug` |
+| `COWPOKE_HUB` | | Agent only: the hub's URL (`https://…`) |
+| `COWPOKE_AGENT_TOKEN` | | Agent only: the token the hub showed when the agent was created |
 
 The web UI has no HTTPS of its own. Off a trusted network, put it behind a reverse proxy (Caddy, Traefik, nginx) that terminates TLS.
 
@@ -112,6 +114,35 @@ Sign in with `POST /api/login {"username","password"}`. It returns a `token`; se
 
 API server-mode services without their own `port` answer at `/x/<id>/…` on the web port, with no sign-in, because they stand in for third-party APIs.
 
+## Edge agents
+
+A hub (hosted, or your own central Cowpoke) often can't reach the devices it should talk to: they sit on a plant network behind a firewall. An **edge agent** is the same Cowpoke binary running on that network as `cowpoke agent`. It dials out to the hub over one WebSocket, so the plant needs no inbound firewall rules, and it runs the services the hub assigns to it.
+
+1. On the hub, an admin creates the agent: `POST /api/agents {"id": "plant-1", "name": "Plant 1"}`, or the Agents page. The answer holds the agent's **token**, shown only once.
+2. At the plant:
+
+   ```bash
+   docker run -d --name cowpoke-agent --network host -v cowpoke-agent:/data \
+     -e COWPOKE_HUB=https://cowpoke.example.com -e COWPOKE_AGENT_TOKEN=<token> cowpoke agent
+   ```
+
+3. Assign services to it with `agent: plant-1` in their definition. Client and server services can both run on an agent.
+
+How it behaves:
+
+- **Live values and status** flow up to the hub every 200 ms and 2 s. Writes, start/stop and certificate actions on the hub go down to the agent.
+- **The plant keeps running when the link drops.** The agent keeps polling and serving, and starts from its last configuration (`agent-config.yaml`) even if it boots while the hub is unreachable. On the hub the agent's tags turn bad and its services show "agent offline since …".
+- **History is backfilled.** The agent records historized tags locally the whole time. When it reconnects it sends the points recorded while it was offline (up to 7 days) to the hub's historian.
+- **Tokens** are stored on the hub only as SHA-256 hashes. Rotating one (`POST /api/agents/<id>/token`) disconnects the agent until it gets the new token. An agent can't be deleted while services are assigned to it.
+
+| Route | Role |
+|---|---|
+| `GET /api/agents`: `id`, `name`, `online`, `version`, `hostname`, `connected_since`, `last_seen`, `created`, `services` | viewer |
+| `POST /api/agents {"id","name"}` → `{"id","token"}` | admin |
+| `POST /api/agents/<id>/token` → `{"id","token"}` | admin |
+| `DELETE /api/agents/<id>` | admin |
+| `GET /api/agents/connect` (WebSocket, `Authorization: Bearer <agent token>`) | the agent |
+
 ## Historian storage
 
 History is stored under `<data>/history/<service>/<tag>/<YYYY-MM-DD>.bin`, one file per tag per UTC day. Each record is 16 bytes: an i64 timestamp in milliseconds and an f64 value. Writes are appended once a second. Retention deletes whole day files. Queries average the points into at most `points` buckets, with each bucket's min and max. String tags aren't recorded.
@@ -136,7 +167,6 @@ The UI follows the Ohmstead design language (`ohmstead/design/DESIGN.md`).
 
 These aren't built yet:
 
-- The edge agent, for hosted Cowpoke to reach plant networks without inbound firewall holes
 - Modbus RTU over serial
 - IO-Link masters other than ifm IoT Core
 - OPC UA subscriptions (the client polls)

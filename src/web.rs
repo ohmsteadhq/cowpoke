@@ -35,6 +35,7 @@ pub struct App {
     pub tags: TagStore,
     pub auth: Arc<Auth>,
     pub hist: Arc<Historian>,
+    pub agents: Arc<crate::agent::hub::Hub>,
     pub data_dir: PathBuf,
 }
 
@@ -44,6 +45,18 @@ impl App {
         let cfg = self.cfg.get();
         self.hist.configure(&cfg);
         self.mgr.apply(&cfg).await;
+        self.agents.push_config(&cfg);
+    }
+
+    /// Refuse services assigned to an agent that isn't registered.
+    fn check_agent(&self, def: &ServiceDef) -> R<()> {
+        match &def.agent {
+            Some(a) if !self.agents.exists(a) => Err(bad(format!(
+                "service `{}`: no agent `{a}`. Create it on the Agents page first.",
+                def.id
+            ))),
+            _ => Ok(()),
+        }
     }
 }
 
@@ -181,7 +194,7 @@ async fn delete_user(State(app): State<App>, me: Me, Path(name): Path<String>) -
 fn service_json(app: &App, s: &ServiceDef) -> Value {
     json!({
         "id": s.id, "name": s.name_or_id(), "kind": s.kind, "mode": s.mode,
-        "enabled": s.enabled, "tag_count": s.tags.len(),
+        "enabled": s.enabled, "tag_count": s.tags.len(), "agent": s.agent,
         "status": app.mgr.status(&s.id),
     })
 }
@@ -219,6 +232,7 @@ fn parse_def(headers: &HeaderMap, body: &Bytes) -> R<ServiceDef> {
 async fn create_service(State(app): State<App>, me: Me, headers: HeaderMap, body: Bytes) -> R<(StatusCode, Json<Value>)> {
     me.need(Role::Admin)?;
     let def = parse_def(&headers, &body)?;
+    app.check_agent(&def)?;
     if app.cfg.service(&def.id).is_some() {
         return Err(ApiError(StatusCode::CONFLICT, format!("a service with id `{}` already exists", def.id)));
     }
@@ -231,6 +245,7 @@ async fn update_service(State(app): State<App>, me: Me, Path(id): Path<String>, 
     me.need(Role::Admin)?;
     find(&app, &id)?;
     let def = parse_def(&headers, &body)?;
+    app.check_agent(&def)?;
     app.cfg.upsert(Some(&id), def.clone()).map_err(bad)?;
     if def.id != id {
         // Renamed: move its folder (certificates) along.
@@ -324,7 +339,18 @@ async fn write_tag(State(app): State<App>, me: Me, Path((id, tag)): Path<(String
         Value::Object(o) if o.contains_key("value") => o["value"].clone(),
         other => other,
     };
-    let written = app.mgr.write(&s, &tag, &v).await.map_err(bad)?;
+    let written = match &s.agent {
+        Some(agent) => {
+            // Check it here so mistakes don't need a round trip; the agent writes it.
+            let t = s.tag(&tag).ok_or_else(|| bad(format!("no tag `{tag}`")))?;
+            let v = crate::tags::coerce_tag(t, &v).map_err(bad)?;
+            if s.mode == Mode::Client && !t.writable {
+                return Err(bad(format!("tag `{tag}` is read-only")));
+            }
+            app.agents.write(agent, &id, &tag, v).await.map_err(bad)?
+        }
+        None => app.mgr.write(&s, &tag, &v).await.map_err(bad)?,
+    };
     Ok(Json(json!({"value": written})))
 }
 
@@ -362,11 +388,13 @@ async fn list_certs(State(app): State<App>, me: Me, Path(id): Path<String>) -> R
     if s.kind != Kind::Opcua {
         return Err(bad("only OPC UA services have certificates"));
     }
+    if let Some(agent) = &s.agent {
+        let op = crate::agent::Op::CertList { service: id.clone() };
+        return app.agents.request(agent, op).await.map(Json).map_err(bad);
+    }
     let dir = app.data_dir.join("services").join(&id);
     let own = services::opcua::pki_dir(&dir).join("own").join("cert.der");
-    let own_tp = opcua::crypto::CertificateStore::read_cert(&own)
-        .map(|c| c.thumbprint().as_hex_string())
-        .ok();
+    let own_tp = services::opcua::crypto_thumbprint(&own);
     Ok(Json(json!({
         "own_thumbprint": own_tp,
         "certificates": services::opcua::list_certs(&dir),
@@ -375,10 +403,61 @@ async fn list_certs(State(app): State<App>, me: Me, Path(id): Path<String>) -> R
 
 async fn cert_action(State(app): State<App>, me: Me, Path((id, file, action)): Path<(String, String, String)>) -> R<StatusCode> {
     me.need(Role::Admin)?;
-    find(&app, &id)?;
+    let s = find(&app, &id)?;
+    if let Some(agent) = &s.agent {
+        let op = crate::agent::Op::CertAction { service: id.clone(), file, action };
+        app.agents.request(agent, op).await.map_err(bad)?;
+        return Ok(StatusCode::NO_CONTENT);
+    }
     let dir = app.data_dir.join("services").join(&id);
     services::opcua::set_cert(&dir, &file, &action).map_err(bad)?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+// ------------------------------------------------------------------ agents
+
+async fn list_agents(State(app): State<App>, _me: Me) -> Json<Value> {
+    Json(Value::Array(app.agents.list(&app.cfg.get())))
+}
+
+#[derive(Deserialize)]
+struct AgentBody {
+    id: String,
+    #[serde(default)]
+    name: String,
+}
+
+/// The token is in this answer only. Save it on the agent as `COWPOKE_AGENT_TOKEN`.
+async fn create_agent(State(app): State<App>, me: Me, Json(b): Json<AgentBody>) -> R<(StatusCode, Json<Value>)> {
+    me.need(Role::Admin)?;
+    let token = app.agents.create(&b.id, &b.name).map_err(bad)?;
+    Ok((StatusCode::CREATED, Json(json!({"id": b.id, "token": token}))))
+}
+
+async fn rotate_agent_token(State(app): State<App>, me: Me, Path(id): Path<String>) -> R<Json<Value>> {
+    me.need(Role::Admin)?;
+    let token = app.agents.rotate(&id).map_err(bad)?;
+    Ok(Json(json!({"id": id, "token": token})))
+}
+
+async fn delete_agent(State(app): State<App>, me: Me, Path(id): Path<String>) -> R<StatusCode> {
+    me.need(Role::Admin)?;
+    app.agents.delete(&id, &app.cfg.get()).map_err(bad)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// The agent's WebSocket. Authorized by the agent token, not a user session.
+async fn agent_connect(State(app): State<App>, headers: HeaderMap, ws: axum::extract::ws::WebSocketUpgrade) -> Response {
+    let token = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .unwrap_or("");
+    let Some(agent) = app.agents.authenticate(token) else {
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        return ApiError(StatusCode::UNAUTHORIZED, "unknown agent token".into()).into_response();
+    };
+    ws.on_upgrade(move |socket| crate::agent::hub::serve(app, agent, socket))
 }
 
 // ------------------------------------------------------------------ whole config
@@ -397,6 +476,9 @@ async fn export_config(State(app): State<App>, me: Me) -> R<impl IntoResponse> {
 async fn import_config(State(app): State<App>, me: Me, body: String) -> R<StatusCode> {
     me.need(Role::Admin)?;
     let cfg = store::parse(&body).map_err(|e| bad(e.to_string()))?;
+    for s in &cfg.services {
+        app.check_agent(s)?;
+    }
     app.cfg.replace_all(cfg).map_err(bad)?;
     app.reload().await;
     Ok(StatusCode::NO_CONTENT)
@@ -504,6 +586,10 @@ pub fn router(app: App) -> Router {
         .route("/api/services/{id}/history/{tag}", get(history))
         .route("/api/services/{id}/certs", get(list_certs))
         .route("/api/services/{id}/certs/{file}/{action}", post(cert_action))
+        .route("/api/agents", get(list_agents).post(create_agent))
+        .route("/api/agents/connect", get(agent_connect))
+        .route("/api/agents/{id}", axum::routing::delete(delete_agent))
+        .route("/api/agents/{id}/token", post(rotate_agent_token))
         .route("/api/config", get(export_config).put(import_config))
         .route("/api/templates/{kind}/{mode}", get(template))
         .route("/api/events", get(events))

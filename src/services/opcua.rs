@@ -568,3 +568,10 @@ pub fn set_cert(service_dir: &Path, file: &str, action: &str) -> Result<(), Stri
     };
     r.map_err(|e| e.to_string())
 }
+
+/// Thumbprint of a certificate file, if it can be read.
+pub fn crypto_thumbprint(path: &Path) -> Option<String> {
+    CertificateStore::read_cert(path)
+        .ok()
+        .map(|c| c.thumbprint().as_hex_string())
+}

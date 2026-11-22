@@ -15,5 +15,23 @@ services:
       - "4840:4840"   # OPC UA server services
       - "8081:8081"   # IO-Link master simulator
     # Simplest on Linux when services use many ports: network_mode: host (and drop `ports`).
+
+  # An edge agent. Run this on a machine at the plant, not next to the hub:
+  #   COWPOKE_HUB=https://cowpoke.example.com COWPOKE_AGENT_TOKEN=... docker compose --profile agent up -d agent
+  # It only dials out, so the plant needs no inbound firewall rules.
+  agent:
+    profiles: [agent]
+    image: cowpoke:latest
+    command: agent
+    restart: unless-stopped
+    environment:
+      COWPOKE_HUB: ${COWPOKE_HUB:?set COWPOKE_HUB to the hub's URL}
+      COWPOKE_AGENT_TOKEN: ${COWPOKE_AGENT_TOKEN:?set COWPOKE_AGENT_TOKEN to the agent's token}
+    volumes:
+      - agent-data:/data
+    # Host networking lets its services reach devices on the plant LAN and listen on their own ports.
+    network_mode: host
+
 volumes:
   cowpoke-data:
+  agent-data:

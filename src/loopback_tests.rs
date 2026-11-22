@@ -45,7 +45,8 @@ impl Rig {
     }
 
     async fn wait_running(&self, id: &str) {
-        for _ in 0..200 {
+        // OPC UA servers generate an RSA key on first start: slow in debug builds under load.
+        for _ in 0..600 {
             let st = self.mgr.status(id);
             if st.state == State::Running {
                 return;

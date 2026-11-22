@@ -8,7 +8,7 @@ use tokio::sync::broadcast;
 
 use crate::model::{DataType, TagDef};
 
-#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Quality {
     Good,
@@ -87,11 +87,20 @@ impl TagStore {
     }
 
     pub fn set(&self, service: &str, tag: &str, value: Value, quality: Quality, origin: Origin) {
-        let state = TagState {
-            value,
-            quality,
-            ts: Utc::now(),
-        };
+        self.set_at(service, tag, value, quality, Utc::now(), origin);
+    }
+
+    /// Like [`set`](Self::set), with the time the value was read (values relayed from an edge agent).
+    pub fn set_at(
+        &self,
+        service: &str,
+        tag: &str,
+        value: Value,
+        quality: Quality,
+        ts: DateTime<Utc>,
+        origin: Origin,
+    ) {
+        let state = TagState { value, quality, ts };
         self.map
             .insert((service.to_string(), tag.to_string()), state.clone());
         let _ = self.tx.send(TagEvent {

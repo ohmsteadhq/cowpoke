@@ -3,6 +3,7 @@ id: ua-line1
 name: Line 1 OPC UA
 kind: opcua
 mode: client
+# agent: plant-1          # run this service on an edge agent instead of the hub
 settings:
   url: opc.tcp://192.168.1.60:4840/
   security_policy: none        # none | basic256sha256 | aes128_sha256_rsa_oaep | aes256_sha256_rsa_pss

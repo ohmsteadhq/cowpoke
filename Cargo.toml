@@ -10,7 +10,7 @@ publish = false
 anyhow = "1.0.104"
 argon2 = "0.6.0"
 async-opcua = { version = "0.19.0", features = ["server", "client"] }
-axum = { version = "0.8.9", features = ["macros"] }
+axum = { version = "0.8.9", features = ["macros", "ws"] }
 axum-extra = { version = "0.12.6", features = ["cookie"] }
 base64 = "0.23.1"
 chrono = { version = "0.4.45", features = ["serde"] }
@@ -23,10 +23,12 @@ reqwest = { version = "0.13.5", default-features = false, features = ["json", "r
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 serde_yaml = "0.9.34"
+sha2 = "0.11.1"
 thiserror = "2.0.21"
 tokio = { version = "1.54.1", features = ["full"] }
 tokio-modbus = { version = "0.17.0", default-features = false, features = ["tcp", "tcp-server"] }
 tokio-stream = { version = "0.1.19", features = ["sync"] }
+tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-webpki-roots"] }
 tokio-util = { version = "0.7.20", features = ["rt"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }

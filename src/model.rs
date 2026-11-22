@@ -40,6 +40,9 @@ pub struct ServiceDef {
     pub mode: Mode,
     #[serde(default = "yes")]
     pub enabled: bool,
+    /// Run on this edge agent instead of on the hub.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent: Option<String>,
     /// Kind- and mode-specific settings. Each service parses its own.
     #[serde(default = "empty_object")]
     pub settings: Value,
@@ -255,6 +258,11 @@ impl ServiceDef {
                 "service id `{}`: use 1-64 of a-z, 0-9, - and _",
                 self.id
             ));
+        }
+        if let Some(a) = &self.agent {
+            if !valid_id(a) {
+                return Err(format!("agent `{a}`: use 1-64 of a-z, 0-9, - and _"));
+            }
         }
         let mut seen = std::collections::HashSet::new();
         for t in &self.tags {

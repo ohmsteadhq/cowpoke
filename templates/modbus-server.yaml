@@ -3,6 +3,7 @@ id: plc-sim
 name: PLC simulator
 kind: modbus
 mode: server
+# agent: plant-1          # run this service on an edge agent instead of the hub
 settings:
   port: 5020            # 502 is the standard port; map it in Docker
   word_order: big       # big (ABCD) or little (CDAB) for 32/64-bit values

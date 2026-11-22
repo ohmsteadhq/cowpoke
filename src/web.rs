@@ -151,6 +151,17 @@ async fn logout(State(app): State<App>, jar: CookieJar, headers: HeaderMap) -> i
     (jar.remove(Cookie::from(COOKIE)), StatusCode::NO_CONTENT)
 }
 
+/// Version, license and where to get the source (the AGPL asks hosted copies to offer it).
+/// Public: no login needed.
+async fn about() -> Json<Value> {
+    Json(json!({
+        "name": "Cowpoke",
+        "version": env!("CARGO_PKG_VERSION"),
+        "license": env!("CARGO_PKG_LICENSE"),
+        "source": std::env::var("COWPOKE_SOURCE_URL").ok().filter(|s| !s.trim().is_empty()),
+    }))
+}
+
 async fn me(me: Me) -> Json<User> {
     Json(me.0)
 }
@@ -1041,6 +1052,7 @@ pub fn router(app: App) -> Router {
         .route("/api/login", post(login))
         .route("/api/logout", post(logout))
         .route("/api/me", get(me))
+        .route("/api/about", get(about))
         .route("/api/users", get(list_users))
         .route("/api/users/{name}", put(put_user).delete(delete_user))
         .route("/api/services", get(list_services).post(create_service))

@@ -59,6 +59,7 @@ For something closer to a real plant, `examples/plant.yaml` has four machines on
 | `COWPOKE_BIND` | `0.0.0.0:8080` | Web UI and API address |
 | `COWPOKE_ADMIN_PASSWORD` | random, logged once | Password for the first `admin` user |
 | `COWPOKE_LOG` | `info` | Log filter, for example `debug` or `cowpoke=debug` |
+| `COWPOKE_SOURCE_URL` | | Where this copy's source code is, shown under Settings > About and at `GET /api/about`. The AGPL asks anyone running a modified Cowpoke for others to offer its source. |
 | `COWPOKE_HUB` | | Agent only: the hub's URL (`https://…`) |
 | `COWPOKE_AGENT_TOKEN` | | Agent only: the token the hub showed when the agent was created |
 

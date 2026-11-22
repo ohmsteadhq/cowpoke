@@ -9,7 +9,7 @@ slug: opc-ua-simulator
 Cowpoke is a free OPC UA server simulator that runs in one Docker container. You start it from a script or a CI job; there is no Windows installer.
 
 ```bash
-docker run -d -p 8080:8080 -p 4840:4840 -e COWPOKE_ADMIN_PASSWORD=change-me ohmstead/cowpoke
+docker run -d -p 8080:8080 -p 4840:4840 -e COWPOKE_ADMIN_PASSWORD=change-me ohmsteadhq/cowpoke
 ```
 
 Define the server and its tags in the web UI at http://localhost:8080, or as YAML:

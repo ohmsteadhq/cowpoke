@@ -1,4 +1,4 @@
-<!-- Docker Hub overview for ohmstead/cowpoke. Short description (100 chars max):
+<!-- Docker Hub overview for ohmsteadhq/cowpoke. Short description (100 chars max):
 Industrial protocol simulator, client and historian: Modbus, OPC UA, EtherNet/IP, S7, MQTT, IO-Link -->
 
 # Cowpoke
@@ -14,7 +14,7 @@ Industrial protocol simulator, client and historian: Modbus, OPC UA, EtherNet/IP
 
 ```bash
 docker run -d --name cowpoke -p 8080:8080 -p 5020:5020 -p 4840:4840 \
-  -e COWPOKE_ADMIN_PASSWORD='pick-a-long-one' -v cowpoke-data:/data ohmstead/cowpoke
+  -e COWPOKE_ADMIN_PASSWORD='pick-a-long-one' -v cowpoke-data:/data ohmsteadhq/cowpoke
 ```
 
 Open http://localhost:8080 and sign in as `admin`. Each simulated device listens on the port its settings name, so publish those ports too, or use `--network host` on Linux.

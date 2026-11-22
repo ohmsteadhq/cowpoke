@@ -9,7 +9,7 @@ slug: modbus-tcp-simulator
 Cowpoke is a free Modbus TCP simulator that runs in one Docker container. Start it, and your HMI, SCADA or gateway has a Modbus device to poll before the real one exists.
 
 ```bash
-docker run -d -p 8080:8080 -p 5020:5020 -e COWPOKE_ADMIN_PASSWORD=change-me ohmstead/cowpoke
+docker run -d -p 8080:8080 -p 5020:5020 -e COWPOKE_ADMIN_PASSWORD=change-me ohmsteadhq/cowpoke
 ```
 
 Open http://localhost:8080, add a **Modbus TCP** service in **server** mode, and give it tags. Or write the same thing as YAML:

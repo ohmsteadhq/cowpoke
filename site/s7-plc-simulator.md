@@ -27,7 +27,7 @@ services:
 Run the container with the S7 port published:
 
 ```bash
-docker run -d -p 8080:8080 -p 102:102 -e COWPOKE_ADMIN_PASSWORD=change-me ohmstead/cowpoke
+docker run -d -p 8080:8080 -p 102:102 -e COWPOKE_ADMIN_PASSWORD=change-me ohmsteadhq/cowpoke
 ```
 
 ## What the simulated PLC does

@@ -839,7 +839,7 @@ mod tests {
         let (tags, svcs, states, names) = (HashMap::new(), HashMap::new(), HashMap::new(), HashMap::new());
         let snap = crate::insights::Snapshot {
             now: Utc::now(), cfg: &cfg, tags: &tags, services: &svcs, alarm_log: &[], alarm_states: &states,
-            alarm_names: &names, monitors: &mons, alarm_defs: &[], pairs: &[], changes: &[], monitor_events: &[],
+            alarm_names: &names, monitors: &mons, alarm_defs: &[], pairs: &[], changes: &[], monitor_events: &[], clocks: &[],
         };
         let out = crate::insights::analyze(&snap, &crate::insights::Tuning::default());
         let ids: Vec<&str> = out.iter().map(|i| i.id.as_str()).collect();

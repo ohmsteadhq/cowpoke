@@ -168,6 +168,9 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
                         }
                         Message::Metrics { birth } => match decode(&p.payload) {
                             Ok(payload) => {
+                                if let Some(ts) = payload.timestamp {
+                                    crate::insights::note_clock_offset(&id, ts as f64 - chrono::Utc::now().timestamp_millis() as f64);
+                                }
                                 if birth {
                                     ctx.status.running(format!("connected to {where_}, Sparkplug {}/{}{}", c.group_id, c.edge_node,
                                         c.device.as_ref().map(|d| format!("/{d}")).unwrap_or_default()));

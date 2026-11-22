@@ -207,6 +207,9 @@ tags:
     let rig = Rig { cfg, ..rig };
 
     rig.wait_value("cli", "temp", json!(21.5)).await;
+    // The client measures the server's clock against its own: the same machine, so ~0.
+    let off = crate::insights::clock_offsets().into_iter().find(|c| c.0 == "cli").expect("OPC UA clock samples");
+    assert!(off.1.abs() < 5000.0, "offset {} ms", off.1);
     rig.wait_value("cli", "count", json!(7)).await;
     rig.write("cli", "running", json!(true)).await;
     rig.wait_value("srv", "Running", json!(true)).await;

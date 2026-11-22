@@ -445,7 +445,10 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
                 .map_err(|_| anyhow!("tag `{}`: bad node_id", t.name))
         })
         .collect::<Result<_>>()?;
-    let to_read: Vec<ReadValueId> = nodes.iter().map(ReadValueId::from).collect();
+    let mut to_read: Vec<ReadValueId> = nodes.iter().map(ReadValueId::from).collect();
+    // Server/ServerStatus/CurrentTime, read with the tags: the server's clock, for drift checks.
+    let has_tags = !to_read.is_empty();
+    to_read.push(ReadValueId::from(&NodeId::new(0, 2258u32)));
     let id = ctx.def.id.clone();
     let mut tick = tokio::time::interval(Duration::from_millis(s.poll_ms.max(50)));
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -455,12 +458,18 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
             _ = ctx.cancel.cancelled() => break Ok(()),
             r = &mut lp => break Err(anyhow!("session ended: {}", r.map(|s| s.to_string()).unwrap_or_else(|e| e.to_string()))),
             _ = tick.tick() => {
-                if to_read.is_empty() { continue; }
-                let vals = match tokio::time::timeout(timeout, session.read(&to_read, TimestampsToReturn::Neither, 0.0)).await {
+                if !has_tags { continue; }
+                let sent = chrono::Utc::now();
+                let mut vals = match tokio::time::timeout(timeout, session.read(&to_read, TimestampsToReturn::Neither, 0.0)).await {
                     Err(_) => break Err(anyhow!("timed out reading")),
                     Ok(Err(e)) => break Err(anyhow!("reading: {e}")),
                     Ok(Ok(v)) => v,
                 };
+                // The server's clock against ours, at the middle of the round trip.
+                if let Some(Variant::DateTime(st)) = vals.pop().and_then(|dv| dv.value) {
+                    let mid = sent + (chrono::Utc::now() - sent) / 2;
+                    crate::insights::note_clock_offset(&id, (st.as_chrono() - mid).num_milliseconds() as f64);
+                }
                 for (t, dv) in tags.iter().zip(vals) {
                     match dv.value.as_ref().and_then(|v| from_variant(t, v)) {
                         Some(j) if dv.status().is_good() => ctx.tags.set(&id, &t.name, j, Quality::Good, Origin::Service),

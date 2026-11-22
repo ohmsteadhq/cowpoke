@@ -23,6 +23,24 @@ use crate::manager::State;
 use crate::model::{Config, DataType, HistoryMode, Mode, ServiceDef};
 use crate::tags::{Quality, TagEvent, as_f64};
 
+/// Device clock offsets (device time − Cowpoke's time, ms) per service, from timestamps
+/// devices send: OPC UA server timestamps, Sparkplug payload timestamps.
+static CLOCKS: std::sync::LazyLock<dashmap::DashMap<String, Vec<f64>>> = std::sync::LazyLock::new(Default::default);
+
+/// Record one clock offset for a service's device.
+pub fn note_clock_offset(service: &str, offset_ms: f64) {
+    let mut v = CLOCKS.entry(service.to_string()).or_default();
+    if v.len() >= 64 {
+        v.remove(0);
+    }
+    v.push(offset_ms);
+}
+
+/// Median offset and sample count per service.
+pub fn clock_offsets() -> Vec<(String, f64, usize)> {
+    CLOCKS.iter().filter_map(|e| median(e.value()).map(|m| (e.key().clone(), m, e.value().len()))).collect()
+}
+
 /// Samples kept for medians (gaps between changes, step sizes).
 const RESERVOIR: usize = 256;
 
@@ -365,6 +383,8 @@ pub struct Snapshot<'a> {
     pub changes: &'a [Change],
     /// The traffic monitors' recent events.
     pub monitor_events: &'a [crate::monitor::Event],
+    /// Device clock offsets: (service, median ms, samples).
+    pub clocks: &'a [(String, f64, usize)],
 }
 
 /// A change made to a device, to compare what happened before and after.
@@ -513,6 +533,7 @@ pub fn analyze(s: &Snapshot, t: &Tuning) -> Vec<Insight> {
     effects(s, &mut out);
     off_hours(s, &mut out);
     data_quality(s, t, &mut out);
+    clocks(s, &mut out);
     historian(s, t, &mut out);
     alarms(s, t, &mut out);
     out.sort_by(|a, b| b.level.cmp(&a.level).then(a.area.cmp(&b.area)).then(a.id.cmp(&b.id)));
@@ -1047,6 +1068,28 @@ fn source_key(def: &ServiceDef, t: &crate::model::TagDef) -> Option<String> {
     })
 }
 
+/// Devices whose clocks are off: their own timestamps (history, events, alarms in the device) are wrong.
+fn clocks(s: &Snapshot, out: &mut Vec<Insight>) {
+    for (svc, ms, n) in s.clocks {
+        if *n < 5 || ms.abs() < 5000.0 {
+            continue;
+        }
+        let Some(def) = s.cfg.services.iter().find(|d| &d.id == svc) else { continue };
+        out.push(Insight {
+            id: id(&["clock", svc]),
+            area: Area::Data,
+            level: if ms.abs() >= 60_000.0 { Level::Warn } else { Level::Suggest },
+            title: format!("{}'s device clock is {} {}", def.name_or_id(), secs(ms.abs() / 1000.0), if *ms > 0.0 { "ahead" } else { "behind" }),
+            detail: "Timestamps the device sets itself (its event log, alarms, Sparkplug and OPC UA source times) don't line up with the rest of the plant, which makes sequences of events hard to reconstruct.".into(),
+            evidence: vec![format!("median offset {:.1} s over {n} samples, compared with this Cowpoke's clock", ms / 1000.0)],
+            suggestion: "Point the device at the plant's NTP server, or set its clock; check this Cowpoke's clock too if several devices show the same offset.".into(),
+            service: Some(svc.clone()),
+            tag: None,
+            fix: None,
+        });
+    }
+}
+
 fn data_quality(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
     let now_hour = s.now.timestamp().div_euclid(3600);
     // The same device address read under more than one name.
@@ -1546,9 +1589,10 @@ impl Insights {
             }
         }
         let changes = self.changes.lock().clone();
+        let clocks = clock_offsets();
         let snap = Snapshot {
             now: Utc::now(), cfg, tags: &tags, services: &services, alarm_log, alarm_states, alarm_names,
-            monitors: &monitors, alarm_defs, pairs: &pairs, changes: &changes, monitor_events: &events,
+            monitors: &monitors, alarm_defs, pairs: &pairs, changes: &changes, monitor_events: &events, clocks: &clocks,
         };
         let all = analyze(&snap, &self.tuning);
         self.track(&all, snap.now);
@@ -1764,7 +1808,7 @@ mod tests {
         let services = HashMap::new();
         let states = HashMap::new();
         let names = HashMap::new();
-        let s = Snapshot { now: Utc::now(), cfg, tags, services: &services, alarm_log: log, alarm_states: &states, alarm_names: &names, monitors: &[], alarm_defs: &[], pairs: &[], changes: &[], monitor_events: &[] };
+        let s = Snapshot { now: Utc::now(), cfg, tags, services: &services, alarm_log: log, alarm_states: &states, alarm_names: &names, monitors: &[], alarm_defs: &[], pairs: &[], changes: &[], monitor_events: &[], clocks: &[] };
         analyze(&s, &Tuning::default())
     }
 
@@ -1855,7 +1899,7 @@ mod tests {
 
     fn snap_with(cfg: &Config, tags: &HashMap<(String, String), TagStats>, defs: &[crate::alarms::AlarmDef], pairs: &[(Pair, PairState)]) -> Vec<Insight> {
         let (services, states, names) = (HashMap::new(), HashMap::new(), HashMap::new());
-        let s = Snapshot { now: Utc::now(), cfg, tags, services: &services, alarm_log: &[], alarm_states: &states, alarm_names: &names, monitors: &[], alarm_defs: defs, pairs, changes: &[], monitor_events: &[] };
+        let s = Snapshot { now: Utc::now(), cfg, tags, services: &services, alarm_log: &[], alarm_states: &states, alarm_names: &names, monitors: &[], alarm_defs: defs, pairs, changes: &[], monitor_events: &[], clocks: &[] };
         analyze(&s, &Tuning::default())
     }
 
@@ -1970,7 +2014,7 @@ mod tests {
         let changes = vec![Change { ts: change_at, by: "Cowpoke".into(), service: Some("plc".into()), device: None, what: "setpoint set to 60".into() }];
         let (services, states, names) = (HashMap::new(), HashMap::new(), HashMap::new());
         let s = Snapshot { now: Utc::now(), cfg: &cfg, tags: &tags, services: &services, alarm_log: &[], alarm_states: &states, alarm_names: &names,
-            monitors: &[], alarm_defs: &[], pairs: &[], changes: &changes, monitor_events: &[] };
+            monitors: &[], alarm_defs: &[], pairs: &[], changes: &changes, monitor_events: &[], clocks: &[] };
         let out = analyze(&s, &Tuning::default());
         let e = out.iter().find(|i| i.id.starts_with("effect:")).expect("effect insight");
         assert!(e.evidence[0].contains("50.000 → 60.000"), "{:?}", e.evidence);
@@ -1992,7 +2036,7 @@ mod tests {
         let cfg = Config::default();
         let (tags, services, states, names) = (HashMap::new(), HashMap::new(), HashMap::new(), HashMap::new());
         let s = Snapshot { now, cfg: &cfg, tags: &tags, services: &services, alarm_log: &[], alarm_states: &states, alarm_names: &names,
-            monitors: &mons, alarm_defs: &[], pairs: &[], changes: &[], monitor_events: &events };
+            monitors: &mons, alarm_defs: &[], pairs: &[], changes: &[], monitor_events: &events, clocks: &[] };
         let out = analyze(&s, &Tuning::default());
         let o = out.iter().find(|i| i.id.starts_with("offhours:")).expect("off-hours insight");
         assert_eq!(o.level, Level::Warn, "a program download");
@@ -2060,6 +2104,23 @@ mod tests {
         ins.mark_digest_sent(at7);
         assert!(ins.digest_due(at7 + TimeDelta::minutes(15)).is_none());
         assert!(ins.set_config("digest: { hooks: [ops], hour: 24 }").is_err());
+    }
+
+    #[test]
+    fn device_clock_off() {
+        let cfg = Config { services: vec![
+            svc("id: ua\nkind: opcua\nmode: client\nsettings: { url: \"opc.tcp://x:4840\" }\ntags: []\n"),
+            svc("id: sp\nkind: mqtt\nmode: client\nsettings: { host: x, sparkplug: { group_id: G, edge_node: N } }\ntags: []\n"),
+        ]};
+        let clocks = vec![("ua".to_string(), -90_000.0, 20), ("sp".to_string(), 2_000.0, 20)];
+        let (tags, services, states, names) = (HashMap::new(), HashMap::new(), HashMap::new(), HashMap::new());
+        let s = Snapshot { now: Utc::now(), cfg: &cfg, tags: &tags, services: &services, alarm_log: &[], alarm_states: &states, alarm_names: &names,
+            monitors: &[], alarm_defs: &[], pairs: &[], changes: &[], monitor_events: &[], clocks: &clocks };
+        let out = analyze(&s, &Tuning::default());
+        let c = out.iter().find(|i| i.id == "clock:ua").expect("clock insight");
+        assert!(c.title.contains("2 min behind") || c.title.contains("90 s behind"), "{}", c.title);
+        assert_eq!(c.level, Level::Warn);
+        assert!(!out.iter().any(|i| i.id == "clock:sp"), "2 s is within tolerance");
     }
 
     #[test]

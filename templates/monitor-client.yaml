@@ -2,7 +2,8 @@
 # and build an inventory of who talks to which device plus notable events: writes,
 # program transfers, run/stop, logins, errors and talkers new after the learning period.
 # Decodes Modbus TCP, EtherNet/IP (CIP), S7comm, OPC UA (unencrypted) and MQTT.
-# In Docker, live capture needs `--cap-add NET_RAW --network host`.
+# In Docker, live capture needs root and the capture capabilities:
+# `--user 0 --cap-add NET_RAW --cap-add NET_ADMIN --network host`.
 id: ot-monitor
 name: OT traffic monitor
 kind: monitor

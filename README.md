@@ -38,6 +38,8 @@ docker run -d --name cowpoke -p 8080:8080 -p 5020:5020 -p 4840:4840 \
 
 Open http://localhost:8080 and sign in as `admin`. If you don't set `COWPOKE_ADMIN_PASSWORD`, Cowpoke generates a password once and prints it in the log (`docker logs cowpoke`).
 
+The image is distroless (about 70 MB): the Cowpoke binary, glibc, libpcap and CA certificates, with no shell or package manager, so `docker exec … sh` won't work. Its healthcheck runs `cowpoke health`, which asks the hub's `/healthz`. It runs as user 10001; data lives in the `/data` volume.
+
 Each server-mode service listens on the port its settings name, so publish those ports (`-p`). On Linux with many services, `--network host` is simpler. There is also a [`docker-compose.yml`](docker-compose.yml).
 
 To try every protocol at once, start with the demo. It has four simulated devices, and a client reading each one back:
@@ -302,7 +304,7 @@ A `monitor` service (mode `client`) listens without sending anything. Point it a
 
 The **Traffic** tab lists talkers (client → device, protocol, counts) and events. Reads are counted, not listed; a repeated event from the same talker is listed once a minute. Talkers first seen after `learn_minutes` are flagged as new. The counters (`talkers`, `devices`, `events`, `writes`, `program_changes`, `control_actions`, `logins`, `errors`, `new_talkers`, `last_event`) are tags: record them, alarm on them, put them on boards. `GET /api/services/<id>/monitor` returns the inventory and events.
 
-Live capture in Docker needs `--cap-add NET_RAW --network host` (or the mirror interface passed into the container). Builds without the default `live-capture` feature (no libpcap) can only replay files.
+Live capture in Docker needs the container to run as root with the capture capabilities, on the host's network (or with the mirror interface passed into the container): `--user 0 --cap-add NET_RAW --cap-add NET_ADMIN --network host`. The image's default user (10001) can't capture even with `--cap-add`, because Linux doesn't hand capabilities to a non-root process. Run the monitor in its own container if the hub should stay unprivileged. Builds without the default `live-capture` feature (no libpcap) can only replay files.
 
 This is change and anomaly monitoring for the industrial traffic it sees, not a certified intrusion detection system.
 

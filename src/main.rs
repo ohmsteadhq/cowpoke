@@ -41,6 +41,7 @@ const USAGE: &str = "\
 Usage:
   cowpoke          run a hub (web UI, API and services)
   cowpoke agent    run an edge agent for a hub
+  cowpoke health   check that the hub on COWPOKE_BIND answers (exit 0) or not (exit 1)
 
 Hub settings (environment): COWPOKE_DATA, COWPOKE_CONFIG, COWPOKE_BIND, COWPOKE_ADMIN_PASSWORD, COWPOKE_LOG
 Agent settings (environment): COWPOKE_HUB (the hub's URL), COWPOKE_AGENT_TOKEN, COWPOKE_DATA, COWPOKE_LOG";
@@ -58,6 +59,7 @@ async fn main() -> Result<()> {
     match std::env::args().nth(1).as_deref() {
         None | Some("hub") => run_hub(data_dir).await,
         Some("agent") => run_agent(data_dir).await,
+        Some("health") => health().await,
         Some("-h" | "--help" | "help") => {
             println!("{USAGE}");
             Ok(())
@@ -161,6 +163,28 @@ async fn run_agent(data_dir: PathBuf) -> Result<()> {
     });
     tracing::info!("Cowpoke {} agent for {hub}", env!("CARGO_PKG_VERSION"));
     agent::edge::run(edge, hub, token, cancel).await
+}
+
+/// `cowpoke health`: GET /healthz on the hub's own port. For container healthchecks
+/// in images without a shell.
+async fn health() -> Result<()> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let bind = std::env::var("COWPOKE_BIND").unwrap_or_else(|_| "0.0.0.0:8080".into());
+    let port = bind.rsplit(':').next().unwrap_or("8080");
+    let addr = format!("127.0.0.1:{port}");
+    let check = async {
+        let mut s = tokio::net::TcpStream::connect(&addr).await?;
+        s.write_all(b"GET /healthz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").await?;
+        let mut buf = vec![0u8; 64];
+        let n = s.read(&mut buf).await?;
+        anyhow::Ok(String::from_utf8_lossy(&buf[..n]).starts_with("HTTP/1.1 200"))
+    };
+    match tokio::time::timeout(std::time::Duration::from_secs(3), check).await {
+        Ok(Ok(true)) => Ok(()),
+        Ok(Ok(false)) => bail!("{addr}/healthz didn't answer 200"),
+        Ok(Err(e)) => bail!("can't reach {addr}: {e}"),
+        Err(_) => bail!("{addr} didn't answer within 3 s"),
+    }
 }
 
 /// How long shutdown waits for open web connections (live event streams never finish).

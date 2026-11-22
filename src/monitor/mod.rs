@@ -438,7 +438,7 @@ async fn live(ctx: &mut Ctx, m: &mut Monitor, s: &Settings, iface: &str) -> Resu
         .await
         .map_err(|_| anyhow::anyhow!("capture thread stopped"))?
         .map_err(|e| anyhow::anyhow!(e))
-        .with_context(|| format!("can't capture on {iface} (in Docker: --cap-add NET_RAW --net host)"))?;
+        .with_context(|| format!("can't capture on {iface} (in Docker: --user 0 --cap-add NET_RAW --cap-add NET_ADMIN --network host)"))?;
     ctx.status.running(format!("watching {iface}"));
     let mut tick = tokio::time::interval(Duration::from_secs(1));
     let result = loop {

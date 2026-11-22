@@ -154,7 +154,7 @@ const SCHEMAS = {
     BIND,
   ],
   "monitor/client": [
-    { k: "interface", label: "Capture interface", type: "text", ph: "eth1", help: "The mirror (SPAN) port. In Docker: --cap-add NET_RAW --network host." },
+    { k: "interface", label: "Capture interface", type: "text", ph: "eth1", help: "The mirror (SPAN) port. In Docker: --user 0 --cap-add NET_RAW --cap-add NET_ADMIN --network host." },
     { k: "file", label: "Or replay a capture file", type: "text", ph: "capture.pcapng", help: "pcap or pcapng, relative to the service's data folder." },
     { k: "learn_minutes", label: "Learning period (min)", type: "number", ph: "60", help: "Talkers first seen after this are flagged as new." },
     { k: "report_reads", label: "List reads as events", type: "bool", adv: true, help: "Noisy: polling clients read constantly." },

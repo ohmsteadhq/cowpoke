@@ -124,12 +124,24 @@ async fn run_hub(data_dir: PathBuf) -> Result<()> {
     tracing::info!("web UI and API on http://{bind}");
     let (mgr, hist) = (app.mgr.clone(), app.hist.clone());
     let panels = setup_panels(&app)?;
-    axum::serve(listener, web::router(app).merge(panels::router(panels)))
-        .with_graceful_shutdown(async {
+    // Graceful shutdown waits for open connections, and the UI's live event streams never
+    // end on their own: give requests in flight a few seconds, then close the rest.
+    let stopping = tokio_util::sync::CancellationToken::new();
+    let serve = axum::serve(listener, web::router(app).merge(panels::router(panels))).with_graceful_shutdown({
+        let stopping = stopping.clone();
+        async move {
             shutdown_signal().await;
             tracing::info!("shutting down");
-        })
-        .await?;
+            stopping.cancel();
+        }
+    });
+    tokio::select! {
+        r = serve => r?,
+        _ = async {
+            stopping.cancelled().await;
+            tokio::time::sleep(SHUTDOWN_GRACE).await;
+        } => tracing::info!("closing connections still open after {} s", SHUTDOWN_GRACE.as_secs()),
+    }
     mgr.shutdown().await;
     hist.flush();
     Ok(())
@@ -150,6 +162,9 @@ async fn run_agent(data_dir: PathBuf) -> Result<()> {
     tracing::info!("Cowpoke {} agent for {hub}", env!("CARGO_PKG_VERSION"));
     agent::edge::run(edge, hub, token, cancel).await
 }
+
+/// How long shutdown waits for open web connections (live event streams never finish).
+const SHUTDOWN_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
 
 async fn shutdown_signal() {
     let ctrl_c = tokio::signal::ctrl_c();

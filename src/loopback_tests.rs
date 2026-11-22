@@ -9,6 +9,9 @@ use crate::manager::{Manager, State};
 use crate::model::{Config, ServiceDef};
 use crate::tags::{Quality, TagStore};
 
+/// The longest a service may take to start in a test (OPC UA key generation under load).
+const STARTUP_LIMIT: Duration = Duration::from_secs(90);
+
 fn free_port() -> u16 {
     std::net::TcpListener::bind("127.0.0.1:0")
         .unwrap()
@@ -45,8 +48,10 @@ impl Rig {
     }
 
     async fn wait_running(&self, id: &str) {
-        // OPC UA servers generate an RSA key on first start: slow in debug builds under load.
-        for _ in 0..600 {
+        // OPC UA servers and clients generate an RSA key on first start: slow in debug
+        // builds, and much slower when the machine is busy.
+        let deadline = std::time::Instant::now() + STARTUP_LIMIT;
+        while std::time::Instant::now() < deadline {
             let st = self.mgr.status(id);
             if st.state == State::Running {
                 return;
@@ -56,15 +61,26 @@ impl Rig {
         panic!("{id} never started: {:?}", self.mgr.status(id));
     }
 
-    /// Wait until a tag has a good value equal to `want`.
+    /// Wait until a tag has a good value equal to `want`. The value gets 10 s once the
+    /// service has started; time spent starting (key generation) doesn't count, up to
+    /// the startup limit.
     async fn wait_value(&self, id: &str, tag: &str, want: Value) {
-        for _ in 0..200 {
+        let hard = std::time::Instant::now() + STARTUP_LIMIT;
+        let mut budget = Duration::from_secs(10);
+        let step = Duration::from_millis(50);
+        while std::time::Instant::now() < hard {
             if let Some(s) = self.tags.get(id, tag) {
                 if s.quality == Quality::Good && s.value == want {
                     return;
                 }
             }
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            if self.mgr.status(id).state != State::Starting {
+                if budget.is_zero() {
+                    break;
+                }
+                budget = budget.saturating_sub(step);
+            }
+            tokio::time::sleep(step).await;
         }
         panic!(
             "{id}.{tag}: wanted {want}, have {:?} (status {:?})",

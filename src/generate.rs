@@ -139,6 +139,25 @@ impl Generator {
     }
 }
 
+/// Tags as they should be seeded: a simulated tag with no `initial` starts at its
+/// generator's current value, not the type's zero (which would show as a drop to 0
+/// in trends and trip rate-of-change alarms at every start).
+pub fn seed_tags(tags: &[TagDef]) -> Vec<TagDef> {
+    let now = chrono::Utc::now().timestamp_millis() as f64;
+    let mut rng = rand::rngs::StdRng::from_entropy();
+    tags.iter()
+        .map(|t| {
+            let mut t = t.clone();
+            if let (Some(g), None) = (t.simulate.clone(), &t.initial) {
+                let phase = (now % g.period()) / g.period();
+                let v = quantize(&t, g.next(&t, phase, None, 0, &mut rng));
+                t.initial = coerce_tag(&t, &v).ok();
+            }
+            t
+        })
+        .collect()
+}
+
 /// Run every tag's generator for one service until cancelled.
 pub async fn run(def: ServiceDef, store: TagStore, cancel: CancellationToken) {
     let gens: Vec<(TagDef, Generator)> = def
@@ -266,6 +285,18 @@ mod tests {
         let mut t = tag(DataType::Int16);
         t.scale = Some(0.1);
         assert_eq!(quantize(&t, json!(13.711)), json!(13.7));
+    }
+
+    #[test]
+    fn simulated_tags_seed_from_their_generator() {
+        let mut t = tag(DataType::Float64);
+        t.simulate = Some(g(GenKind::Random));
+        let seeded = seed_tags(&[t.clone()]);
+        let v = seeded[0].initial.as_ref().and_then(as_f64).unwrap();
+        assert!((10.0..=20.0).contains(&v), "seeded at {v}, outside 10..20");
+        // An explicit initial value wins.
+        t.initial = Some(json!(5));
+        assert_eq!(seed_tags(&[t])[0].initial, Some(json!(5)));
     }
 
     #[test]

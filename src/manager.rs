@@ -239,7 +239,7 @@ impl Manager {
         let _ = std::fs::create_dir_all(&dir);
 
         if def.mode == Mode::Server {
-            self.tags.seed(&def.id, &def.tags);
+            self.tags.seed(&def.id, &crate::generate::seed_tags(&def.tags));
         } else {
             self.tags.remove_service(&def.id);
         }

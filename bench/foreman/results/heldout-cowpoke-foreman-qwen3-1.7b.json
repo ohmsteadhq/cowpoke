@@ -1,0 +1,2639 @@
+{
+ "summary": {
+  "model": "cowpoke-foreman:qwen3-1.7b",
+  "rules": false,
+  "seed": 777,
+  "fresh": {
+   "n": 48,
+   "passed": 44,
+   "service_ok": 44,
+   "cause_ok": 44
+  },
+  "distractor": {
+   "n": 48,
+   "passed": 35,
+   "service_ok": 44,
+   "cause_ok": 35
+  },
+  "reworded": {
+   "n": 48,
+   "passed": 44,
+   "service_ok": 44,
+   "cause_ok": 44
+  },
+  "all": {
+   "n": 144,
+   "passed": 123,
+   "service_ok": 132,
+   "cause_ok": 123
+  },
+  "avg_seconds": 4.01,
+  "by_cause": {
+   "address_offset": "11/12",
+   "bit_offset": "12/12",
+   "credentials": "8/12",
+   "json_pointer": "9/12",
+   "none": "0/12",
+   "port_or_host": "12/12",
+   "scaling": "12/12",
+   "sparkplug_ids": "12/12",
+   "tag_name": "12/12",
+   "topic": "11/12",
+   "unit_id": "12/12",
+   "word_order": "12/12"
+  }
+ },
+ "results": [
+  {
+   "set": "distractor",
+   "prefix": "g92-",
+   "kind": "sparkplug",
+   "service": "g92-dryer-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The dryer run never shows a value on the HMI.",
+   "report": {
+    "service": "g92-dryer-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The dryer run never shows a value on the HMI. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 8.57
+  },
+  {
+   "set": "fresh",
+   "prefix": "g55-",
+   "kind": "api",
+   "service": "none",
+   "cause": "none",
+   "symptom": "An operator thinks the pump count is off; the local display shows \"B-5065\".",
+   "report": {
+    "service": "g55-pump-cli",
+    "cause": "json_pointer",
+    "explanation": "The pump count is off; the client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": false,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 2.59
+  },
+  {
+   "set": "reworded",
+   "prefix": "g21-",
+   "kind": "iolink",
+   "service": "g21-conveyor-cli",
+   "cause": "bit_offset",
+   "symptom": "Our conveyor temp trend sits at 933. Walked out to the unit and it shows 3734.",
+   "report": {
+    "service": "g21-conveyor-cli",
+    "cause": "bit_offset",
+    "explanation": "The conveyor temp trend sits at 933, but the service shows 3734. The client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.68
+  },
+  {
+   "set": "reworded",
+   "prefix": "g48-",
+   "kind": "api",
+   "service": "g48-tank-cli",
+   "cause": "json_pointer",
+   "symptom": "Tank humidity is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g48-tank-cli",
+    "cause": "json_pointer",
+    "explanation": "The tank humidity is flagged red on the panel. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.89
+  },
+  {
+   "set": "distractor",
+   "prefix": "g59-",
+   "kind": "modbus",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Is the boiler count reading correctly? The device shows -10.",
+   "report": {
+    "service": "g59-boiler-cli",
+    "cause": "address_offset",
+    "explanation": "The boiler count reads -10, but the device shows 0. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": false,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 6.6
+  },
+  {
+   "set": "reworded",
+   "prefix": "g66-",
+   "kind": "iolink",
+   "service": "g66-press-cli",
+   "cause": "port_or_host",
+   "symptom": "Press speed is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g66-press-cli",
+    "cause": "port_or_host",
+    "explanation": "Press speed is flagged red on the panel. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.12
+  },
+  {
+   "set": "distractor",
+   "prefix": "g116-",
+   "kind": "mqtt",
+   "service": "g116-filler-cli",
+   "cause": "topic",
+   "symptom": "The filler batch shows bad quality.",
+   "report": {
+    "service": "g116-filler-cli",
+    "cause": "topic",
+    "explanation": "The filler batch shows bad quality. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.65
+  },
+  {
+   "set": "distractor",
+   "prefix": "g83-",
+   "kind": "modbus",
+   "service": "g83-kiln-cli",
+   "cause": "scaling",
+   "symptom": "The kiln level reads 1932, but the local display shows 19.32.",
+   "report": {
+    "service": "g83-kiln-cli",
+    "cause": "scaling",
+    "explanation": "The kiln level reads 1932, but the local display shows 19.32. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.72
+  },
+  {
+   "set": "fresh",
+   "prefix": "g127-",
+   "kind": "modbus",
+   "service": "g127-chiller-cli",
+   "cause": "unit_id",
+   "symptom": "The chiller flow shows bad quality.",
+   "report": {
+    "service": "g127-chiller-cli",
+    "cause": "unit_id",
+    "explanation": "The chiller flow shows bad quality. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.4
+  },
+  {
+   "set": "reworded",
+   "prefix": "g132-",
+   "kind": "modbus",
+   "service": "g132-pump-cli",
+   "cause": "unit_id",
+   "symptom": "SCADA has count on the pump greyed out with a quality alarm.",
+   "report": {
+    "service": "g132-pump-cli",
+    "cause": "unit_id",
+    "explanation": "SCADA has count on the pump greyed out with a quality alarm. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.63
+  },
+  {
+   "set": "fresh",
+   "prefix": "g7-",
+   "kind": "modbus",
+   "service": "g7-pump-cli",
+   "cause": "address_offset",
+   "symptom": "The pump temp reads 0, but the device shows 3267.",
+   "report": {
+    "service": "g7-pump-cli",
+    "cause": "address_offset",
+    "explanation": "The pump temp reads 0, but the device shows 3267. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.87
+  },
+  {
+   "set": "distractor",
+   "prefix": "g80-",
+   "kind": "modbus",
+   "service": "g80-mixer-cli",
+   "cause": "scaling",
+   "symptom": "The mixer flow reads 1605, but the local display shows 16.05.",
+   "report": {
+    "service": "g80-mixer-cli",
+    "cause": "scaling",
+    "explanation": "The mixer flow reads 1605, but the local display shows 16.05. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.88
+  },
+  {
+   "set": "fresh",
+   "prefix": "g124-",
+   "kind": "modbus",
+   "service": "g124-boiler-cli",
+   "cause": "unit_id",
+   "symptom": "The boiler torque shows bad quality.",
+   "report": {
+    "service": "g124-boiler-cli",
+    "cause": "unit_id",
+    "explanation": "The boiler torque shows bad quality. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.17
+  },
+  {
+   "set": "reworded",
+   "prefix": "g18-",
+   "kind": "iolink",
+   "service": "g18-mixer-cli",
+   "cause": "bit_offset",
+   "symptom": "QA asked us to double-check the local display. Looks fine to me?",
+   "report": {
+    "service": "g18-mixer-cli",
+    "cause": "bit_offset",
+    "explanation": "QA asked us to double-check the local display. Looks fine to me? The mixer ph value is false, but the client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.26
+  },
+  {
+   "set": "reworded",
+   "prefix": "g15-",
+   "kind": "iolink",
+   "service": "g15-filler-cli",
+   "cause": "bit_offset",
+   "symptom": "Our filler valve trend sits at 4084. Walked out to the unit and it shows -179.",
+   "report": {
+    "service": "g15-filler-cli",
+    "cause": "bit_offset",
+    "explanation": "The filler valve trend sits at 4084, but the client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.2
+  },
+  {
+   "set": "reworded",
+   "prefix": "g3-",
+   "kind": "modbus",
+   "service": "g3-kiln-cli",
+   "cause": "address_offset",
+   "symptom": "setpoint on the kiln: the gauge on the machine reads 362 but we log 0.",
+   "report": {
+    "service": "g3-kiln-cli",
+    "cause": "address_offset",
+    "explanation": "setpoint: the client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.47
+  },
+  {
+   "set": "fresh",
+   "prefix": "g139-",
+   "kind": "modbus",
+   "service": "g139-mixer-cli",
+   "cause": "word_order",
+   "symptom": "The mixer speed reads 12058624, but the device shows 184.",
+   "report": {
+    "service": "g139-mixer-cli",
+    "cause": "word_order",
+    "explanation": "The mixer speed reads 12058624, but the device shows 184. The client's settings differ from the device's (word order).",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.04
+  },
+  {
+   "set": "reworded",
+   "prefix": "g108-",
+   "kind": "eip",
+   "service": "g108-conveyor-cli",
+   "cause": "tag_name",
+   "symptom": "SCADA has humidity on the conveyor greyed out with a quality alarm.",
+   "report": {
+    "service": "g108-conveyor-cli",
+    "cause": "tag_name",
+    "explanation": "The conveyor greyed out with a quality alarm. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.77
+  },
+  {
+   "set": "reworded",
+   "prefix": "g6-",
+   "kind": "modbus",
+   "service": "g6-press-cli",
+   "cause": "address_offset",
+   "symptom": "Panel at the press says 5 for count, SCADA is showing 0. Which one is right?",
+   "report": {
+    "service": "g6-press-cli",
+    "cause": "address_offset",
+    "explanation": "Panel at the press says 5 for count, SCADA is showing 0. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.1
+  },
+  {
+   "set": "distractor",
+   "prefix": "g134-",
+   "kind": "modbus",
+   "service": "g134-kiln-cli",
+   "cause": "word_order",
+   "symptom": "The kiln current reads 223805440, but the device shows 3415.",
+   "report": {
+    "service": "g134-kiln-cli",
+    "cause": "word_order",
+    "explanation": "The kiln current reads 223805440, but the device shows 3415. The client's settings differ from the device's (word order).",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.49
+  },
+  {
+   "set": "reworded",
+   "prefix": "g117-",
+   "kind": "mqtt",
+   "service": "g117-mixer-cli",
+   "cause": "topic",
+   "symptom": "Mixer flow is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g117-mixer-cli",
+    "cause": "topic",
+    "explanation": "The mixer flow is flagged red on the panel. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.15
+  },
+  {
+   "set": "distractor",
+   "prefix": "g122-",
+   "kind": "modbus",
+   "service": "g122-filler-cli",
+   "cause": "unit_id",
+   "symptom": "The filler valve shows bad quality.",
+   "report": {
+    "service": "g122-filler-cli",
+    "cause": "unit_id",
+    "explanation": "The filler valve shows bad quality. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.76
+  },
+  {
+   "set": "distractor",
+   "prefix": "g128-",
+   "kind": "modbus",
+   "service": "g128-dryer-cli",
+   "cause": "unit_id",
+   "symptom": "The dryer torque shows bad quality.",
+   "report": {
+    "service": "g128-dryer-cli",
+    "cause": "unit_id",
+    "explanation": "The dryer torque shows bad quality. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.62
+  },
+  {
+   "set": "fresh",
+   "prefix": "g82-",
+   "kind": "modbus",
+   "service": "g82-conveyor-cli",
+   "cause": "scaling",
+   "symptom": "The conveyor weight reads 231, but the local display shows 2.31.",
+   "report": {
+    "service": "g82-conveyor-cli",
+    "cause": "scaling",
+    "explanation": "The conveyor weight reads 231, but the local display shows 2.31. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.19
+  },
+  {
+   "set": "reworded",
+   "prefix": "g102-",
+   "kind": "eip",
+   "service": "g102-dryer-cli",
+   "cause": "tag_name",
+   "symptom": "SCADA has weight on the dryer greyed out with a quality alarm.",
+   "report": {
+    "service": "g102-dryer-cli",
+    "cause": "tag_name",
+    "explanation": "The dryer greyed out with a quality alarm. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.52
+  },
+  {
+   "set": "reworded",
+   "prefix": "g126-",
+   "kind": "modbus",
+   "service": "g126-conveyor-cli",
+   "cause": "unit_id",
+   "symptom": "Conveyor batch is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g126-conveyor-cli",
+    "cause": "unit_id",
+    "explanation": "The conveyor batch is flagged red on the panel. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.4
+  },
+  {
+   "set": "reworded",
+   "prefix": "g120-",
+   "kind": "mqtt",
+   "service": "g120-chiller-cli",
+   "cause": "topic",
+   "symptom": "Nothing comes through for position on the chiller screen. Blank since we started up.",
+   "report": {
+    "service": "g120-chiller-cli",
+    "cause": "topic",
+    "explanation": "Nothing comes through for position on the chiller screen. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.28
+  },
+  {
+   "set": "fresh",
+   "prefix": "g133-",
+   "kind": "modbus",
+   "service": "g133-boiler-cli",
+   "cause": "word_order",
+   "symptom": "The boiler humidity reads 2.4178e-41, but the local display shows 230.",
+   "report": {
+    "service": "g133-boiler-cli",
+    "cause": "word_order",
+    "explanation": "The boiler humidity reads 2.4178e-41, but the local display shows 230. The client's settings differ from the device's (word order).",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.99
+  },
+  {
+   "set": "distractor",
+   "prefix": "g98-",
+   "kind": "eip",
+   "service": "g98-press-cli",
+   "cause": "tag_name",
+   "symptom": "The press pressure shows bad quality.",
+   "report": {
+    "service": "g98-press-cli",
+    "cause": "tag_name",
+    "explanation": "The press pressure shows bad quality. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.63
+  },
+  {
+   "set": "reworded",
+   "prefix": "g99-",
+   "kind": "eip",
+   "service": "g99-tank-cli",
+   "cause": "tag_name",
+   "symptom": "Tank speed is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g99-tank-cli",
+    "cause": "tag_name",
+    "explanation": "The tank speed is flagged red on the panel. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.61
+  },
+  {
+   "set": "distractor",
+   "prefix": "g56-",
+   "kind": "modbus",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Is the boiler humidity reading correctly? The device shows -304.",
+   "report": {
+    "service": "g56-boiler-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The boiler humidity reading is -304. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": false,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 5.87
+  },
+  {
+   "set": "distractor",
+   "prefix": "g47-",
+   "kind": "api",
+   "service": "g47-tank-cli",
+   "cause": "json_pointer",
+   "symptom": "The tank speed shows bad quality.",
+   "report": {
+    "service": "g47-tank-cli",
+    "cause": "unit_id",
+    "explanation": "The tank speed shows bad quality. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 4.83
+  },
+  {
+   "set": "distractor",
+   "prefix": "g137-",
+   "kind": "modbus",
+   "service": "g137-conveyor-cli",
+   "cause": "word_order",
+   "symptom": "The conveyor ph reads 215482368, but the device shows 3288.",
+   "report": {
+    "service": "g137-conveyor-cli",
+    "cause": "word_order",
+    "explanation": "The conveyor ph reads 215482368, but the device shows 3288. The client's settings differ from the device's (word order).",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.88
+  },
+  {
+   "set": "reworded",
+   "prefix": "g63-",
+   "kind": "iolink",
+   "service": "g63-mixer-cli",
+   "cause": "port_or_host",
+   "symptom": "SCADA has weight on the mixer greyed out with a quality alarm.",
+   "report": {
+    "service": "g63-mixer-cli",
+    "cause": "port_or_host",
+    "explanation": "The mixer weight is greyed out with a quality alarm. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.78
+  },
+  {
+   "set": "distractor",
+   "prefix": "g77-",
+   "kind": "modbus",
+   "service": "g77-boiler-cli",
+   "cause": "scaling",
+   "symptom": "The boiler count reads 684, but the local display shows 6.84.",
+   "report": {
+    "service": "g77-boiler-cli",
+    "cause": "scaling",
+    "explanation": "The boiler count reads 684, but the local display shows 6.84. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.42
+  },
+  {
+   "set": "distractor",
+   "prefix": "g107-",
+   "kind": "eip",
+   "service": "g107-boiler-cli",
+   "cause": "tag_name",
+   "symptom": "The boiler flow shows bad quality.",
+   "report": {
+    "service": "g107-boiler-cli",
+    "cause": "tag_name",
+    "explanation": "The boiler flow shows bad quality. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 4.64
+  },
+  {
+   "set": "reworded",
+   "prefix": "g24-",
+   "kind": "iolink",
+   "service": "g24-tank-cli",
+   "cause": "bit_offset",
+   "symptom": "setpoint on the tank: the gauge on the machine reads 1032 but we log 4.",
+   "report": {
+    "service": "g24-tank-cli",
+    "cause": "bit_offset",
+    "explanation": "setpoint: 1032 (good), but we log 4. The client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.14
+  },
+  {
+   "set": "fresh",
+   "prefix": "g109-",
+   "kind": "mqtt",
+   "service": "g109-press-cli",
+   "cause": "topic",
+   "symptom": "The press humidity shows bad quality.",
+   "report": {
+    "service": "g109-press-cli",
+    "cause": "topic",
+    "explanation": "The press humidity shows bad quality. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.83
+  },
+  {
+   "set": "fresh",
+   "prefix": "g4-",
+   "kind": "modbus",
+   "service": "g4-press-cli",
+   "cause": "address_offset",
+   "symptom": "The press level reads 425, but the device shows -256.",
+   "report": {
+    "service": "g4-press-cli",
+    "cause": "address_offset",
+    "explanation": "The press level reads 425, but the device shows -256. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.71
+  },
+  {
+   "set": "fresh",
+   "prefix": "g91-",
+   "kind": "sparkplug",
+   "service": "g91-kiln-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The kiln current shows bad quality.",
+   "report": {
+    "service": "g91-kiln-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The kiln current shows bad quality. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.42
+  },
+  {
+   "set": "reworded",
+   "prefix": "g39-",
+   "kind": "api",
+   "service": "g39-kiln-cli",
+   "cause": "json_pointer",
+   "symptom": "Kiln position is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g39-kiln-cli",
+    "cause": "json_pointer",
+    "explanation": "The kiln position is flagged red on the panel. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.93
+  },
+  {
+   "set": "fresh",
+   "prefix": "g67-",
+   "kind": "api",
+   "service": "g67-chiller-cli",
+   "cause": "port_or_host",
+   "symptom": "The chiller current shows bad quality.",
+   "report": {
+    "service": "g67-chiller-cli",
+    "cause": "port_or_host",
+    "explanation": "The chiller current shows bad quality. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.67
+  },
+  {
+   "set": "reworded",
+   "prefix": "g114-",
+   "kind": "mqtt",
+   "service": "g114-dryer-cli",
+   "cause": "topic",
+   "symptom": "Nothing comes through for temp on the dryer screen. Blank since we started up.",
+   "report": {
+    "service": "g114-dryer-cli",
+    "cause": "topic",
+    "explanation": "The dryer temp is blank since the client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.5
+  },
+  {
+   "set": "fresh",
+   "prefix": "g136-",
+   "kind": "modbus",
+   "service": "g136-tank-cli",
+   "cause": "word_order",
+   "symptom": "The tank torque reads 64946176, but the device shows 991.",
+   "report": {
+    "service": "g136-tank-cli",
+    "cause": "word_order",
+    "explanation": "The tank torque reads 64946176, but the device shows 991. The client's settings differ from the device's (word order).",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.96
+  },
+  {
+   "set": "fresh",
+   "prefix": "g46-",
+   "kind": "api",
+   "service": "g46-mixer-cli",
+   "cause": "json_pointer",
+   "symptom": "The mixer speed shows bad quality.",
+   "report": {
+    "service": "g46-mixer-cli",
+    "cause": "json_pointer",
+    "explanation": "The mixer speed shows bad quality. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.85
+  },
+  {
+   "set": "reworded",
+   "prefix": "g78-",
+   "kind": "modbus",
+   "service": "g78-kiln-cli",
+   "cause": "scaling",
+   "symptom": "Our kiln ph trend sits at 1261. Walked out to the unit and it shows 126.1.",
+   "report": {
+    "service": "g78-kiln-cli",
+    "cause": "scaling",
+    "explanation": "The kiln ph trend sits at 1261. Walked out to the unit and it shows 126.1. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 4.18
+  },
+  {
+   "set": "distractor",
+   "prefix": "g44-",
+   "kind": "api",
+   "service": "g44-mixer-cli",
+   "cause": "json_pointer",
+   "symptom": "The mixer batch shows bad quality.",
+   "report": {
+    "service": "g44-mixer-cli",
+    "cause": "json_pointer",
+    "explanation": "The mixer batch shows bad quality. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.62
+  },
+  {
+   "set": "distractor",
+   "prefix": "g38-",
+   "kind": "api",
+   "service": "g38-boiler-cli",
+   "cause": "json_pointer",
+   "symptom": "The boiler run shows bad quality.",
+   "report": {
+    "service": "g38-boiler-cli",
+    "cause": "topic",
+    "explanation": "The boiler run shows bad quality. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 5.39
+  },
+  {
+   "set": "fresh",
+   "prefix": "g118-",
+   "kind": "mqtt",
+   "service": "g118-filler-cli",
+   "cause": "topic",
+   "symptom": "The filler count shows bad quality.",
+   "report": {
+    "service": "g118-filler-cli",
+    "cause": "topic",
+    "explanation": "The filler count shows bad quality. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.63
+  },
+  {
+   "set": "distractor",
+   "prefix": "g29-",
+   "kind": "mqtt",
+   "service": "g29-mixer-cli",
+   "cause": "credentials",
+   "symptom": "The mixer count shows bad quality.",
+   "report": {
+    "service": "g29-mixer-cli",
+    "cause": "BadUserNamePassword",
+    "explanation": "The mixer count shows bad quality. The client's settings differ from the device's (username and password).",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 5.01
+  },
+  {
+   "set": "distractor",
+   "prefix": "g113-",
+   "kind": "mqtt",
+   "service": "g113-tank-cli",
+   "cause": "topic",
+   "symptom": "The tank torque never shows a value on the HMI.",
+   "report": {
+    "service": "g113-tank-cli",
+    "cause": "topic",
+    "explanation": "The tank torque never shows a value on the HMI. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.62
+  },
+  {
+   "set": "reworded",
+   "prefix": "g90-",
+   "kind": "sparkplug",
+   "service": "g90-pump-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "SCADA has torque on the pump greyed out with a quality alarm.",
+   "report": {
+    "service": "g90-pump-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug ids are different between the client and device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.52
+  },
+  {
+   "set": "distractor",
+   "prefix": "g26-",
+   "kind": "mqtt",
+   "service": "g26-boiler-cli",
+   "cause": "credentials",
+   "symptom": "The boiler humidity shows bad quality.",
+   "report": {
+    "service": "g26-boiler-cli",
+    "cause": "bad",
+    "explanation": "The boiler humidity shows bad quality. The client's settings differ from the device's (bad quality).",
+    "fix": "Make the client's settings match the device."
+   },
+   "service_ok": true,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 5.73
+  },
+  {
+   "set": "distractor",
+   "prefix": "g53-",
+   "kind": "eip",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Please check the conveyor level; someone says it looks wrong.",
+   "report": {
+    "service": "g53-conveyor-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Please check the conveyor level; someone says it looks wrong. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": false,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 5.54
+  },
+  {
+   "set": "reworded",
+   "prefix": "g60-",
+   "kind": "iolink",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Can someone confirm press flow is reading right before the audit?",
+   "report": {
+    "service": "g60-press-cli",
+    "cause": "bit_offset",
+    "explanation": "Can someone confirm press flow is reading right before the audit? The client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": false,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 2.69
+  },
+  {
+   "set": "fresh",
+   "prefix": "g43-",
+   "kind": "api",
+   "service": "g43-filler-cli",
+   "cause": "json_pointer",
+   "symptom": "The filler humidity shows bad quality.",
+   "report": {
+    "service": "g43-filler-cli",
+    "cause": "json_pointer",
+    "explanation": "The filler humidity shows bad quality. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.0
+  },
+  {
+   "set": "reworded",
+   "prefix": "g123-",
+   "kind": "modbus",
+   "service": "g123-tank-cli",
+   "cause": "unit_id",
+   "symptom": "Tank run is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g123-tank-cli",
+    "cause": "unit_id",
+    "explanation": "Tank run is flagged red on the panel. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.82
+  },
+  {
+   "set": "distractor",
+   "prefix": "g8-",
+   "kind": "modbus",
+   "service": "g8-mixer-cli",
+   "cause": "address_offset",
+   "symptom": "The mixer count reads 0, but the device shows 4321.",
+   "report": {
+    "service": "g8-mixer-cli",
+    "cause": "address_offset",
+    "explanation": "The mixer count reads 0, but the device shows 4321. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.17
+  },
+  {
+   "set": "fresh",
+   "prefix": "g121-",
+   "kind": "modbus",
+   "service": "g121-mixer-cli",
+   "cause": "unit_id",
+   "symptom": "The mixer level shows bad quality.",
+   "report": {
+    "service": "g121-mixer-cli",
+    "cause": "unit_id",
+    "explanation": "The mixer level shows bad quality. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.14
+  },
+  {
+   "set": "distractor",
+   "prefix": "g32-",
+   "kind": "mqtt",
+   "service": "g32-pump-cli",
+   "cause": "credentials",
+   "symptom": "The pump flow shows bad quality.",
+   "report": {
+    "service": "g32-pump-cli",
+    "cause": "BadUserNamePassword",
+    "explanation": "The pump flow shows bad quality. The client's settings differ from the device's (username and password).",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 5.68
+  },
+  {
+   "set": "reworded",
+   "prefix": "g42-",
+   "kind": "api",
+   "service": "g42-tank-cli",
+   "cause": "json_pointer",
+   "symptom": "SCADA has level on the tank greyed out with a quality alarm.",
+   "report": {
+    "service": "g42-tank-cli",
+    "cause": "json_pointer",
+    "explanation": "The tank greyed out with a quality alarm. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.06
+  },
+  {
+   "set": "fresh",
+   "prefix": "g142-",
+   "kind": "modbus",
+   "service": "g142-press-cli",
+   "cause": "word_order",
+   "symptom": "The press flow reads -2.00412, but the local display shows 257.5.",
+   "report": {
+    "service": "g142-press-cli",
+    "cause": "word_order",
+    "explanation": "The press flow reads -2.00412, but the local display shows 257.5. The client's settings differ from the device's (word order).",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.39
+  },
+  {
+   "set": "fresh",
+   "prefix": "g52-",
+   "kind": "eip",
+   "service": "none",
+   "cause": "none",
+   "symptom": "An operator thinks the boiler batch is off; the local display shows 249.",
+   "report": {
+    "service": "g52-boiler-cli",
+    "cause": "tag_name",
+    "explanation": "The boiler batch is off; the client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": false,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 2.76
+  },
+  {
+   "set": "fresh",
+   "prefix": "g88-",
+   "kind": "sparkplug",
+   "service": "g88-mixer-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The mixer current never shows a value on the HMI.",
+   "report": {
+    "service": "g88-mixer-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The mixer current never shows a value on the HMI. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.64
+  },
+  {
+   "set": "fresh",
+   "prefix": "g94-",
+   "kind": "sparkplug",
+   "service": "g94-mixer-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The mixer pressure never shows a value on the HMI.",
+   "report": {
+    "service": "g94-mixer-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The mixer pressure never shows a value on the HMI. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.22
+  },
+  {
+   "set": "reworded",
+   "prefix": "g93-",
+   "kind": "sparkplug",
+   "service": "g93-chiller-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "Nothing comes through for position on the chiller screen. Blank since we started up.",
+   "report": {
+    "service": "g93-chiller-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Nothing comes through for position on the chiller screen. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.84
+  },
+  {
+   "set": "distractor",
+   "prefix": "g125-",
+   "kind": "modbus",
+   "service": "g125-pump-cli",
+   "cause": "unit_id",
+   "symptom": "The pump ph shows bad quality.",
+   "report": {
+    "service": "g125-pump-cli",
+    "cause": "unit_id",
+    "explanation": "The pump ph shows bad quality. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.75
+  },
+  {
+   "set": "fresh",
+   "prefix": "g34-",
+   "kind": "mqtt",
+   "service": "g34-mixer-cli",
+   "cause": "credentials",
+   "symptom": "The mixer humidity shows bad quality.",
+   "report": {
+    "service": "g34-mixer-cli",
+    "cause": "credentials",
+    "explanation": "The mixer humidity shows bad quality. The client's settings differ from the device's (credentials).",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.71
+  },
+  {
+   "set": "fresh",
+   "prefix": "g61-",
+   "kind": "eip",
+   "service": "g61-conveyor-cli",
+   "cause": "port_or_host",
+   "symptom": "The conveyor run shows bad quality.",
+   "report": {
+    "service": "g61-conveyor-cli",
+    "cause": "port_or_host",
+    "explanation": "The conveyor run shows bad quality. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.06
+  },
+  {
+   "set": "reworded",
+   "prefix": "g129-",
+   "kind": "modbus",
+   "service": "g129-kiln-cli",
+   "cause": "unit_id",
+   "symptom": "Kiln current is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g129-kiln-cli",
+    "cause": "unit_id",
+    "explanation": "The kiln current is flagged red on the panel. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.62
+  },
+  {
+   "set": "distractor",
+   "prefix": "g110-",
+   "kind": "mqtt",
+   "service": "g110-boiler-cli",
+   "cause": "topic",
+   "symptom": "The boiler flow never shows a value on the HMI.",
+   "report": {
+    "service": "g110-boiler-cli",
+    "cause": "topic",
+    "explanation": "The boiler flow never shows a value on the HMI. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.05
+  },
+  {
+   "set": "reworded",
+   "prefix": "g96-",
+   "kind": "sparkplug",
+   "service": "g96-pump-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "Pump ph is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g96-pump-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The pump ph is flagged red on the panel. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.62
+  },
+  {
+   "set": "fresh",
+   "prefix": "g16-",
+   "kind": "iolink",
+   "service": "g16-mixer-cli",
+   "cause": "bit_offset",
+   "symptom": "The mixer level reads 64780, but the device shows 3308.",
+   "report": {
+    "service": "g16-mixer-cli",
+    "cause": "bit_offset",
+    "explanation": "The mixer level reads 64780, but the device shows 3308. The client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.41
+  },
+  {
+   "set": "reworded",
+   "prefix": "g84-",
+   "kind": "modbus",
+   "service": "g84-chiller-cli",
+   "cause": "scaling",
+   "symptom": "weight on the chiller: the gauge on the machine reads 181.4 but we log 1814.",
+   "report": {
+    "service": "g84-chiller-cli",
+    "cause": "scaling",
+    "explanation": "The gauge reads 181.4, but the client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.51
+  },
+  {
+   "set": "fresh",
+   "prefix": "g97-",
+   "kind": "eip",
+   "service": "g97-tank-cli",
+   "cause": "tag_name",
+   "symptom": "The tank current shows bad quality.",
+   "report": {
+    "service": "g97-tank-cli",
+    "cause": "tag_name",
+    "explanation": "The tank current shows bad quality. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.06
+  },
+  {
+   "set": "fresh",
+   "prefix": "g25-",
+   "kind": "mqtt",
+   "service": "g25-press-cli",
+   "cause": "credentials",
+   "symptom": "The press run shows bad quality.",
+   "report": {
+    "service": "g25-press-cli",
+    "cause": "credentials",
+    "explanation": "The press run shows bad quality. The client's settings differ from the device's (credentials).",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.8
+  },
+  {
+   "set": "distractor",
+   "prefix": "g119-",
+   "kind": "mqtt",
+   "service": "g119-pump-cli",
+   "cause": "topic",
+   "symptom": "The pump pressure shows bad quality.",
+   "report": {
+    "service": "g119-pump-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The pump pressure shows bad quality. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 6.57
+  },
+  {
+   "set": "distractor",
+   "prefix": "g41-",
+   "kind": "api",
+   "service": "g41-conveyor-cli",
+   "cause": "json_pointer",
+   "symptom": "The conveyor run shows bad quality.",
+   "report": {
+    "service": "g41-conveyor-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The conveyor run shows bad quality. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 5.23
+  },
+  {
+   "set": "reworded",
+   "prefix": "g72-",
+   "kind": "api",
+   "service": "g72-kiln-cli",
+   "cause": "port_or_host",
+   "symptom": "Kiln setpoint is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g72-kiln-cli",
+    "cause": "port_or_host",
+    "explanation": "The kiln setpoint is flagged red on the panel. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.11
+  },
+  {
+   "set": "reworded",
+   "prefix": "g51-",
+   "kind": "modbus",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Can someone confirm filler weight is reading right before the audit?",
+   "report": {
+    "service": "g51-filler-cli",
+    "cause": "unit_id",
+    "explanation": "Can someone confirm filler weight is reading right before the audit? The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": false,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 3.46
+  },
+  {
+   "set": "reworded",
+   "prefix": "g69-",
+   "kind": "modbus",
+   "service": "g69-mixer-cli",
+   "cause": "port_or_host",
+   "symptom": "Mixer current is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g69-mixer-cli",
+    "cause": "port_or_host",
+    "explanation": "The mixer current is flagged red on the panel, and the client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.75
+  },
+  {
+   "set": "reworded",
+   "prefix": "g9-",
+   "kind": "modbus",
+   "service": "g9-pump-cli",
+   "cause": "address_offset",
+   "symptom": "ph on the pump: the gauge on the machine reads 3337 but we log 0.",
+   "report": {
+    "service": "g9-pump-cli",
+    "cause": "address_offset",
+    "explanation": "ph on the pump: the gauge on the machine reads 3337 but we log 0. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.95
+  },
+  {
+   "set": "distractor",
+   "prefix": "g62-",
+   "kind": "api",
+   "service": "g62-boiler-cli",
+   "cause": "port_or_host",
+   "symptom": "The boiler current shows bad quality.",
+   "report": {
+    "service": "g62-boiler-cli",
+    "cause": "port_or_host",
+    "explanation": "The boiler current shows bad quality. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.1
+  },
+  {
+   "set": "distractor",
+   "prefix": "g23-",
+   "kind": "iolink",
+   "service": "g23-press-cli",
+   "cause": "bit_offset",
+   "symptom": "The press current reads 12298, but the device shows 2691.",
+   "report": {
+    "service": "g23-press-cli",
+    "cause": "bit_offset",
+    "explanation": "The press current reads 12298, but the device shows 2691. The client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.96
+  },
+  {
+   "set": "fresh",
+   "prefix": "g49-",
+   "kind": "api",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Please check the filler count; someone says it looks wrong.",
+   "report": {
+    "service": "g49-filler-cli",
+    "cause": "json_pointer",
+    "explanation": "Please check the filler count; someone says it looks wrong. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": false,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 2.85
+  },
+  {
+   "set": "reworded",
+   "prefix": "g12-",
+   "kind": "modbus",
+   "service": "g12-chiller-cli",
+   "cause": "address_offset",
+   "symptom": "Our chiller torque trend sits at 301269237. Walked out to the unit and it shows 3597.",
+   "report": {
+    "service": "g12-chiller-cli",
+    "cause": "address_offset",
+    "explanation": "The chiller torque trend sits at 301269237, but the client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.62
+  },
+  {
+   "set": "distractor",
+   "prefix": "g50-",
+   "kind": "mqtt",
+   "service": "none",
+   "cause": "none",
+   "symptom": "An operator thinks the tank position is off; the local display shows 4894.",
+   "report": {
+    "service": "g50-tank-cli",
+    "cause": "topic",
+    "explanation": "The tank position is off; the client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": false,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 5.03
+  },
+  {
+   "set": "fresh",
+   "prefix": "g73-",
+   "kind": "modbus",
+   "service": "g73-dryer-cli",
+   "cause": "scaling",
+   "symptom": "The dryer current reads 571, but the local display shows 5.71.",
+   "report": {
+    "service": "g73-dryer-cli",
+    "cause": "scaling",
+    "explanation": "The dryer current reads 571, but the local display shows 5.71. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.33
+  },
+  {
+   "set": "distractor",
+   "prefix": "g101-",
+   "kind": "eip",
+   "service": "g101-boiler-cli",
+   "cause": "tag_name",
+   "symptom": "The boiler torque shows bad quality.",
+   "report": {
+    "service": "g101-boiler-cli",
+    "cause": "tag_name",
+    "explanation": "The boiler torque shows bad quality. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 4.67
+  },
+  {
+   "set": "fresh",
+   "prefix": "g28-",
+   "kind": "mqtt",
+   "service": "g28-tank-cli",
+   "cause": "credentials",
+   "symptom": "The tank humidity shows bad quality.",
+   "report": {
+    "service": "g28-tank-cli",
+    "cause": "credentials",
+    "explanation": "The tank humidity shows bad quality. The client's settings differ from the device's (credentials).",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.38
+  },
+  {
+   "set": "reworded",
+   "prefix": "g33-",
+   "kind": "mqtt",
+   "service": "g33-press-cli",
+   "cause": "credentials",
+   "symptom": "Press flow is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g33-press-cli",
+    "cause": "credentials",
+    "explanation": "The press flow is flagged red on the panel. The client's settings differ from the device's (credentials).",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.04
+  },
+  {
+   "set": "reworded",
+   "prefix": "g57-",
+   "kind": "api",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Can someone confirm pump level; is reading right before the audit?",
+   "report": {
+    "service": "g57-pump-cli",
+    "cause": "json_pointer",
+    "explanation": "The pump level is read from the device at the path `/level`. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": false,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 3.36
+  },
+  {
+   "set": "distractor",
+   "prefix": "g2-",
+   "kind": "modbus",
+   "service": "g2-chiller-cli",
+   "cause": "address_offset",
+   "symptom": "The chiller setpoint reads 3810, but the device shows 310.",
+   "report": {
+    "service": "g2-chiller-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The chiller setpoint reads 3810, but the device shows 310. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 6.45
+  },
+  {
+   "set": "fresh",
+   "prefix": "g22-",
+   "kind": "iolink",
+   "service": "g22-conveyor-cli",
+   "cause": "bit_offset",
+   "symptom": "Please check the conveyor level; someone says it looks wrong.",
+   "report": {
+    "service": "g22-conveyor-cli",
+    "cause": "bit_offset",
+    "explanation": "Please check the conveyor level; someone says it looks wrong. The client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.94
+  },
+  {
+   "set": "fresh",
+   "prefix": "g58-",
+   "kind": "modbus",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Please check the dryer torque; someone says it looks wrong.",
+   "report": {
+    "service": "g58-dryer-cli",
+    "cause": "unit_id",
+    "explanation": "Please check the dryer torque; someone says it looks wrong. The client's settings match the device and its values are good; nothing points to a fault.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "service_ok": false,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 2.82
+  },
+  {
+   "set": "distractor",
+   "prefix": "g71-",
+   "kind": "eip",
+   "service": "g71-mixer-cli",
+   "cause": "port_or_host",
+   "symptom": "The mixer torque shows bad quality.",
+   "report": {
+    "service": "g71-mixer-cli",
+    "cause": "port_or_host",
+    "explanation": "The mixer torque shows bad quality. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.7
+  },
+  {
+   "set": "fresh",
+   "prefix": "g13-",
+   "kind": "iolink",
+   "service": "g13-conveyor-cli",
+   "cause": "bit_offset",
+   "symptom": "The conveyor temp reads 17093, but the device shows 2838.",
+   "report": {
+    "service": "g13-conveyor-cli",
+    "cause": "bit_offset",
+    "explanation": "The conveyor temp reads 17093, but the device shows 2838. The client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.23
+  },
+  {
+   "set": "fresh",
+   "prefix": "g64-",
+   "kind": "iolink",
+   "service": "g64-filler-cli",
+   "cause": "port_or_host",
+   "symptom": "The filler current shows bad quality.",
+   "report": {
+    "service": "g64-filler-cli",
+    "cause": "port_or_host",
+    "explanation": "The filler current shows bad quality. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.44
+  },
+  {
+   "set": "distractor",
+   "prefix": "g89-",
+   "kind": "sparkplug",
+   "service": "g89-kiln-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The kiln speed shows bad quality.",
+   "report": {
+    "service": "g89-kiln-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The kiln speed shows bad quality. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.99
+  },
+  {
+   "set": "reworded",
+   "prefix": "g36-",
+   "kind": "mqtt",
+   "service": "g36-chiller-cli",
+   "cause": "credentials",
+   "symptom": "SCADA has run on the chiller greyed out with a quality alarm.",
+   "report": {
+    "service": "g36-chiller-cli",
+    "cause": "credentials",
+    "explanation": "The chiller greyed out with a quality alarm. The client's settings differ from the device's (credentials).",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.48
+  },
+  {
+   "set": "fresh",
+   "prefix": "g85-",
+   "kind": "sparkplug",
+   "service": "g85-boiler-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The boiler temp never shows a value on the HMI.",
+   "report": {
+    "service": "g85-boiler-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The boiler temp never shows a value on the HMI. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.92
+  },
+  {
+   "set": "reworded",
+   "prefix": "g111-",
+   "kind": "mqtt",
+   "service": "g111-conveyor-cli",
+   "cause": "topic",
+   "symptom": "Conveyor valve is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g111-conveyor-cli",
+    "cause": "topic",
+    "explanation": "The conveyor valve is flagged red on the panel. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.74
+  },
+  {
+   "set": "reworded",
+   "prefix": "g141-",
+   "kind": "modbus",
+   "service": "g141-filler-cli",
+   "cause": "word_order",
+   "symptom": "Our filler weight trend sits at 103415808. Walked out to the unit and it shows 1578.",
+   "report": {
+    "service": "g141-filler-cli",
+    "cause": "word_order",
+    "explanation": "The filler weight trend sits at 103415808. Walk out to the unit and it shows 1578. The client's settings differ from the device's (word order).",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 4.12
+  },
+  {
+   "set": "fresh",
+   "prefix": "g10-",
+   "kind": "modbus",
+   "service": "g10-press-cli",
+   "cause": "address_offset",
+   "symptom": "The press count reads -1073741824, but the device shows 1551.",
+   "report": {
+    "service": "g10-press-cli",
+    "cause": "address_offset",
+    "explanation": "The press count reads -1073741824, but the device shows 1551. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.95
+  },
+  {
+   "set": "distractor",
+   "prefix": "g68-",
+   "kind": "api",
+   "service": "g68-kiln-cli",
+   "cause": "port_or_host",
+   "symptom": "The kiln setpoint shows bad quality.",
+   "report": {
+    "service": "g68-kiln-cli",
+    "cause": "port_or_host",
+    "explanation": "The kiln setpoint shows bad quality. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.98
+  },
+  {
+   "set": "reworded",
+   "prefix": "g135-",
+   "kind": "modbus",
+   "service": "g135-pump-cli",
+   "cause": "word_order",
+   "symptom": "Our pump humidity trend sits at 4.17378e-08. Walked out to the unit and it shows 182.2.",
+   "report": {
+    "service": "g135-pump-cli",
+    "cause": "word_order",
+    "explanation": "The pump humidity trend sits at 4.17378e-08. The client's settings differ from the device's (word order).",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.49
+  },
+  {
+   "set": "fresh",
+   "prefix": "g19-",
+   "kind": "iolink",
+   "service": "g19-boiler-cli",
+   "cause": "bit_offset",
+   "symptom": "The boiler ph reads 4085, but the device shows -165.",
+   "report": {
+    "service": "g19-boiler-cli",
+    "cause": "bit_offset",
+    "explanation": "The boiler ph reads 4085, but the device shows -165. The client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.76
+  },
+  {
+   "set": "fresh",
+   "prefix": "g79-",
+   "kind": "modbus",
+   "service": "g79-chiller-cli",
+   "cause": "scaling",
+   "symptom": "The chiller count reads 189, but the local display shows 18.9.",
+   "report": {
+    "service": "g79-chiller-cli",
+    "cause": "scaling",
+    "explanation": "The chiller count reads 189, but the local display shows 18.9. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.99
+  },
+  {
+   "set": "reworded",
+   "prefix": "g45-",
+   "kind": "api",
+   "service": "g45-boiler-cli",
+   "cause": "json_pointer",
+   "symptom": "Boiler humidity is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g45-boiler-cli",
+    "cause": "json_pointer",
+    "explanation": "The boiler humidity is flagged red on the panel. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.17
+  },
+  {
+   "set": "distractor",
+   "prefix": "g5-",
+   "kind": "modbus",
+   "service": "g5-conveyor-cli",
+   "cause": "address_offset",
+   "symptom": "The conveyor speed reads 0, but the device shows 173.",
+   "report": {
+    "service": "g5-conveyor-cli",
+    "cause": "address_offset",
+    "explanation": "The conveyor speed reads 0, but the device shows 173. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.71
+  },
+  {
+   "set": "fresh",
+   "prefix": "g103-",
+   "kind": "eip",
+   "service": "g103-mixer-cli",
+   "cause": "tag_name",
+   "symptom": "The mixer humidity shows bad quality.",
+   "report": {
+    "service": "g103-mixer-cli",
+    "cause": "tag_name",
+    "explanation": "The mixer humidity shows bad quality. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.18
+  },
+  {
+   "set": "fresh",
+   "prefix": "g76-",
+   "kind": "modbus",
+   "service": "g76-pump-cli",
+   "cause": "scaling",
+   "symptom": "The pump pressure reads 1109, but the local display shows 11.09.",
+   "report": {
+    "service": "g76-pump-cli",
+    "cause": "scaling",
+    "explanation": "The pump pressure reads 1109, but the local display shows 11.09. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.91
+  },
+  {
+   "set": "reworded",
+   "prefix": "g54-",
+   "kind": "mqtt",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Can someone confirm chiller current; is reading right before the audit?",
+   "report": {
+    "service": "g54-chiller-cli",
+    "cause": "topic",
+    "explanation": "The chiller current is not being read. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": false,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 2.43
+  },
+  {
+   "set": "fresh",
+   "prefix": "g106-",
+   "kind": "eip",
+   "service": "g106-tank-cli",
+   "cause": "tag_name",
+   "symptom": "The tank level shows bad quality.",
+   "report": {
+    "service": "g106-tank-cli",
+    "cause": "tag_name",
+    "explanation": "The tank level shows bad quality. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.22
+  },
+  {
+   "set": "distractor",
+   "prefix": "g104-",
+   "kind": "eip",
+   "service": "g104-dryer-cli",
+   "cause": "tag_name",
+   "symptom": "The dryer setpoint shows bad quality.",
+   "report": {
+    "service": "g104-dryer-cli",
+    "cause": "tag_name",
+    "explanation": "The dryer setpoint shows bad quality. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.47
+  },
+  {
+   "set": "reworded",
+   "prefix": "g105-",
+   "kind": "eip",
+   "service": "g105-filler-cli",
+   "cause": "tag_name",
+   "symptom": "Filler temp is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g105-filler-cli",
+    "cause": "tag_name",
+    "explanation": "The filler temp is flagged red on the panel, and the client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.62
+  },
+  {
+   "set": "distractor",
+   "prefix": "g17-",
+   "kind": "iolink",
+   "service": "g17-kiln-cli",
+   "cause": "bit_offset",
+   "symptom": "The kiln batch reads -94, but the device shows -187.",
+   "report": {
+    "service": "g17-kiln-cli",
+    "cause": "bit_offset",
+    "explanation": "The kiln batch reads -94, but the device shows -187. The client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.8
+  },
+  {
+   "set": "distractor",
+   "prefix": "g65-",
+   "kind": "eip",
+   "service": "g65-filler-cli",
+   "cause": "port_or_host",
+   "symptom": "The filler run shows bad quality.",
+   "report": {
+    "service": "g65-filler-cli",
+    "cause": "port_or_host",
+    "explanation": "The filler run shows bad quality. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.41
+  },
+  {
+   "set": "fresh",
+   "prefix": "g40-",
+   "kind": "api",
+   "service": "g40-dryer-cli",
+   "cause": "json_pointer",
+   "symptom": "The dryer count shows bad quality.",
+   "report": {
+    "service": "g40-dryer-cli",
+    "cause": "json_pointer",
+    "explanation": "The dryer count shows bad quality. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.51
+  },
+  {
+   "set": "fresh",
+   "prefix": "g130-",
+   "kind": "modbus",
+   "service": "g130-tank-cli",
+   "cause": "unit_id",
+   "symptom": "The tank position shows bad quality.",
+   "report": {
+    "service": "g130-tank-cli",
+    "cause": "unit_id",
+    "explanation": "The tank position shows bad quality. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.46
+  },
+  {
+   "set": "fresh",
+   "prefix": "g112-",
+   "kind": "mqtt",
+   "service": "g112-boiler-cli",
+   "cause": "topic",
+   "symptom": "The boiler pressure shows bad quality.",
+   "report": {
+    "service": "g112-boiler-cli",
+    "cause": "topic",
+    "explanation": "The boiler pressure shows bad quality. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.5
+  },
+  {
+   "set": "distractor",
+   "prefix": "g131-",
+   "kind": "modbus",
+   "service": "g131-conveyor-cli",
+   "cause": "unit_id",
+   "symptom": "The conveyor valve shows bad quality.",
+   "report": {
+    "service": "g131-conveyor-cli",
+    "cause": "unit_id",
+    "explanation": "The conveyor valve shows bad quality. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.48
+  },
+  {
+   "set": "reworded",
+   "prefix": "g81-",
+   "kind": "modbus",
+   "service": "g81-tank-cli",
+   "cause": "scaling",
+   "symptom": "Panel at the tank says 13.43 for valve, SCADA is showing 1343. Which one is right?",
+   "report": {
+    "service": "g81-tank-cli",
+    "cause": "scaling",
+    "explanation": "Panel says 13.43, SCADA shows 1343. The panel's valve is scaled by 0.01 (13.43), but SCADA's valve is scaled by 1 (1343).",
+    "fix": "Give the panel the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 4.22
+  },
+  {
+   "set": "distractor",
+   "prefix": "g14-",
+   "kind": "iolink",
+   "service": "g14-tank-cli",
+   "cause": "bit_offset",
+   "symptom": "The tank batch reads 1365, but the device shows 2731.",
+   "report": {
+    "service": "g14-tank-cli",
+    "cause": "bit_offset",
+    "explanation": "The tank batch reads 1365, but the device shows 2731. The client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.83
+  },
+  {
+   "set": "distractor",
+   "prefix": "g35-",
+   "kind": "mqtt",
+   "service": "g35-tank-cli",
+   "cause": "credentials",
+   "symptom": "The tank weight shows bad quality.",
+   "report": {
+    "service": "g35-tank-cli",
+    "cause": "BadUserNamePassword",
+    "explanation": "The tank weight shows bad quality. The client's settings differ from the device's (username and password).",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": false,
+   "pass": false,
+   "seconds": 5.34
+  },
+  {
+   "set": "reworded",
+   "prefix": "g75-",
+   "kind": "modbus",
+   "service": "g75-press-cli",
+   "cause": "scaling",
+   "symptom": "Our press current trend sits at 2329. Walked out to the unit and it shows 23.29.",
+   "report": {
+    "service": "g75-press-cli",
+    "cause": "scaling",
+    "explanation": "The press current sits at 2329, but the service shows 23.29. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.35
+  },
+  {
+   "set": "fresh",
+   "prefix": "g37-",
+   "kind": "api",
+   "service": "g37-tank-cli",
+   "cause": "json_pointer",
+   "symptom": "The tank ph shows bad quality.",
+   "report": {
+    "service": "g37-tank-cli",
+    "cause": "json_pointer",
+    "explanation": "The tank ph shows bad quality. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.11
+  },
+  {
+   "set": "distractor",
+   "prefix": "g140-",
+   "kind": "modbus",
+   "service": "g140-boiler-cli",
+   "cause": "word_order",
+   "symptom": "The boiler setpoint reads 168951808, but the device shows 2578.",
+   "report": {
+    "service": "g140-boiler-cli",
+    "cause": "word_order",
+    "explanation": "The boiler setpoint reads 168951808, but the device shows 2578. The client's settings differ from the device's (word order).",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.79
+  },
+  {
+   "set": "fresh",
+   "prefix": "g1-",
+   "kind": "modbus",
+   "service": "g1-pump-cli",
+   "cause": "address_offset",
+   "symptom": "The pump current reads 152, but the device shows -408.",
+   "report": {
+    "service": "g1-pump-cli",
+    "cause": "address_offset",
+    "explanation": "The pump current reads 152, but the device shows -408. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.12
+  },
+  {
+   "set": "reworded",
+   "prefix": "g27-",
+   "kind": "mqtt",
+   "service": "g27-press-cli",
+   "cause": "credentials",
+   "symptom": "Press setpoint is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g27-press-cli",
+    "cause": "credentials",
+    "explanation": "The press setpoint is flagged red on the panel, and the client's settings differ from the device's (credentials).",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.76
+  },
+  {
+   "set": "distractor",
+   "prefix": "g86-",
+   "kind": "sparkplug",
+   "service": "g86-tank-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The tank pressure never shows a value on the HMI.",
+   "report": {
+    "service": "g86-tank-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The tank pressure never shows a value on the HMI. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.6
+  },
+  {
+   "set": "distractor",
+   "prefix": "g20-",
+   "kind": "iolink",
+   "service": "g20-boiler-cli",
+   "cause": "bit_offset",
+   "symptom": "The boiler batch reads 32923, but the device shows 2491.",
+   "report": {
+    "service": "g20-boiler-cli",
+    "cause": "bit_offset",
+    "explanation": "The boiler batch reads 32923, but the device shows 2491. The client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.06
+  },
+  {
+   "set": "reworded",
+   "prefix": "g30-",
+   "kind": "mqtt",
+   "service": "g30-tank-cli",
+   "cause": "credentials",
+   "symptom": "SCADA has setpoint on the tank greyed out with a quality alarm.",
+   "report": {
+    "service": "g30-tank-cli",
+    "cause": "credentials",
+    "explanation": "The setpoint is greyed out with a quality alarm. The client's settings differ from the device's (credentials).",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.47
+  },
+  {
+   "set": "fresh",
+   "prefix": "g31-",
+   "kind": "mqtt",
+   "service": "g31-press-cli",
+   "cause": "credentials",
+   "symptom": "The press flow shows bad quality.",
+   "report": {
+    "service": "g31-press-cli",
+    "cause": "credentials",
+    "explanation": "The press flow shows bad quality. The client's settings differ from the device's (credentials).",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.49
+  },
+  {
+   "set": "distractor",
+   "prefix": "g74-",
+   "kind": "modbus",
+   "service": "g74-press-cli",
+   "cause": "scaling",
+   "symptom": "The press weight reads 2594, but the local display shows 259.4.",
+   "report": {
+    "service": "g74-press-cli",
+    "cause": "scaling",
+    "explanation": "The press weight reads 2594, but the local display shows 259.4. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.84
+  },
+  {
+   "set": "fresh",
+   "prefix": "g100-",
+   "kind": "eip",
+   "service": "g100-chiller-cli",
+   "cause": "tag_name",
+   "symptom": "The chiller torque shows bad quality.",
+   "report": {
+    "service": "g100-chiller-cli",
+    "cause": "tag_name",
+    "explanation": "The chiller torque shows bad quality. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.43
+  },
+  {
+   "set": "distractor",
+   "prefix": "g143-",
+   "kind": "modbus",
+   "service": "g143-kiln-cli",
+   "cause": "word_order",
+   "symptom": "The kiln torque reads 4.17373e-08, but the local display shows 84.6.",
+   "report": {
+    "service": "g143-kiln-cli",
+    "cause": "word_order",
+    "explanation": "The kiln torque reads 4.17373e-08, but the local display shows 84.6. The client's settings differ from the device's (word order).",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.73
+  },
+  {
+   "set": "distractor",
+   "prefix": "g11-",
+   "kind": "modbus",
+   "service": "g11-pump-cli",
+   "cause": "address_offset",
+   "symptom": "The pump setpoint reads 0, but the device shows 2155.",
+   "report": {
+    "service": "g11-pump-cli",
+    "cause": "address_offset",
+    "explanation": "The pump setpoint reads 0, but the device shows 2155. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 4.65
+  },
+  {
+   "set": "reworded",
+   "prefix": "g138-",
+   "kind": "modbus",
+   "service": "g138-dryer-cli",
+   "cause": "word_order",
+   "symptom": "Panel at the dryer says 4847 for torque, SCADA is showing 317652992. Which one is right?",
+   "report": {
+    "service": "g138-dryer-cli",
+    "cause": "word_order",
+    "explanation": "Panel says 4847, SCADA says 317652992. The panel's torque is 4847, but SCADA's shows 317652992. The client's settings differ from the device's (word order).",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.49
+  },
+  {
+   "set": "reworded",
+   "prefix": "g87-",
+   "kind": "sparkplug",
+   "service": "g87-press-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "Press speed is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g87-press-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Press speed is flagged red on the panel. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.06
+  },
+  {
+   "set": "fresh",
+   "prefix": "g70-",
+   "kind": "iolink",
+   "service": "g70-conveyor-cli",
+   "cause": "port_or_host",
+   "symptom": "The conveyor level shows bad quality.",
+   "report": {
+    "service": "g70-conveyor-cli",
+    "cause": "port_or_host",
+    "explanation": "The conveyor level shows bad quality. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.44
+  },
+  {
+   "set": "distractor",
+   "prefix": "g95-",
+   "kind": "sparkplug",
+   "service": "g95-filler-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The filler position never shows a value on the HMI.",
+   "report": {
+    "service": "g95-filler-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The filler position never shows a value on the HMI. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.46
+  },
+  {
+   "set": "reworded",
+   "prefix": "g144-",
+   "kind": "modbus",
+   "service": "g144-filler-cli",
+   "cause": "word_order",
+   "symptom": "Panel at the filler says 295 for batch, SCADA is showing 19333120. Which one is right?",
+   "report": {
+    "service": "g144-filler-cli",
+    "cause": "word_order",
+    "explanation": "Panel says 295 for batch. SCADA shows 19333120. Panel's settings differ from SCADA's (word order).",
+    "fix": "Set the client's word order to match the panel."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 3.41
+  },
+  {
+   "set": "fresh",
+   "prefix": "g115-",
+   "kind": "mqtt",
+   "service": "g115-tank-cli",
+   "cause": "topic",
+   "symptom": "The tank level shows bad quality.",
+   "report": {
+    "service": "g115-tank-cli",
+    "cause": "topic",
+    "explanation": "The tank level shows bad quality. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 2.33
+  }
+ ]
+}

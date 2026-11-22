@@ -1,0 +1,2640 @@
+{
+ "summary": {
+  "model": "cowpoke-foreman:4b-s500",
+  "rules": true,
+  "seed": 777,
+  "fresh": {
+   "n": 48,
+   "passed": 47,
+   "service_ok": 47,
+   "cause_ok": 48
+  },
+  "distractor": {
+   "n": 48,
+   "passed": 44,
+   "service_ok": 44,
+   "cause_ok": 48
+  },
+  "reworded": {
+   "n": 48,
+   "passed": 45,
+   "service_ok": 45,
+   "cause_ok": 48
+  },
+  "all": {
+   "n": 144,
+   "passed": 136,
+   "service_ok": 136,
+   "cause_ok": 144
+  },
+  "avg_seconds": 13.68,
+  "by_cause": {
+   "address_offset": "12/12",
+   "bit_offset": "12/12",
+   "credentials": "12/12",
+   "json_pointer": "12/12",
+   "none": "4/12",
+   "port_or_host": "12/12",
+   "scaling": "12/12",
+   "sparkplug_ids": "12/12",
+   "tag_name": "12/12",
+   "topic": "12/12",
+   "unit_id": "12/12",
+   "word_order": "12/12"
+  }
+ },
+ "results": [
+  {
+   "set": "distractor",
+   "prefix": "g92-",
+   "kind": "sparkplug",
+   "service": "g92-dryer-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The dryer run never shows a value on the HMI.",
+   "report": {
+    "service": "g92-dryer-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug edge_node: g92-dryer-cli expects 'ryer2', g92-dryer-sim publishes 'Dryer2'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.68
+  },
+  {
+   "set": "fresh",
+   "prefix": "g55-",
+   "kind": "api",
+   "service": "none",
+   "cause": "none",
+   "symptom": "An operator thinks the pump count is off; the local display shows \"B-5065\".",
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 4.87
+  },
+  {
+   "set": "reworded",
+   "prefix": "g21-",
+   "kind": "iolink",
+   "service": "g21-conveyor-cli",
+   "cause": "bit_offset",
+   "symptom": "Our conveyor temp trend sits at 933. Walked out to the unit and it shows 3734.",
+   "report": {
+    "service": "g21-conveyor-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag temp: g21-conveyor-cli has bit_offset 2, but g21-conveyor-sim has 0.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 7.07
+  },
+  {
+   "set": "reworded",
+   "prefix": "g48-",
+   "kind": "api",
+   "service": "g48-tank-cli",
+   "cause": "json_pointer",
+   "symptom": "Tank humidity is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g48-tank-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag humidity: g48-tank-cli reads JSON pointer /huidity, but g48-tank-sim serves it at /humidity.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.04
+  },
+  {
+   "set": "distractor",
+   "prefix": "g59-",
+   "kind": "modbus",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Is the boiler count reading correctly? The device shows -10.",
+   "report": {
+    "service": "g59-boiler-cli",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "service_ok": false,
+   "cause_ok": true,
+   "pass": false,
+   "seconds": 11.86
+  },
+  {
+   "set": "reworded",
+   "prefix": "g66-",
+   "kind": "iolink",
+   "service": "g66-press-cli",
+   "cause": "port_or_host",
+   "symptom": "Press speed is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g66-press-cli",
+    "cause": "port_or_host",
+    "explanation": "g66-press-cli connects to port 32059, but g66-press-sim listens on port 32009.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.67
+  },
+  {
+   "set": "distractor",
+   "prefix": "g116-",
+   "kind": "mqtt",
+   "service": "g116-filler-cli",
+   "cause": "topic",
+   "symptom": "The filler batch shows bad quality.",
+   "report": {
+    "service": "g116-filler-cli",
+    "cause": "topic",
+    "explanation": "Tag batch: g116-filler-cli subscribes to plant/filler3/battch, but g116-filler-sim publishes it on plant/filler3/batch.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.4
+  },
+  {
+   "set": "distractor",
+   "prefix": "g83-",
+   "kind": "modbus",
+   "service": "g83-kiln-cli",
+   "cause": "scaling",
+   "symptom": "The kiln level reads 1932, but the local display shows 19.32.",
+   "report": {
+    "service": "g83-kiln-cli",
+    "cause": "scaling",
+    "explanation": "Tag level: g83-kiln-cli has scale 1, but g83-kiln-sim has 0.01.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.3
+  },
+  {
+   "set": "fresh",
+   "prefix": "g127-",
+   "kind": "modbus",
+   "service": "g127-chiller-cli",
+   "cause": "unit_id",
+   "symptom": "The chiller flow shows bad quality.",
+   "report": {
+    "service": "g127-chiller-cli",
+    "cause": "unit_id",
+    "explanation": "Tag flow: g127-chiller-cli has unit 5, but g127-chiller-sim has 2. Tag current: g127-chiller-cli has unit 5, but g127-chiller-sim has 2.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 10.01
+  },
+  {
+   "set": "reworded",
+   "prefix": "g132-",
+   "kind": "modbus",
+   "service": "g132-pump-cli",
+   "cause": "unit_id",
+   "symptom": "SCADA has count on the pump greyed out with a quality alarm.",
+   "report": {
+    "service": "g132-pump-cli",
+    "cause": "unit_id",
+    "explanation": "Tag count: g132-pump-cli has unit 3, but g132-pump-sim has 2. Tag position: g132-pump-cli has unit 3, but g132-pump-sim has 2.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.61
+  },
+  {
+   "set": "fresh",
+   "prefix": "g7-",
+   "kind": "modbus",
+   "service": "g7-pump-cli",
+   "cause": "address_offset",
+   "symptom": "The pump temp reads 0, but the device shows 3267.",
+   "report": {
+    "service": "g7-pump-cli",
+    "cause": "address_offset",
+    "explanation": "Tag temp: g7-pump-cli has register 2, but g7-pump-sim has 0.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.39
+  },
+  {
+   "set": "distractor",
+   "prefix": "g80-",
+   "kind": "modbus",
+   "service": "g80-mixer-cli",
+   "cause": "scaling",
+   "symptom": "The mixer flow reads 1605, but the local display shows 16.05.",
+   "report": {
+    "service": "g80-mixer-cli",
+    "cause": "scaling",
+    "explanation": "Tag flow: g80-mixer-cli has scale 1, but g80-mixer-sim has 0.01.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 18.11
+  },
+  {
+   "set": "fresh",
+   "prefix": "g124-",
+   "kind": "modbus",
+   "service": "g124-boiler-cli",
+   "cause": "unit_id",
+   "symptom": "The boiler torque shows bad quality.",
+   "report": {
+    "service": "g124-boiler-cli",
+    "cause": "unit_id",
+    "explanation": "Tag torque: g124-boiler-cli has unit 5, but g124-boiler-sim has 1. Tag count: g124-boiler-cli has unit 5, but g124-boiler-sim has 1.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 10.62
+  },
+  {
+   "set": "reworded",
+   "prefix": "g18-",
+   "kind": "iolink",
+   "service": "g18-mixer-cli",
+   "cause": "bit_offset",
+   "symptom": "QA asked us to double-check the local display. Looks fine to me?",
+   "report": {
+    "service": "g18-mixer-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag ph: g18-mixer-cli has bit_offset 8, but g18-mixer-sim has 0.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 8.57
+  },
+  {
+   "set": "reworded",
+   "prefix": "g15-",
+   "kind": "iolink",
+   "service": "g15-filler-cli",
+   "cause": "bit_offset",
+   "symptom": "Our filler valve trend sits at 4084. Walked out to the unit and it shows -179.",
+   "report": {
+    "service": "g15-filler-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag valve: g15-filler-cli has bit_offset 4, but g15-filler-sim has 0.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 7.73
+  },
+  {
+   "set": "reworded",
+   "prefix": "g3-",
+   "kind": "modbus",
+   "service": "g3-kiln-cli",
+   "cause": "address_offset",
+   "symptom": "setpoint on the kiln: the gauge on the machine reads 362 but we log 0.",
+   "report": {
+    "service": "g3-kiln-cli",
+    "cause": "address_offset",
+    "explanation": "Tag setpoint: g3-kiln-cli has register 1, but g3-kiln-sim has 0.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 8.96
+  },
+  {
+   "set": "fresh",
+   "prefix": "g139-",
+   "kind": "modbus",
+   "service": "g139-mixer-cli",
+   "cause": "word_order",
+   "symptom": "The mixer speed reads 12058624, but the device shows 184.",
+   "report": {
+    "service": "g139-mixer-cli",
+    "cause": "word_order",
+    "explanation": "g139-mixer-cli uses word_order little, but g139-mixer-sim uses big.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.7
+  },
+  {
+   "set": "reworded",
+   "prefix": "g108-",
+   "kind": "eip",
+   "service": "g108-conveyor-cli",
+   "cause": "tag_name",
+   "symptom": "SCADA has humidity on the conveyor greyed out with a quality alarm.",
+   "report": {
+    "service": "g108-conveyor-cli",
+    "cause": "tag_name",
+    "explanation": "Tag humidity: g108-conveyor-cli reads Logix tag Program:Main.uHmidity, but g108-conveyor-sim has Program:Main.Humidity.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 7.41
+  },
+  {
+   "set": "reworded",
+   "prefix": "g6-",
+   "kind": "modbus",
+   "service": "g6-press-cli",
+   "cause": "address_offset",
+   "symptom": "Panel at the press says 5 for count, SCADA is showing 0. Which one is right?",
+   "report": {
+    "service": "g6-press-cli",
+    "cause": "address_offset",
+    "explanation": "Tag count: g6-press-cli has register 1, but g6-press-sim has 0.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.96
+  },
+  {
+   "set": "distractor",
+   "prefix": "g134-",
+   "kind": "modbus",
+   "service": "g134-kiln-cli",
+   "cause": "word_order",
+   "symptom": "The kiln current reads 223805440, but the device shows 3415.",
+   "report": {
+    "service": "g134-kiln-cli",
+    "cause": "word_order",
+    "explanation": "g134-kiln-cli uses word_order big, but g134-kiln-sim uses little.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 16.69
+  },
+  {
+   "set": "reworded",
+   "prefix": "g117-",
+   "kind": "mqtt",
+   "service": "g117-mixer-cli",
+   "cause": "topic",
+   "symptom": "Mixer flow is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g117-mixer-cli",
+    "cause": "topic",
+    "explanation": "Tag flow: g117-mixer-cli subscribes to plaant/mixer7/flow, but g117-mixer-sim publishes it on plant/mixer7/flow.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.25
+  },
+  {
+   "set": "distractor",
+   "prefix": "g122-",
+   "kind": "modbus",
+   "service": "g122-filler-cli",
+   "cause": "unit_id",
+   "symptom": "The filler valve shows bad quality.",
+   "report": {
+    "service": "g122-filler-cli",
+    "cause": "unit_id",
+    "explanation": "Tag valve: g122-filler-cli has unit 5, but g122-filler-sim has 1. Tag current: g122-filler-cli has unit 5, but g122-filler-sim has 1.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 17.45
+  },
+  {
+   "set": "distractor",
+   "prefix": "g128-",
+   "kind": "modbus",
+   "service": "g128-dryer-cli",
+   "cause": "unit_id",
+   "symptom": "The dryer torque shows bad quality.",
+   "report": {
+    "service": "g128-dryer-cli",
+    "cause": "unit_id",
+    "explanation": "Tag torque: g128-dryer-cli has unit 3, but g128-dryer-sim has 1. Tag position: g128-dryer-cli has unit 3, but g128-dryer-sim has 1.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 23.13
+  },
+  {
+   "set": "fresh",
+   "prefix": "g82-",
+   "kind": "modbus",
+   "service": "g82-conveyor-cli",
+   "cause": "scaling",
+   "symptom": "The conveyor weight reads 231, but the local display shows 2.31.",
+   "report": {
+    "service": "g82-conveyor-cli",
+    "cause": "scaling",
+    "explanation": "Tag weight: g82-conveyor-cli has scale 1, but g82-conveyor-sim has 0.01.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.5
+  },
+  {
+   "set": "reworded",
+   "prefix": "g102-",
+   "kind": "eip",
+   "service": "g102-dryer-cli",
+   "cause": "tag_name",
+   "symptom": "SCADA has weight on the dryer greyed out with a quality alarm.",
+   "report": {
+    "service": "g102-dryer-cli",
+    "cause": "tag_name",
+    "explanation": "Tag weight: g102-dryer-cli reads Logix tag Program:Line1.Weigth, but g102-dryer-sim has Program:Line1.Weight.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 11.45
+  },
+  {
+   "set": "reworded",
+   "prefix": "g126-",
+   "kind": "modbus",
+   "service": "g126-conveyor-cli",
+   "cause": "unit_id",
+   "symptom": "Conveyor batch is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g126-conveyor-cli",
+    "cause": "unit_id",
+    "explanation": "Tag batch: g126-conveyor-cli has unit 3, but g126-conveyor-sim has 1. Tag torque: g126-conveyor-cli has unit 3, but g126-conveyor-sim has 1.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 12.19
+  },
+  {
+   "set": "reworded",
+   "prefix": "g120-",
+   "kind": "mqtt",
+   "service": "g120-chiller-cli",
+   "cause": "topic",
+   "symptom": "Nothing comes through for position on the chiller screen. Blank since we started up.",
+   "report": {
+    "service": "g120-chiller-cli",
+    "cause": "topic",
+    "explanation": "Tag position: g120-chiller-cli subscribes to plant/chiller3/psoition, but g120-chiller-sim publishes it on plant/chiller3/position.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.99
+  },
+  {
+   "set": "fresh",
+   "prefix": "g133-",
+   "kind": "modbus",
+   "service": "g133-boiler-cli",
+   "cause": "word_order",
+   "symptom": "The boiler humidity reads 2.4178e-41, but the local display shows 230.",
+   "report": {
+    "service": "g133-boiler-cli",
+    "cause": "word_order",
+    "explanation": "g133-boiler-cli uses word_order big, but g133-boiler-sim uses little.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.46
+  },
+  {
+   "set": "distractor",
+   "prefix": "g98-",
+   "kind": "eip",
+   "service": "g98-press-cli",
+   "cause": "tag_name",
+   "symptom": "The press pressure shows bad quality.",
+   "report": {
+    "service": "g98-press-cli",
+    "cause": "tag_name",
+    "explanation": "Tag pressure: g98-press-cli reads Logix tag Press.Pressuer, but g98-press-sim has Press.Pressure.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 15.58
+  },
+  {
+   "set": "reworded",
+   "prefix": "g99-",
+   "kind": "eip",
+   "service": "g99-tank-cli",
+   "cause": "tag_name",
+   "symptom": "Tank speed is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g99-tank-cli",
+    "cause": "tag_name",
+    "explanation": "Tag speed: g99-tank-cli reads Logix tag Program:Main.Speed_Actt, but g99-tank-sim has Program:Main.Speed_Act.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 7.2
+  },
+  {
+   "set": "distractor",
+   "prefix": "g56-",
+   "kind": "modbus",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Is the boiler humidity reading correctly? The device shows -304.",
+   "report": {
+    "service": "g56-boiler-cli",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no fault.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "service_ok": false,
+   "cause_ok": true,
+   "pass": false,
+   "seconds": 13.94
+  },
+  {
+   "set": "distractor",
+   "prefix": "g47-",
+   "kind": "api",
+   "service": "g47-tank-cli",
+   "cause": "json_pointer",
+   "symptom": "The tank speed shows bad quality.",
+   "report": {
+    "service": "g47-tank-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag speed: g47-tank-cli reads JSON pointer /sspeed, but g47-tank-sim serves it at /speed.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 14.38
+  },
+  {
+   "set": "distractor",
+   "prefix": "g137-",
+   "kind": "modbus",
+   "service": "g137-conveyor-cli",
+   "cause": "word_order",
+   "symptom": "The conveyor ph reads 215482368, but the device shows 3288.",
+   "report": {
+    "service": "g137-conveyor-cli",
+    "cause": "word_order",
+    "explanation": "g137-conveyor-cli uses word_order big, but g137-conveyor-sim uses little.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 19.63
+  },
+  {
+   "set": "reworded",
+   "prefix": "g63-",
+   "kind": "iolink",
+   "service": "g63-mixer-cli",
+   "cause": "port_or_host",
+   "symptom": "SCADA has weight on the mixer greyed out with a quality alarm.",
+   "report": {
+    "service": "g63-mixer-cli",
+    "cause": "port_or_host",
+    "explanation": "g63-mixer-cli connects to port 32064, but g63-mixer-sim listens on port 32014.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 8.18
+  },
+  {
+   "set": "distractor",
+   "prefix": "g77-",
+   "kind": "modbus",
+   "service": "g77-boiler-cli",
+   "cause": "scaling",
+   "symptom": "The boiler count reads 684, but the local display shows 6.84.",
+   "report": {
+    "service": "g77-boiler-cli",
+    "cause": "scaling",
+    "explanation": "Tag count: g77-boiler-cli has scale 1, but g77-boiler-sim has 0.01.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.78
+  },
+  {
+   "set": "distractor",
+   "prefix": "g107-",
+   "kind": "eip",
+   "service": "g107-boiler-cli",
+   "cause": "tag_name",
+   "symptom": "The boiler flow shows bad quality.",
+   "report": {
+    "service": "g107-boiler-cli",
+    "cause": "tag_name",
+    "explanation": "Tag flow: g107-boiler-cli reads Logix tag Program:Main.Flo_wAct, but g107-boiler-sim has Program:Main.Flow_Act.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 15.65
+  },
+  {
+   "set": "reworded",
+   "prefix": "g24-",
+   "kind": "iolink",
+   "service": "g24-tank-cli",
+   "cause": "bit_offset",
+   "symptom": "setpoint on the tank: the gauge on the machine reads 1032 but we log 4.",
+   "report": {
+    "service": "g24-tank-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag setpoint: g24-tank-cli has bit_offset 8, but g24-tank-sim has 0.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 8.39
+  },
+  {
+   "set": "fresh",
+   "prefix": "g109-",
+   "kind": "mqtt",
+   "service": "g109-press-cli",
+   "cause": "topic",
+   "symptom": "The press humidity shows bad quality.",
+   "report": {
+    "service": "g109-press-cli",
+    "cause": "topic",
+    "explanation": "Tag humidity: g109-press-cli subscribes to plant/press5/huumidity, but g109-press-sim publishes it on plant/press5/humidity.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 8.62
+  },
+  {
+   "set": "fresh",
+   "prefix": "g4-",
+   "kind": "modbus",
+   "service": "g4-press-cli",
+   "cause": "address_offset",
+   "symptom": "The press level reads 425, but the device shows -256.",
+   "report": {
+    "service": "g4-press-cli",
+    "cause": "address_offset",
+    "explanation": "Tag level: g4-press-cli has register 3, but g4-press-sim has 0.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 10.13
+  },
+  {
+   "set": "fresh",
+   "prefix": "g91-",
+   "kind": "sparkplug",
+   "service": "g91-kiln-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The kiln current shows bad quality.",
+   "report": {
+    "service": "g91-kiln-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug group_id: g91-kiln-cli expects 'iteA', g91-kiln-sim publishes 'SiteA'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 12.46
+  },
+  {
+   "set": "reworded",
+   "prefix": "g39-",
+   "kind": "api",
+   "service": "g39-kiln-cli",
+   "cause": "json_pointer",
+   "symptom": "Kiln position is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g39-kiln-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag position: g39-kiln-cli reads JSON pointer /positon, but g39-kiln-sim serves it at /position.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.83
+  },
+  {
+   "set": "fresh",
+   "prefix": "g67-",
+   "kind": "api",
+   "service": "g67-chiller-cli",
+   "cause": "port_or_host",
+   "symptom": "The chiller current shows bad quality.",
+   "report": {
+    "service": "g67-chiller-cli",
+    "cause": "port_or_host",
+    "explanation": "g67-chiller-cli connects to port 32076, but g67-chiller-sim listens on port 32026.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.21
+  },
+  {
+   "set": "reworded",
+   "prefix": "g114-",
+   "kind": "mqtt",
+   "service": "g114-dryer-cli",
+   "cause": "topic",
+   "symptom": "Nothing comes through for temp on the dryer screen. Blank since we started up.",
+   "report": {
+    "service": "g114-dryer-cli",
+    "cause": "topic",
+    "explanation": "Tag temp: g114-dryer-cli subscribes to platn/dryer6/temp, but g114-dryer-sim publishes it on plant/dryer6/temp.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.4
+  },
+  {
+   "set": "fresh",
+   "prefix": "g136-",
+   "kind": "modbus",
+   "service": "g136-tank-cli",
+   "cause": "word_order",
+   "symptom": "The tank torque reads 64946176, but the device shows 991.",
+   "report": {
+    "service": "g136-tank-cli",
+    "cause": "word_order",
+    "explanation": "g136-tank-cli uses word_order big, but g136-tank-sim uses little.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.48
+  },
+  {
+   "set": "fresh",
+   "prefix": "g46-",
+   "kind": "api",
+   "service": "g46-mixer-cli",
+   "cause": "json_pointer",
+   "symptom": "The mixer speed shows bad quality.",
+   "report": {
+    "service": "g46-mixer-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag speed: g46-mixer-cli reads JSON pointer /speeed, but g46-mixer-sim serves it at /speed.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 11.81
+  },
+  {
+   "set": "reworded",
+   "prefix": "g78-",
+   "kind": "modbus",
+   "service": "g78-kiln-cli",
+   "cause": "scaling",
+   "symptom": "Our kiln ph trend sits at 1261. Walked out to the unit and it shows 126.1.",
+   "report": {
+    "service": "g78-kiln-cli",
+    "cause": "scaling",
+    "explanation": "Tag ph: g78-kiln-cli has scale 1, but g78-kiln-sim has 0.1.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 11.61
+  },
+  {
+   "set": "distractor",
+   "prefix": "g44-",
+   "kind": "api",
+   "service": "g44-mixer-cli",
+   "cause": "json_pointer",
+   "symptom": "The mixer batch shows bad quality.",
+   "report": {
+    "service": "g44-mixer-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag batch: g44-mixer-cli reads JSON pointer /btach, but g44-mixer-sim serves it at /batch.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 19.97
+  },
+  {
+   "set": "distractor",
+   "prefix": "g38-",
+   "kind": "api",
+   "service": "g38-boiler-cli",
+   "cause": "json_pointer",
+   "symptom": "The boiler run shows bad quality.",
+   "report": {
+    "service": "g38-boiler-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag run: g38-boiler-cli reads JSON pointer /un, but g38-boiler-sim serves it at /run.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 15.19
+  },
+  {
+   "set": "fresh",
+   "prefix": "g118-",
+   "kind": "mqtt",
+   "service": "g118-filler-cli",
+   "cause": "topic",
+   "symptom": "The filler count shows bad quality.",
+   "report": {
+    "service": "g118-filler-cli",
+    "cause": "topic",
+    "explanation": "Tag count: g118-filler-cli subscribes to plant/fillerr8/count, but g118-filler-sim publishes it on plant/filler8/count.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 8.7
+  },
+  {
+   "set": "distractor",
+   "prefix": "g29-",
+   "kind": "mqtt",
+   "service": "g29-mixer-cli",
+   "cause": "credentials",
+   "symptom": "The mixer count shows bad quality.",
+   "report": {
+    "service": "g29-mixer-cli",
+    "cause": "credentials",
+    "explanation": "g29-mixer-cli's password does not match the one g29-mixer-sim requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 17.62
+  },
+  {
+   "set": "distractor",
+   "prefix": "g113-",
+   "kind": "mqtt",
+   "service": "g113-tank-cli",
+   "cause": "topic",
+   "symptom": "The tank torque never shows a value on the HMI.",
+   "report": {
+    "service": "g113-tank-cli",
+    "cause": "topic",
+    "explanation": "Tag torque: g113-tank-cli subscribes to plant/tan5/torque, but g113-tank-sim publishes it on plant/tank5/torque.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 19.14
+  },
+  {
+   "set": "reworded",
+   "prefix": "g90-",
+   "kind": "sparkplug",
+   "service": "g90-pump-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "SCADA has torque on the pump greyed out with a quality alarm.",
+   "report": {
+    "service": "g90-pump-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug edge_node: g90-pump-cli expects 'Pmp3', g90-pump-sim publishes 'Pump3'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 14.34
+  },
+  {
+   "set": "distractor",
+   "prefix": "g26-",
+   "kind": "mqtt",
+   "service": "g26-boiler-cli",
+   "cause": "credentials",
+   "symptom": "The boiler humidity shows bad quality.",
+   "report": {
+    "service": "g26-boiler-cli",
+    "cause": "credentials",
+    "explanation": "g26-boiler-cli's password does not match the one g26-boiler-sim requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 19.26
+  },
+  {
+   "set": "distractor",
+   "prefix": "g53-",
+   "kind": "eip",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Please check the conveyor level; someone says it looks wrong.",
+   "report": {
+    "service": "g53-conveyor-cli",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "service_ok": false,
+   "cause_ok": true,
+   "pass": false,
+   "seconds": 16.08
+  },
+  {
+   "set": "reworded",
+   "prefix": "g60-",
+   "kind": "iolink",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Can someone confirm press flow is reading right before the audit?",
+   "report": {
+    "service": "g60-press-cli",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "service_ok": false,
+   "cause_ok": true,
+   "pass": false,
+   "seconds": 7.09
+  },
+  {
+   "set": "fresh",
+   "prefix": "g43-",
+   "kind": "api",
+   "service": "g43-filler-cli",
+   "cause": "json_pointer",
+   "symptom": "The filler humidity shows bad quality.",
+   "report": {
+    "service": "g43-filler-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag humidity: g43-filler-cli reads JSON pointer /hummidity, but g43-filler-sim serves it at /humidity.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 10.73
+  },
+  {
+   "set": "reworded",
+   "prefix": "g123-",
+   "kind": "modbus",
+   "service": "g123-tank-cli",
+   "cause": "unit_id",
+   "symptom": "Tank run is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g123-tank-cli",
+    "cause": "unit_id",
+    "explanation": "Tag run: g123-tank-cli has unit 2, but g123-tank-sim has 1.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.05
+  },
+  {
+   "set": "distractor",
+   "prefix": "g8-",
+   "kind": "modbus",
+   "service": "g8-mixer-cli",
+   "cause": "address_offset",
+   "symptom": "The mixer count reads 0, but the device shows 4321.",
+   "report": {
+    "service": "g8-mixer-cli",
+    "cause": "address_offset",
+    "explanation": "Tag count: g8-mixer-cli has register 1, but g8-mixer-sim has 0.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.86
+  },
+  {
+   "set": "fresh",
+   "prefix": "g121-",
+   "kind": "modbus",
+   "service": "g121-mixer-cli",
+   "cause": "unit_id",
+   "symptom": "The mixer level shows bad quality.",
+   "report": {
+    "service": "g121-mixer-cli",
+    "cause": "unit_id",
+    "explanation": "Tag level: g121-mixer-cli has unit 2, but g121-mixer-sim has 5. Tag valve: g121-mixer-cli has unit 2, but g121-mixer-sim has 5.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 11.75
+  },
+  {
+   "set": "distractor",
+   "prefix": "g32-",
+   "kind": "mqtt",
+   "service": "g32-pump-cli",
+   "cause": "credentials",
+   "symptom": "The pump flow shows bad quality.",
+   "report": {
+    "service": "g32-pump-cli",
+    "cause": "credentials",
+    "explanation": "g32-pump-cli's password does not match the one g32-pump-sim requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 17.47
+  },
+  {
+   "set": "reworded",
+   "prefix": "g42-",
+   "kind": "api",
+   "service": "g42-tank-cli",
+   "cause": "json_pointer",
+   "symptom": "SCADA has level on the tank greyed out with a quality alarm.",
+   "report": {
+    "service": "g42-tank-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag level: g42-tank-cli reads JSON pointer /elvel, but g42-tank-sim serves it at /level.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 8.79
+  },
+  {
+   "set": "fresh",
+   "prefix": "g142-",
+   "kind": "modbus",
+   "service": "g142-press-cli",
+   "cause": "word_order",
+   "symptom": "The press flow reads -2.00412, but the local display shows 257.5.",
+   "report": {
+    "service": "g142-press-cli",
+    "cause": "word_order",
+    "explanation": "g142-press-cli uses word_order little, but g142-press-sim uses big.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 8.6
+  },
+  {
+   "set": "fresh",
+   "prefix": "g52-",
+   "kind": "eip",
+   "service": "none",
+   "cause": "none",
+   "symptom": "An operator thinks the boiler batch is off; the local display shows 249.",
+   "report": {
+    "service": "g52-boiler-cli",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "service_ok": false,
+   "cause_ok": true,
+   "pass": false,
+   "seconds": 8.71
+  },
+  {
+   "set": "fresh",
+   "prefix": "g88-",
+   "kind": "sparkplug",
+   "service": "g88-mixer-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The mixer current never shows a value on the HMI.",
+   "report": {
+    "service": "g88-mixer-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug device: g88-mixer-cli expects 'DDev7', g88-mixer-sim publishes 'Dev7'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.7
+  },
+  {
+   "set": "fresh",
+   "prefix": "g94-",
+   "kind": "sparkplug",
+   "service": "g94-mixer-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The mixer pressure never shows a value on the HMI.",
+   "report": {
+    "service": "g94-mixer-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug edge_node: g94-mixer-cli expects 'MMixer7', g94-mixer-sim publishes 'Mixer7'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.89
+  },
+  {
+   "set": "reworded",
+   "prefix": "g93-",
+   "kind": "sparkplug",
+   "service": "g93-chiller-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "Nothing comes through for position on the chiller screen. Blank since we started up.",
+   "report": {
+    "service": "g93-chiller-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug edge_node: g93-chiller-cli expects 'Chliler1', g93-chiller-sim publishes 'Chiller1'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 8.18
+  },
+  {
+   "set": "distractor",
+   "prefix": "g125-",
+   "kind": "modbus",
+   "service": "g125-pump-cli",
+   "cause": "unit_id",
+   "symptom": "The pump ph shows bad quality.",
+   "report": {
+    "service": "g125-pump-cli",
+    "cause": "unit_id",
+    "explanation": "Tag ph: g125-pump-cli has unit 2, but g125-pump-sim has 5.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 17.21
+  },
+  {
+   "set": "fresh",
+   "prefix": "g34-",
+   "kind": "mqtt",
+   "service": "g34-mixer-cli",
+   "cause": "credentials",
+   "symptom": "The mixer humidity shows bad quality.",
+   "report": {
+    "service": "g34-mixer-cli",
+    "cause": "credentials",
+    "explanation": "g34-mixer-cli's password does not match the one g34-mixer-sim requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 17.54
+  },
+  {
+   "set": "fresh",
+   "prefix": "g61-",
+   "kind": "eip",
+   "service": "g61-conveyor-cli",
+   "cause": "port_or_host",
+   "symptom": "The conveyor run shows bad quality.",
+   "report": {
+    "service": "g61-conveyor-cli",
+    "cause": "port_or_host",
+    "explanation": "g61-conveyor-cli connects to port 32077, but g61-conveyor-sim listens on port 32027.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 17.75
+  },
+  {
+   "set": "reworded",
+   "prefix": "g129-",
+   "kind": "modbus",
+   "service": "g129-kiln-cli",
+   "cause": "unit_id",
+   "symptom": "Kiln current is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g129-kiln-cli",
+    "cause": "unit_id",
+    "explanation": "Tag current: g129-kiln-cli has unit 1, but g129-kiln-sim has 5.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 12.49
+  },
+  {
+   "set": "distractor",
+   "prefix": "g110-",
+   "kind": "mqtt",
+   "service": "g110-boiler-cli",
+   "cause": "topic",
+   "symptom": "The boiler flow never shows a value on the HMI.",
+   "report": {
+    "service": "g110-boiler-cli",
+    "cause": "topic",
+    "explanation": "g110-boiler-cli subscribes to plat/boiler2/flow, but g110-boiler-sim publishes it on plant/boiler2/flow.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 30.59
+  },
+  {
+   "set": "reworded",
+   "prefix": "g96-",
+   "kind": "sparkplug",
+   "service": "g96-pump-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "Pump ph is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g96-pump-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug edge_node: g96-pump-cli expects 'Pup4', g96-pump-sim publishes 'Pump4'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 15.39
+  },
+  {
+   "set": "fresh",
+   "prefix": "g16-",
+   "kind": "iolink",
+   "service": "g16-mixer-cli",
+   "cause": "bit_offset",
+   "symptom": "The mixer level reads 64780, but the device shows 3308.",
+   "report": {
+    "service": "g16-mixer-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag level: g16-mixer-cli has bit_offset 8, but g16-mixer-sim has 0.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 16.36
+  },
+  {
+   "set": "reworded",
+   "prefix": "g84-",
+   "kind": "modbus",
+   "service": "g84-chiller-cli",
+   "cause": "scaling",
+   "symptom": "weight on the chiller: the gauge on the machine reads 181.4 but we log 1814.",
+   "report": {
+    "service": "g84-chiller-cli",
+    "cause": "scaling",
+    "explanation": "Tag weight: g84-chiller-cli has scale 1, but g84-chiller-sim has 0.1.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.76
+  },
+  {
+   "set": "fresh",
+   "prefix": "g97-",
+   "kind": "eip",
+   "service": "g97-tank-cli",
+   "cause": "tag_name",
+   "symptom": "The tank current shows bad quality.",
+   "report": {
+    "service": "g97-tank-cli",
+    "cause": "tag_name",
+    "explanation": "Tag current: g97-tank-cli reads Logix tag uCrrent, but g97-tank-sim has Current.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 14.08
+  },
+  {
+   "set": "fresh",
+   "prefix": "g25-",
+   "kind": "mqtt",
+   "service": "g25-press-cli",
+   "cause": "credentials",
+   "symptom": "The press run shows bad quality.",
+   "report": {
+    "service": "g25-press-cli",
+    "cause": "credentials",
+    "explanation": "g25-press-cli's password does not match the one g25-press-sim requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.02
+  },
+  {
+   "set": "distractor",
+   "prefix": "g119-",
+   "kind": "mqtt",
+   "service": "g119-pump-cli",
+   "cause": "topic",
+   "symptom": "The pump pressure shows bad quality.",
+   "report": {
+    "service": "g119-pump-cli",
+    "cause": "topic",
+    "explanation": "Tag pressure: g119-pump-cli subscribes to plant/pmp4/pressure, but g119-pump-sim publishes it on plant/pump4/pressure.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 29.97
+  },
+  {
+   "set": "distractor",
+   "prefix": "g41-",
+   "kind": "api",
+   "service": "g41-conveyor-cli",
+   "cause": "json_pointer",
+   "symptom": "The conveyor run shows bad quality.",
+   "report": {
+    "service": "g41-conveyor-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag run: g41-conveyor-cli reads JSON pointer /ruun, but g41-conveyor-sim serves it at /run.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 19.18
+  },
+  {
+   "set": "reworded",
+   "prefix": "g72-",
+   "kind": "api",
+   "service": "g72-kiln-cli",
+   "cause": "port_or_host",
+   "symptom": "Kiln setpoint is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g72-kiln-cli",
+    "cause": "port_or_host",
+    "explanation": "g72-kiln-cli connects to port 32050, but g72-kiln-sim listens on port 32000.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.33
+  },
+  {
+   "set": "reworded",
+   "prefix": "g51-",
+   "kind": "modbus",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Can someone confirm filler weight is reading right before the audit?",
+   "report": {
+    "service": "g51-filler-cli",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "service_ok": false,
+   "cause_ok": true,
+   "pass": false,
+   "seconds": 13.88
+  },
+  {
+   "set": "reworded",
+   "prefix": "g69-",
+   "kind": "modbus",
+   "service": "g69-mixer-cli",
+   "cause": "port_or_host",
+   "symptom": "Mixer current is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g69-mixer-cli",
+    "cause": "port_or_host",
+    "explanation": "g69-mixer-cli connects to port 32052, but g69-mixer-sim listens on port 32002.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 11.35
+  },
+  {
+   "set": "reworded",
+   "prefix": "g9-",
+   "kind": "modbus",
+   "service": "g9-pump-cli",
+   "cause": "address_offset",
+   "symptom": "ph on the pump: the gauge on the machine reads 3337 but we log 0.",
+   "report": {
+    "service": "g9-pump-cli",
+    "cause": "address_offset",
+    "explanation": "Tag ph: g9-pump-cli has register 1, but g9-pump-sim has 0.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 12.46
+  },
+  {
+   "set": "distractor",
+   "prefix": "g62-",
+   "kind": "api",
+   "service": "g62-boiler-cli",
+   "cause": "port_or_host",
+   "symptom": "The boiler current shows bad quality.",
+   "report": {
+    "service": "g62-boiler-cli",
+    "cause": "port_or_host",
+    "explanation": "g62-boiler-cli connects to port 32054, but g62-boiler-sim listens on port 32004.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 22.39
+  },
+  {
+   "set": "distractor",
+   "prefix": "g23-",
+   "kind": "iolink",
+   "service": "g23-press-cli",
+   "cause": "bit_offset",
+   "symptom": "The press current reads 12298, but the device shows 2691.",
+   "report": {
+    "service": "g23-press-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag current: g23-press-cli has bit_offset 8, but g23-press-sim has 0.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 27.24
+  },
+  {
+   "set": "fresh",
+   "prefix": "g49-",
+   "kind": "api",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Please check the filler count; someone says it looks wrong.",
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.98
+  },
+  {
+   "set": "reworded",
+   "prefix": "g12-",
+   "kind": "modbus",
+   "service": "g12-chiller-cli",
+   "cause": "address_offset",
+   "symptom": "Our chiller torque trend sits at 301269237. Walked out to the unit and it shows 3597.",
+   "report": {
+    "service": "g12-chiller-cli",
+    "cause": "address_offset",
+    "explanation": "Tag torque: g12-chiller-cli has register 2, but g12-chiller-sim has 0.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 20.98
+  },
+  {
+   "set": "distractor",
+   "prefix": "g50-",
+   "kind": "mqtt",
+   "service": "none",
+   "cause": "none",
+   "symptom": "An operator thinks the tank position is off; the local display shows 4894.",
+   "report": {
+    "service": "g50-tank-cli",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "service_ok": false,
+   "cause_ok": true,
+   "pass": false,
+   "seconds": 25.29
+  },
+  {
+   "set": "fresh",
+   "prefix": "g73-",
+   "kind": "modbus",
+   "service": "g73-dryer-cli",
+   "cause": "scaling",
+   "symptom": "The dryer current reads 571, but the local display shows 5.71.",
+   "report": {
+    "service": "g73-dryer-cli",
+    "cause": "scaling",
+    "explanation": "Tag current: g73-dryer-cli has scale 1, but g73-dryer-sim has 0.01.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 16.4
+  },
+  {
+   "set": "distractor",
+   "prefix": "g101-",
+   "kind": "eip",
+   "service": "g101-boiler-cli",
+   "cause": "tag_name",
+   "symptom": "The boiler torque shows bad quality.",
+   "report": {
+    "service": "g101-boiler-cli",
+    "cause": "tag_name",
+    "explanation": "Tag torque: g101-boiler-cli reads Logix tag Program:Main.Torqque, but g101-boiler-sim has Program:Main.Torque.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 21.22
+  },
+  {
+   "set": "fresh",
+   "prefix": "g28-",
+   "kind": "mqtt",
+   "service": "g28-tank-cli",
+   "cause": "credentials",
+   "symptom": "The tank humidity shows bad quality.",
+   "report": {
+    "service": "g28-tank-cli",
+    "cause": "credentials",
+    "explanation": "g28-tank-cli's password does not match the one g28-tank-sim requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 14.25
+  },
+  {
+   "set": "reworded",
+   "prefix": "g33-",
+   "kind": "mqtt",
+   "service": "g33-press-cli",
+   "cause": "credentials",
+   "symptom": "Press flow is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g33-press-cli",
+    "cause": "credentials",
+    "explanation": "g33-press-cli's password does not match the one g33-press-sim requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.54
+  },
+  {
+   "set": "reworded",
+   "prefix": "g57-",
+   "kind": "api",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Can someone confirm pump level; is reading right before the audit?",
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 12.04
+  },
+  {
+   "set": "distractor",
+   "prefix": "g2-",
+   "kind": "modbus",
+   "service": "g2-chiller-cli",
+   "cause": "address_offset",
+   "symptom": "The chiller setpoint reads 3810, but the device shows 310.",
+   "report": {
+    "service": "g2-chiller-cli",
+    "cause": "address_offset",
+    "explanation": "Tag setpoint: g2-chiller-cli connects to register 3, but g2-chiller-sim has register 0.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 22.31
+  },
+  {
+   "set": "fresh",
+   "prefix": "g22-",
+   "kind": "iolink",
+   "service": "g22-conveyor-cli",
+   "cause": "bit_offset",
+   "symptom": "Please check the conveyor level; someone says it looks wrong.",
+   "report": {
+    "service": "g22-conveyor-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag level: g22-conveyor-cli has bit_offset 8, but g22-conveyor-sim has 0.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 15.81
+  },
+  {
+   "set": "fresh",
+   "prefix": "g58-",
+   "kind": "modbus",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Please check the dryer torque; someone says it looks wrong.",
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 11.81
+  },
+  {
+   "set": "distractor",
+   "prefix": "g71-",
+   "kind": "eip",
+   "service": "g71-mixer-cli",
+   "cause": "port_or_host",
+   "symptom": "The mixer torque shows bad quality.",
+   "report": {
+    "service": "g71-mixer-cli",
+    "cause": "port_or_host",
+    "explanation": "g71-mixer-cli connects to port 32077, but g71-mixer-sim listens on port 32027.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 29.61
+  },
+  {
+   "set": "fresh",
+   "prefix": "g13-",
+   "kind": "iolink",
+   "service": "g13-conveyor-cli",
+   "cause": "bit_offset",
+   "symptom": "The conveyor temp reads 17093, but the device shows 2838.",
+   "report": {
+    "service": "g13-conveyor-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag temp: g13-conveyor-cli has bit_offset 2, but g13-conveyor-sim has 0.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.85
+  },
+  {
+   "set": "fresh",
+   "prefix": "g64-",
+   "kind": "iolink",
+   "service": "g64-filler-cli",
+   "cause": "port_or_host",
+   "symptom": "The filler current shows bad quality.",
+   "report": {
+    "service": "g64-filler-cli",
+    "cause": "port_or_host",
+    "explanation": "g64-filler-cli connects to port 32081, but g64-filler-sim listens on port 32031.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 14.81
+  },
+  {
+   "set": "distractor",
+   "prefix": "g89-",
+   "kind": "sparkplug",
+   "service": "g89-kiln-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The kiln speed shows bad quality.",
+   "report": {
+    "service": "g89-kiln-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug edge_node: g89-kiln-cli expects 'Kin4', g89-kiln-sim publishes 'Kiln4'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 21.71
+  },
+  {
+   "set": "reworded",
+   "prefix": "g36-",
+   "kind": "mqtt",
+   "service": "g36-chiller-cli",
+   "cause": "credentials",
+   "symptom": "SCADA has run on the chiller greyed out with a quality alarm.",
+   "report": {
+    "service": "g36-chiller-cli",
+    "cause": "credentials",
+    "explanation": "g3iller-cli's password does not match the one g36-chiller-sim requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 10.09
+  },
+  {
+   "set": "fresh",
+   "prefix": "g85-",
+   "kind": "sparkplug",
+   "service": "g85-boiler-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The boiler temp never shows a value on the HMI.",
+   "report": {
+    "service": "g85-boiler-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug device: g85-boiler-cli expects 'Dev44', g85-boiler-sim publishes 'Dev4'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 15.3
+  },
+  {
+   "set": "reworded",
+   "prefix": "g111-",
+   "kind": "mqtt",
+   "service": "g111-conveyor-cli",
+   "cause": "topic",
+   "symptom": "Conveyor valve is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g111-conveyor-cli",
+    "cause": "topic",
+    "explanation": "Tag valve: g111-conveyor-cli subscribes to plant/conveyor22/valve, but g111-conveyor-sim publishes it on plant/conveyor2/valve.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 23.68
+  },
+  {
+   "set": "reworded",
+   "prefix": "g141-",
+   "kind": "modbus",
+   "service": "g141-filler-cli",
+   "cause": "word_order",
+   "symptom": "Our filler weight trend sits at 103415808. Walked out to the unit and it shows 1578.",
+   "report": {
+    "service": "g141-filler-cli",
+    "cause": "word_order",
+    "explanation": "g141-filler-cli uses word_order little, but g141-filler-sim uses big.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 35.12
+  },
+  {
+   "set": "fresh",
+   "prefix": "g10-",
+   "kind": "modbus",
+   "service": "g10-press-cli",
+   "cause": "address_offset",
+   "symptom": "The press count reads -1073741824, but the device shows 1551.",
+   "report": {
+    "service": "g10-press-cli",
+    "cause": "address_offset",
+    "explanation": "Tag count: g10-press-cli has register 1, but g10-press-sim has 0.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 29.54
+  },
+  {
+   "set": "distractor",
+   "prefix": "g68-",
+   "kind": "api",
+   "service": "g68-kiln-cli",
+   "cause": "port_or_host",
+   "symptom": "The kiln setpoint shows bad quality.",
+   "report": {
+    "service": "g68-kiln-cli",
+    "cause": "port_or_host",
+    "explanation": "g68-kiln-cli connects to port 32090, but g68-kiln-sim listens on port 32040.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 39.57
+  },
+  {
+   "set": "reworded",
+   "prefix": "g135-",
+   "kind": "modbus",
+   "service": "g135-pump-cli",
+   "cause": "word_order",
+   "symptom": "Our pump humidity trend sits at 4.17378e-08. Walked out to the unit and it shows 182.2.",
+   "report": {
+    "service": "g135-pump-cli",
+    "cause": "word_order",
+    "explanation": "g135-pump-cli uses word_order little, but g135-pump-sim uses big.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 18.34
+  },
+  {
+   "set": "fresh",
+   "prefix": "g19-",
+   "kind": "iolink",
+   "service": "g19-boiler-cli",
+   "cause": "bit_offset",
+   "symptom": "The boiler ph reads 4085, but the device shows -165.",
+   "report": {
+    "service": "g19-boiler-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag ph: g19-boiler-cli has bit_offset 4, but g19-boiler-sim has 0.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 14.03
+  },
+  {
+   "set": "fresh",
+   "prefix": "g79-",
+   "kind": "modbus",
+   "service": "g79-chiller-cli",
+   "cause": "scaling",
+   "symptom": "The chiller count reads 189, but the local display shows 18.9.",
+   "report": {
+    "service": "g79-chiller-cli",
+    "cause": "scaling",
+    "explanation": "Tag count: g79-chiller-cli has scale 1, but g79-chiller-sim has 0.1.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.9
+  },
+  {
+   "set": "reworded",
+   "prefix": "g45-",
+   "kind": "api",
+   "service": "g45-boiler-cli",
+   "cause": "json_pointer",
+   "symptom": "Boiler humidity is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g45-boiler-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag humidity: g45-boiler-cli reads JSON pointer /hummidity, but g45-boiler-sim serves it at /humidity.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 11.37
+  },
+  {
+   "set": "distractor",
+   "prefix": "g5-",
+   "kind": "modbus",
+   "service": "g5-conveyor-cli",
+   "cause": "address_offset",
+   "symptom": "The conveyor speed reads 0, but the device shows 173.",
+   "report": {
+    "service": "g5-conveyor-cli",
+    "cause": "address_offset",
+    "explanation": "Tag speed: g5-conveyor-cli has register 2, but g5-conveyor-sim has 0.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 19.04
+  },
+  {
+   "set": "fresh",
+   "prefix": "g103-",
+   "kind": "eip",
+   "service": "g103-mixer-cli",
+   "cause": "tag_name",
+   "symptom": "The mixer humidity shows bad quality.",
+   "report": {
+    "service": "g103-mixer-cli",
+    "cause": "tag_name",
+    "explanation": "Tag humidity: g103-mixer-cli reads Logix tag Program:Main.HHumidity_PV, but g103-mixer-sim has Program:Main.Humidity_PV.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 12.85
+  },
+  {
+   "set": "fresh",
+   "prefix": "g76-",
+   "kind": "modbus",
+   "service": "g76-pump-cli",
+   "cause": "scaling",
+   "symptom": "The pump pressure reads 1109, but the local display shows 11.09.",
+   "report": {
+    "service": "g76-pump-cli",
+    "cause": "scaling",
+    "explanation": "Tag pressure: g76-pump-cli has scale 1, but g76-pump-sim has 0.01.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.83
+  },
+  {
+   "set": "reworded",
+   "prefix": "g54-",
+   "kind": "mqtt",
+   "service": "none",
+   "cause": "none",
+   "symptom": "Can someone confirm chiller current; is reading right before the audit?",
+   "report": {
+    "service": "g54-chiller-cli",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "service_ok": false,
+   "cause_ok": true,
+   "pass": false,
+   "seconds": 8.3
+  },
+  {
+   "set": "fresh",
+   "prefix": "g106-",
+   "kind": "eip",
+   "service": "g106-tank-cli",
+   "cause": "tag_name",
+   "symptom": "The tank level shows bad quality.",
+   "report": {
+    "service": "g106-tank-cli",
+    "cause": "tag_name",
+    "explanation": "Tag level: g106-tank-cli reads Logix tag Leevel, but g106-tank-sim has Level.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 10.71
+  },
+  {
+   "set": "distractor",
+   "prefix": "g104-",
+   "kind": "eip",
+   "service": "g104-dryer-cli",
+   "cause": "tag_name",
+   "symptom": "The dryer setpoint shows bad quality.",
+   "report": {
+    "service": "g104-dryer-cli",
+    "cause": "tag_name",
+    "explanation": "Tag setpoint: g104-dryer-cli reads Logix tag SSetpoint_PV, but g104-dryer-sim has Setpoint_PV.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 19.53
+  },
+  {
+   "set": "reworded",
+   "prefix": "g105-",
+   "kind": "eip",
+   "service": "g105-filler-cli",
+   "cause": "tag_name",
+   "symptom": "Filler temp is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g105-filler-cli",
+    "cause": "tag_name",
+    "explanation": "Tag temp: g105-filler-cli reads Logix tag Program:Line1.Temp_VP, but g105-filler-sim has Program:Line1.Temp_PV.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 10.67
+  },
+  {
+   "set": "distractor",
+   "prefix": "g17-",
+   "kind": "iolink",
+   "service": "g17-kiln-cli",
+   "cause": "bit_offset",
+   "symptom": "The kiln batch reads -94, but the device shows -187.",
+   "report": {
+    "service": "g17-kiln-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag batch: g17-kiln-cli has bit_offset 1, but g17-kiln-sim has 0.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 22.43
+  },
+  {
+   "set": "distractor",
+   "prefix": "g65-",
+   "kind": "eip",
+   "service": "g65-filler-cli",
+   "cause": "port_or_host",
+   "symptom": "The filler run shows bad quality.",
+   "report": {
+    "service": "g65-filler-cli",
+    "cause": "port_or_host",
+    "explanation": "g65-filler-cli connects to port 32068, but g65-filler-sim listens on port 32018.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 24.16
+  },
+  {
+   "set": "fresh",
+   "prefix": "g40-",
+   "kind": "api",
+   "service": "g40-dryer-cli",
+   "cause": "json_pointer",
+   "symptom": "The dryer count shows bad quality.",
+   "report": {
+    "service": "g40-dryer-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag count: g40-dryer-cli reads JSON pointer /ccount, but g40-dryer-sim serves it at /count.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 10.74
+  },
+  {
+   "set": "fresh",
+   "prefix": "g130-",
+   "kind": "modbus",
+   "service": "g130-tank-cli",
+   "cause": "unit_id",
+   "symptom": "The tank position shows bad quality.",
+   "report": {
+    "service": "g130-tank-cli",
+    "cause": "unit_id",
+    "explanation": "Tag position: g130-tank-cli has unit 1, but g130-tank-sim has 2. Tag current: g130-tank-cli has unit 1, but g130-tank-sim has 2.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 17.51
+  },
+  {
+   "set": "fresh",
+   "prefix": "g112-",
+   "kind": "mqtt",
+   "service": "g112-boiler-cli",
+   "cause": "topic",
+   "symptom": "The boiler pressure shows bad quality.",
+   "report": {
+    "service": "g112-boiler-cli",
+    "cause": "topic",
+    "explanation": "Tag pressure: g112-boiler-cli subscribes to plat/boiler6/pressure, but g112-boiler-sim publishes it on plant/boiler6/pressure.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 10.83
+  },
+  {
+   "set": "distractor",
+   "prefix": "g131-",
+   "kind": "modbus",
+   "service": "g131-conveyor-cli",
+   "cause": "unit_id",
+   "symptom": "The conveyor valve shows bad quality.",
+   "report": {
+    "service": "g131-conveyor-cli",
+    "cause": "unit_id",
+    "explanation": "Tag valve: g131-conveyor-cli has unit 10, but g131-conveyor-sim has 5.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 16.64
+  },
+  {
+   "set": "reworded",
+   "prefix": "g81-",
+   "kind": "modbus",
+   "service": "g81-tank-cli",
+   "cause": "scaling",
+   "symptom": "Panel at the tank says 13.43 for valve, SCADA is showing 1343. Which one is right?",
+   "report": {
+    "service": "g81-tank-cli",
+    "cause": "scaling",
+    "explanation": "Tag valve: g81-tank-cli has scale 1, but g81-tank-sim has 0.01.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.79
+  },
+  {
+   "set": "distractor",
+   "prefix": "g14-",
+   "kind": "iolink",
+   "service": "g14-tank-cli",
+   "cause": "bit_offset",
+   "symptom": "The tank batch reads 1365, but the device shows 2731.",
+   "report": {
+    "service": "g14-tank-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag batch: g14-tank-cli has bit_offset 1, but g14-tank-sim has 0.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.69
+  },
+  {
+   "set": "distractor",
+   "prefix": "g35-",
+   "kind": "mqtt",
+   "service": "g35-tank-cli",
+   "cause": "credentials",
+   "symptom": "The tank weight shows bad quality.",
+   "report": {
+    "service": "g35-tank-cli",
+    "cause": "credentials",
+    "explanation": "g35-tank-cli's password does not match the one g35-tank-sim requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 15.86
+  },
+  {
+   "set": "reworded",
+   "prefix": "g75-",
+   "kind": "modbus",
+   "service": "g75-press-cli",
+   "cause": "scaling",
+   "symptom": "Our press current trend sits at 2329. Walked out to the unit and it shows 23.29.",
+   "report": {
+    "service": "g75-press-cli",
+    "cause": "scaling",
+    "explanation": "Tag current: g75-press-cli has scale 1, but g75-press-sim has 0.01.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 7.51
+  },
+  {
+   "set": "fresh",
+   "prefix": "g37-",
+   "kind": "api",
+   "service": "g37-tank-cli",
+   "cause": "json_pointer",
+   "symptom": "The tank ph shows bad quality.",
+   "report": {
+    "service": "g37-tank-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag ph: g37-tank-cli reads JSON pointer /pph, but g37-tank-sim serves it at /ph.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.59
+  },
+  {
+   "set": "distractor",
+   "prefix": "g140-",
+   "kind": "modbus",
+   "service": "g140-boiler-cli",
+   "cause": "word_order",
+   "symptom": "The boiler setpoint reads 168951808, but the device shows 2578.",
+   "report": {
+    "service": "g140-boiler-cli",
+    "cause": "word_order",
+    "explanation": "g140-boiler-cli uses word_order little, but g140-boiler-sim uses big.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.85
+  },
+  {
+   "set": "fresh",
+   "prefix": "g1-",
+   "kind": "modbus",
+   "service": "g1-pump-cli",
+   "cause": "address_offset",
+   "symptom": "The pump current reads 152, but the device shows -408.",
+   "report": {
+    "service": "g1-pump-cli",
+    "cause": "address_offset",
+    "explanation": "Tag current: g1-pump-cli has register 1, but g1-pump-sim has 0.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 7.27
+  },
+  {
+   "set": "reworded",
+   "prefix": "g27-",
+   "kind": "mqtt",
+   "service": "g27-press-cli",
+   "cause": "credentials",
+   "symptom": "Press setpoint is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g27-press-cli",
+    "cause": "credentials",
+    "explanation": "g27-press-cli's password does not match the one g27-press-sim requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.07
+  },
+  {
+   "set": "distractor",
+   "prefix": "g86-",
+   "kind": "sparkplug",
+   "service": "g86-tank-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The tank pressure never shows a value on the HMI.",
+   "report": {
+    "service": "g86-tank-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug edge_node: g86-tank-cli expects 'Tank', g86-tank-sim publishes 'Tank2'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.04
+  },
+  {
+   "set": "distractor",
+   "prefix": "g20-",
+   "kind": "iolink",
+   "service": "g20-boiler-cli",
+   "cause": "bit_offset",
+   "symptom": "The boiler batch reads 32923, but the device shows 2491.",
+   "report": {
+    "service": "g20-boiler-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag batch: g20-boiler-cli has bit_offset 4, but g20-boiler-sim has 0.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 14.79
+  },
+  {
+   "set": "reworded",
+   "prefix": "g30-",
+   "kind": "mqtt",
+   "service": "g30-tank-cli",
+   "cause": "credentials",
+   "symptom": "SCADA has setpoint on the tank greyed out with a quality alarm.",
+   "report": {
+    "service": "g30-tank-cli",
+    "cause": "credentials",
+    "explanation": "g30-tank-cli's password does not match the one g30-tank-sim requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.94
+  },
+  {
+   "set": "fresh",
+   "prefix": "g31-",
+   "kind": "mqtt",
+   "service": "g31-press-cli",
+   "cause": "credentials",
+   "symptom": "The press flow shows bad quality.",
+   "report": {
+    "service": "g31-press-cli",
+    "cause": "credentials",
+    "explanation": "g31-press-cli's password does not match the one g31-press-sim requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 5.89
+  },
+  {
+   "set": "distractor",
+   "prefix": "g74-",
+   "kind": "modbus",
+   "service": "g74-press-cli",
+   "cause": "scaling",
+   "symptom": "The press weight reads 2594, but the local display shows 259.4.",
+   "report": {
+    "service": "g74-press-cli",
+    "cause": "scaling",
+    "explanation": "Tag weight: g74-press-cli has scale 1, but g74-press-sim has 0.1.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 13.77
+  },
+  {
+   "set": "fresh",
+   "prefix": "g100-",
+   "kind": "eip",
+   "service": "g100-chiller-cli",
+   "cause": "tag_name",
+   "symptom": "The chiller torque shows bad quality.",
+   "report": {
+    "service": "g100-chiller-cli",
+    "cause": "tag_name",
+    "explanation": "Tag torque: g100-chiller-cli reads Logix tag Program:Main.TTorque, but g100-chiller-sim has Program:Main.Torque.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.62
+  },
+  {
+   "set": "distractor",
+   "prefix": "g143-",
+   "kind": "modbus",
+   "service": "g143-kiln-cli",
+   "cause": "word_order",
+   "symptom": "The kiln torque reads 4.17373e-08, but the local display shows 84.6.",
+   "report": {
+    "service": "g143-kiln-cli",
+    "cause": "word_order",
+    "explanation": "g143-kiln-cli uses word_order big, but g143-kiln-sim uses little.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 14.12
+  },
+  {
+   "set": "distractor",
+   "prefix": "g11-",
+   "kind": "modbus",
+   "service": "g11-pump-cli",
+   "cause": "address_offset",
+   "symptom": "The pump setpoint reads 0, but the device shows 2155.",
+   "report": {
+    "service": "g11-pump-cli",
+    "cause": "address_offset",
+    "explanation": "Tag setpoint: g11-pump-cli has register 3, but g11-pump-sim has 0.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 12.12
+  },
+  {
+   "set": "reworded",
+   "prefix": "g138-",
+   "kind": "modbus",
+   "service": "g138-dryer-cli",
+   "cause": "word_order",
+   "symptom": "Panel at the dryer says 4847 for torque, SCADA is showing 317652992. Which one is right?",
+   "report": {
+    "service": "g138-dryer-cli",
+    "cause": "word_order",
+    "explanation": "g138-dryer-cli uses word_order big, but g138-dryer-sim uses little.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 6.67
+  },
+  {
+   "set": "reworded",
+   "prefix": "g87-",
+   "kind": "sparkplug",
+   "service": "g87-press-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "Press speed is flagged red on the panel, comms fault I think.",
+   "report": {
+    "service": "g87-press-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug device: g87-press-cli expects 'Dev77', g87-press-sim publishes 'Dev7'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 7.6
+  },
+  {
+   "set": "fresh",
+   "prefix": "g70-",
+   "kind": "iolink",
+   "service": "g70-conveyor-cli",
+   "cause": "port_or_host",
+   "symptom": "The conveyor level shows bad quality.",
+   "report": {
+    "service": "g70-conveyor-cli",
+    "cause": "port_or_host",
+    "explanation": "g70-conveyor-cli connects to port 32067, but g70-conveyor-sim listens on port 32017.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 9.31
+  },
+  {
+   "set": "distractor",
+   "prefix": "g95-",
+   "kind": "sparkplug",
+   "service": "g95-filler-cli",
+   "cause": "sparkplug_ids",
+   "symptom": "The filler position never shows a value on the HMI.",
+   "report": {
+    "service": "g95-filler-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug group_id: g95-filler-cli expects 'Plantt', g95-filler-sim publishes 'Plant'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 15.71
+  },
+  {
+   "set": "reworded",
+   "prefix": "g144-",
+   "kind": "modbus",
+   "service": "g144-filler-cli",
+   "cause": "word_order",
+   "symptom": "Panel at the filler says 295 for batch, SCADA is showing 19333120. Which one is right?",
+   "report": {
+    "service": "g144-filler-cli",
+    "cause": "word_order",
+    "explanation": "g144-filler-cli uses word_order big, but g144-filler-sim uses little.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 8.5
+  },
+  {
+   "set": "fresh",
+   "prefix": "g115-",
+   "kind": "mqtt",
+   "service": "g115-tank-cli",
+   "cause": "topic",
+   "symptom": "The tank level shows bad quality.",
+   "report": {
+    "service": "g115-tank-cli",
+    "cause": "topic",
+    "explanation": "Tag level: g115-tank-cli subscribes to plaant/tank6/level, but g115-tank-sim publishes it on plant/tank6/level.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "service_ok": true,
+   "cause_ok": true,
+   "pass": true,
+   "seconds": 8.49
+  }
+ ]
+}

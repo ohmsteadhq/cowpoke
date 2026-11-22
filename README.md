@@ -339,7 +339,20 @@ pairs:
     delay_s: 30
 ```
 
-Pairs are checked on every update; a mismatch lasting longer than `delay_s` becomes an Equipment insight. `GET`/`PUT /api/insights/config`. Dismiss one and it stays dismissed. Values typed in the UI and simulator generators don't count toward the baseline. The baseline is saved in `baselines.json` in the data folder. Most insights need 30 minutes of watching, some need hours; `COWPOKE_INSIGHTS_QUICK=1` shortens that to minutes for demos. `GET /api/insights`, `POST /api/insights/run`, and `POST`/`DELETE /api/insights/<id>/dismiss`.
+Pairs are checked on every update; a mismatch lasting longer than `delay_s` becomes an Equipment insight. `GET`/`PUT /api/insights/config`.
+
+The top bar shows how many insights need a check, and the Dashboard has an Insights tile. Each insight shows when it first appeared; ones that go away (fixed, or the condition passed) are listed on the **Resolved** tab for a week.
+
+A **digest** of new insights can go out daily or weekly through the alarm hooks (email, webhook, MQTT; write hooks are skipped), with the text in `{{message}}` and the number of new insights in `{{value}}`:
+
+```yaml
+digest:
+  hooks: [ops-email]   # hook ids from the Alarms page
+  hour: 7              # UTC
+  weekly: false        # true: Mondays only
+```
+
+**Send digest now** on the Setup tab (`POST /api/insights/digest`) sends one with every open insight. Dismiss one and it stays dismissed. Values typed in the UI and simulator generators don't count toward the baseline. The baseline is saved in `baselines.json` in the data folder. Most insights need 30 minutes of watching, some need hours; `COWPOKE_INSIGHTS_QUICK=1` shortens that to minutes for demos. `GET /api/insights`, `POST /api/insights/run`, and `POST`/`DELETE /api/insights/<id>/dismiss`.
 
 ## Not yet
 

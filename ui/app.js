@@ -77,7 +77,7 @@ function shell(current, inner) {
     <header class="top">
       <a class="brand" href="#/"><span class="word">COWPOKE</span><span class="by">by Ohmstead</span></a>
       <nav>${links.map(([h, l, k]) => `<a href="${h}" class="${k === current ? "current" : ""}">${l}</a>`).join("")}</nav>
-      <div class="who"><a id="alarm-pill" class="alarm-pill" href="#/alarms/active" hidden></a><span class="name">${esc(S.me.username)} · ${esc(S.me.role)}</span>
+      <div class="who"><a id="insight-pill" class="alarm-pill" href="#/insights" hidden></a><a id="alarm-pill" class="alarm-pill" href="#/alarms/active" hidden></a><span class="name">${esc(S.me.username)} · ${esc(S.me.role)}</span>
         <button class="small" id="theme" title="Switch light and dark">Theme</button>
         <button class="small" id="logout">Sign out</button></div>
     </header>
@@ -311,6 +311,7 @@ async function dashboardPage() {
       <div class="kpi"><span class="k">Tags good</span><span class="n">${good}<small>/${total}</small></span>
         <span class="bar"><i style="width:${total ? (good / total) * 100 : 0}%"></i></span></div>
       <div class="kpi"><span class="k">Updates / s</span><span class="n">${rate}</span><span class="s">last 10 s</span></div>
+      ${insightTile()}
       ${agents.length ? `<a class="kpi kpi-link ${agents.some((a) => !a.online) ? "warn" : ""}" href="#/agents"><span class="k">Agents online</span>
         <span class="n">${agents.filter((a) => a.online).length}<small>/${agents.length}</small></span>
         <span class="s">${agents.some((a) => !a.online) ? `${agents.filter((a) => !a.online).map((a) => esc(a.name)).join(", ")} offline` : "all connected"}</span></a>` : ""}`;
@@ -630,6 +631,16 @@ async function trend(svc, tag, page) {
 }
 
 // ---------------------------------------------------------------- insights on service pages
+
+/** The Dashboard's Insights tile (panels.js keeps P.insights fresh). */
+function insightTile() {
+  const r = typeof P !== "undefined" && P.insights;
+  if (!r || !r.generated) return "";
+  const open = (r.insights || []).filter((i) => !i.dismissed);
+  const checks = open.filter((i) => i.level === "warn").length;
+  return `<a class="kpi kpi-link ${checks ? "warn" : ""}" href="#/insights"><span class="k">Insights</span>
+    <span class="n">${open.length}</span><span class="s">${checks ? `${checks} to check` : open.length ? "suggestions" : "nothing to suggest"}</span></a>`;
+}
 
 const INSIGHT_LEVEL = { warn: ["Check", "pn-sev pn-sev-high"], suggest: ["Suggestion", "pn-sev pn-sev-medium"], info: ["Note", "pn-sev"] };
 

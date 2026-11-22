@@ -389,6 +389,28 @@ pub struct InsightsConfig {
     /// Commands and the feedback that should follow them.
     #[serde(default)]
     pub pairs: Vec<Pair>,
+    /// Send a summary of new insights through alarm hooks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub digest: Option<Digest>,
+}
+
+/// A daily or weekly summary of new insights, sent through alarm hooks
+/// (email, webhook, MQTT): `{{message}}` holds the text, `{{value}}` the count.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Digest {
+    /// Hook ids from the Alarms page.
+    pub hooks: Vec<String>,
+    /// Hour of day to send it (UTC).
+    #[serde(default = "default_digest_hour")]
+    pub hour: u32,
+    /// Mondays only, instead of every day.
+    #[serde(default)]
+    pub weekly: bool,
+}
+
+fn default_digest_hour() -> u32 {
+    7
 }
 
 /// A command and its feedback: a valve and its position, a motor and its current.
@@ -1299,6 +1321,12 @@ struct Saved {
     pairs: HashMap<String, PairState>,
     #[serde(default)]
     changes: Vec<Change>,
+    #[serde(default)]
+    first_seen: HashMap<String, DateTime<Utc>>,
+    #[serde(default)]
+    resolved: Vec<Resolved>,
+    #[serde(default)]
+    last_digest: Option<DateTime<Utc>>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -1310,6 +1338,17 @@ pub struct Report {
     pub dismissed: usize,
 }
 
+/// An insight that no longer applies: fixed, or the condition passed.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Resolved {
+    pub id: String,
+    pub area: Area,
+    pub title: String,
+    pub service: Option<String>,
+    pub first_seen: DateTime<Utc>,
+    pub resolved: DateTime<Utc>,
+}
+
 pub struct Insights {
     path: PathBuf,
     config_path: PathBuf,
@@ -1319,6 +1358,10 @@ pub struct Insights {
     /// Latest value per (service, tag), for pair checks.
     latest: Mutex<HashMap<(String, String), Value>>,
     changes: Mutex<Vec<Change>>,
+    /// When each open insight first appeared.
+    first_seen: Mutex<HashMap<String, DateTime<Utc>>>,
+    resolved: Mutex<Vec<Resolved>>,
+    last_digest: Mutex<Option<DateTime<Utc>>>,
     tags: Mutex<HashMap<(String, String), TagStats>>,
     services: Mutex<HashMap<String, ServiceStats>>,
     dismissed: Mutex<HashSet<String>>,
@@ -1344,6 +1387,9 @@ impl Insights {
             pair_states: Mutex::new(saved.pairs),
             latest: Mutex::new(HashMap::new()),
             changes: Mutex::new(saved.changes),
+            first_seen: Mutex::new(saved.first_seen),
+            resolved: Mutex::new(saved.resolved),
+            last_digest: Mutex::new(saved.last_digest),
             tags: Mutex::new(saved.tags.into_iter().collect()),
             services: Mutex::new(saved.services),
             dismissed: Mutex::new(saved.dismissed),
@@ -1419,6 +1465,9 @@ impl Insights {
         let c: InsightsConfig = serde_yaml::from_str(text).map_err(|e| e.to_string())?;
         for p in &c.pairs {
             p.validate()?;
+        }
+        if c.digest.as_ref().is_some_and(|d| d.hour > 23) {
+            return Err("digest.hour is 0 to 23 (UTC)".into());
         }
         let mut names = HashSet::new();
         for p in &c.pairs {
@@ -1502,6 +1551,7 @@ impl Insights {
             monitors: &monitors, alarm_defs, pairs: &pairs, changes: &changes, monitor_events: &events,
         };
         let all = analyze(&snap, &self.tuning);
+        self.track(&all, snap.now);
         let dismissed = self.dismissed.lock().clone();
         let mut r = self.report.lock();
         r.generated = Some(snap.now);
@@ -1511,15 +1561,87 @@ impl Insights {
         r.insights = all;
     }
 
+    /// Note when insights first appeared, and which went away since the last run.
+    fn track(&self, all: &[Insight], now: DateTime<Utc>) {
+        let mut first = self.first_seen.lock();
+        let mut resolved = self.resolved.lock();
+        let open: HashSet<&str> = all.iter().map(|i| i.id.as_str()).collect();
+        let prev = self.report.lock().insights.clone();
+        for i in prev.iter().filter(|i| !open.contains(i.id.as_str())) {
+            resolved.push(Resolved {
+                id: i.id.clone(),
+                area: i.area,
+                title: i.title.clone(),
+                service: i.service.clone(),
+                first_seen: first.get(&i.id).copied().unwrap_or(now),
+                resolved: now,
+            });
+        }
+        let week = now - TimeDelta::days(7);
+        resolved.retain(|r| r.resolved >= week && !open.contains(r.id.as_str()));
+        first.retain(|k, _| open.contains(k.as_str()));
+        for i in all {
+            first.entry(i.id.clone()).or_insert(now);
+        }
+    }
+
+    /// The text of a digest: insights first seen since `since` (or all open ones), and counts.
+    pub fn digest_text(&self, since: Option<DateTime<Utc>>) -> (usize, String) {
+        let r = self.report.lock().clone();
+        let first = self.first_seen.lock().clone();
+        let dismissed = self.dismissed.lock().clone();
+        let open: Vec<&Insight> = r.insights.iter().filter(|i| !dismissed.contains(&i.id)).collect();
+        let new: Vec<&&Insight> = open.iter().filter(|i| since.is_none_or(|s| first.get(&i.id).is_none_or(|f| *f > s))).collect();
+        let checks = open.iter().filter(|i| i.level == Level::Warn).count();
+        let gone = self.resolved.lock().iter().filter(|x| since.is_none_or(|s| x.resolved > s)).count();
+        let mut text = format!("Cowpoke insights: {} open ({checks} to check), {} new, {gone} resolved.\n", open.len(), new.len());
+        for i in new.iter().take(20) {
+            let lvl = match i.level { Level::Warn => "CHECK", Level::Suggest => "SUGGESTION", Level::Info => "NOTE" };
+            text.push_str(&format!("\n[{lvl}] {}\n  {}\n", i.title, i.suggestion));
+        }
+        if new.len() > 20 {
+            text.push_str(&format!("\n…and {} more on the Insights page.\n", new.len() - 20));
+        }
+        (new.len(), text)
+    }
+
+    /// Whether a digest is due now, per the config.
+    pub fn digest_due(&self, now: DateTime<Utc>) -> Option<Digest> {
+        use chrono::{Datelike, Timelike};
+        let d = self.config.lock().digest.clone()?;
+        if now.hour() != d.hour || (d.weekly && now.weekday() != chrono::Weekday::Mon) {
+            return None;
+        }
+        let last = *self.last_digest.lock();
+        if last.is_some_and(|l| now - l < TimeDelta::hours(20)) {
+            return None;
+        }
+        Some(d)
+    }
+
+    pub fn mark_digest_sent(&self, at: DateTime<Utc>) {
+        *self.last_digest.lock() = Some(at);
+        self.save();
+    }
+
+    pub fn last_digest(&self) -> Option<DateTime<Utc>> {
+        *self.last_digest.lock()
+    }
+
     /// The report; dismissed insights are flagged rather than dropped.
     pub fn report(&self) -> Value {
         let r = self.report.lock().clone();
         let d = self.dismissed.lock().clone();
+        let first = self.first_seen.lock().clone();
         let mut v = serde_json::to_value(&r).unwrap_or_default();
+        v["resolved"] = serde_json::to_value(&*self.resolved.lock()).unwrap_or_default();
         if let Some(list) = v.get_mut("insights").and_then(|x| x.as_array_mut()) {
             for i in list {
                 let dis = i["id"].as_str().is_some_and(|id| d.contains(id));
                 i["dismissed"] = Value::Bool(dis);
+                if let Some(f) = i["id"].as_str().and_then(|id| first.get(id)) {
+                    i["since"] = serde_json::to_value(f).unwrap_or_default();
+                }
             }
         }
         v
@@ -1532,6 +1654,9 @@ impl Insights {
             dismissed: self.dismissed.lock().clone(),
             pairs: self.pair_states.lock().clone(),
             changes: self.changes.lock().clone(),
+            first_seen: self.first_seen.lock().clone(),
+            resolved: self.resolved.lock().clone(),
+            last_digest: *self.last_digest.lock(),
         };
         if let Ok(b) = serde_json::to_vec(&saved) {
             let tmp = self.path.with_extension("tmp");
@@ -1568,10 +1693,43 @@ pub async fn run(ins: Arc<Insights>, app: crate::web::App, engine: Arc<crate::al
                 }
                 ins.tick_pairs(Utc::now());
             }
-            _ = compute.tick() => recompute_now(&ins, &app, &engine),
+            _ = compute.tick() => {
+                recompute_now(&ins, &app, &engine);
+                if let Some(d) = ins.digest_due(Utc::now()) {
+                    send_digest(&ins, &engine, &d.hooks, ins.last_digest());
+                }
+            }
             _ = save.tick() => ins.save(),
         }
     }
+}
+
+/// Send the digest through the named hooks (write hooks are skipped: they set tags).
+pub fn send_digest(ins: &Insights, engine: &Arc<crate::alarms::Engine>, hooks: &[String], since: Option<DateTime<Utc>>) -> usize {
+    let (count, text) = ins.digest_text(since);
+    let defs = engine.store.get().hooks;
+    let event = AlarmEvent {
+        time: Utc::now(),
+        event: EventKind::Test,
+        alarm: "insights-digest".into(),
+        name: "Insights digest".into(),
+        severity: crate::alarms::Severity::Low,
+        service: String::new(),
+        tag: String::new(),
+        value: Value::from(count),
+        message: text,
+        user: None,
+    };
+    let mut sent = 0;
+    for h in defs.into_iter().filter(|h| h.enabled && hooks.contains(&h.id)) {
+        if matches!(h.kind, crate::alarms::HookKind::Write { .. }) {
+            continue;
+        }
+        engine.clone().spawn_hook(h, event.clone());
+        sent += 1;
+    }
+    ins.mark_digest_sent(event.time);
+    sent
 }
 
 pub fn recompute_now(ins: &Insights, app: &crate::web::App, engine: &crate::alarms::Engine) {
@@ -1869,6 +2027,39 @@ mod tests {
         assert!(ids.iter().any(|i| i.starts_with("disagree:")), "{ids:?}");
         assert!(ids.contains(&"units:a:speed"), "{ids:?}");
         assert!(ids.contains(&"gap:a:temp"), "{ids:?}");
+    }
+
+    #[test]
+    fn resolved_and_digest() {
+        let dir = tempfile::tempdir().unwrap();
+        let ins = Insights::open(dir.path().join("baselines.json"));
+        let mk = |id: &str, level| Insight { id: id.into(), area: Area::Comms, level, title: format!("title {id}"), detail: String::new(),
+            evidence: vec![], suggestion: format!("do {id}"), service: Some("plc".into()), tag: None, fix: None };
+        let t0 = Utc::now() - TimeDelta::hours(2);
+        let first = vec![mk("a", Level::Warn), mk("b", Level::Suggest)];
+        ins.track(&first, t0);
+        ins.report.lock().insights = first;
+        // An hour later "a" is gone and "c" is new.
+        let second = vec![mk("b", Level::Suggest), mk("c", Level::Warn)];
+        ins.track(&second, t0 + TimeDelta::hours(1));
+        ins.report.lock().insights = second;
+        let resolved = ins.resolved.lock().clone();
+        assert_eq!(resolved.len(), 1);
+        assert_eq!((resolved[0].id.as_str(), resolved[0].first_seen), ("a", t0));
+        // The digest since just after the first run names only "c".
+        let (n, text) = ins.digest_text(Some(t0 + TimeDelta::minutes(30)));
+        assert_eq!(n, 1, "{text}");
+        assert!(text.contains("[CHECK] title c") && !text.contains("title b"), "{text}");
+        assert!(text.starts_with("Cowpoke insights: 2 open (1 to check), 1 new, 1 resolved."), "{text}");
+        // Due once at the configured hour, not again the same day.
+        use chrono::{Timelike, TimeZone};
+        ins.set_config("digest: { hooks: [ops], hour: 7 }").unwrap();
+        let at7 = Utc.with_ymd_and_hms(2026, 11, 23, 7, 5, 0).unwrap();
+        assert!(ins.digest_due(at7).is_some());
+        assert!(ins.digest_due(at7.with_hour(8).unwrap()).is_none());
+        ins.mark_digest_sent(at7);
+        assert!(ins.digest_due(at7 + TimeDelta::minutes(15)).is_none());
+        assert!(ins.set_config("digest: { hooks: [ops], hour: 24 }").is_err());
     }
 
     #[test]

@@ -108,11 +108,32 @@ function updatePill() {
   el.textContent = unacked ? `${unacked} alarm${unacked === 1 ? "" : "s"}` : `${shown.length} acknowledged`;
 }
 
+/** Open insights, for the top bar and the Dashboard. Every minute is plenty: they change slowly. */
+async function refreshInsights() {
+  if (!S.me) return;
+  try { P.insights = await api("GET", "/api/insights"); } catch (e) { return; }
+  updateInsightPill();
+}
+
+function updateInsightPill() {
+  const el = document.getElementById("insight-pill");
+  if (!el || !P.insights) return;
+  const checks = (P.insights.insights || []).filter((i) => !i.dismissed && i.level === "warn").length;
+  el.hidden = checks === 0;
+  el.className = "alarm-pill hot";
+  el.textContent = `${checks} to check`;
+  el.title = "Insights that probably need a look";
+}
+
 function ensureAlarmStream() {
   if (!S.me) return;
   if (!P.pillTimer) {
     P.pillTimer = setInterval(refreshAlarms, 10000);
     refreshAlarms();
+  }
+  if (!P.insightTimer) {
+    P.insightTimer = setInterval(refreshInsights, 60000);
+    refreshInsights();
   }
   if (P.es) return;
   P.es = new EventSource("/api/alarms/events");
@@ -129,6 +150,7 @@ const appShell = shell;
 shell = function (current, inner) {
   appShell(current, inner);
   updatePill();
+  updateInsightPill();
 };
 
 async function ackAlarm(id, m) {
@@ -163,12 +185,18 @@ pairs:
     kind: follows                  # follows: feedback within tolerance of the command
     tolerance: 2
     delay_s: 30
+
+# A summary of new insights through alarm hooks (ids from the Alarms page's Hooks tab).
+# digest:
+#   hooks: [ops-email]
+#   hour: 7          # UTC
+#   weekly: false    # true: Mondays only
 `;
 const LEVELS = { warn: ["Check", "pn-sev pn-sev-high"], suggest: ["Suggestion", "pn-sev pn-sev-medium"], info: ["Note", "pn-sev"] };
 
 async function insightsPage(tab) {
   clearPage();
-  const tabs = [["open", "Open"], ["network", "Network"], ["comms", "Communications"], ["equipment", "Equipment"], ["process", "Process"], ["data", "Data"], ["alarms", "Alarms"], ["historian", "Historian"], ["dismissed", "Dismissed"]];
+  const tabs = [["open", "Open"], ["network", "Network"], ["comms", "Communications"], ["equipment", "Equipment"], ["process", "Process"], ["data", "Data"], ["alarms", "Alarms"], ["historian", "Historian"], ["resolved", "Resolved"], ["dismissed", "Dismissed"]];
   if (can("admin")) tabs.push(["setup", "Setup"]);
   shell("insights", `
     <div class="row"><div><h1>Insights</h1>
@@ -181,6 +209,9 @@ async function insightsPage(tab) {
   const m = document.getElementById("m");
   const body = document.getElementById("body");
   const draw = (r) => {
+    P.insights = r;
+    updateInsightPill();
+    if (tab === "resolved") return drawResolved(r);
     const all = r.insights || [];
     const list = all.filter((i) => tab === "dismissed" ? i.dismissed : !i.dismissed && (tab === "open" || i.area === tab));
     const since = r.watching_since ? new Date(r.watching_since).toLocaleString() : "not yet";
@@ -194,7 +225,7 @@ async function insightsPage(tab) {
         return `<div class="pn-insight" data-id="${esc(i.id)}">
           <div class="row"><span class="${cls}">${lab}</span><span class="tag">${esc(AREAS[i.area] || i.area)}</span>${where ? `<span class="detail">${where}</span>` : ""}
             <span class="spacer"></span>${i.fix && can("admin") && !i.dismissed ? `<button class="small" data-apply>Apply…</button>` : ""}${can("operator") ? `<button class="small" data-act="${i.dismissed ? "restore" : "dismiss"}">${i.dismissed ? "Restore" : "Dismiss"}</button>` : ""}</div>
-          <h3>${esc(i.title)}</h3>
+          <h3>${esc(i.title)}</h3>${i.since ? `<p class="detail">open since ${esc(new Date(i.since).toLocaleString())}</p>` : ""}
           <p>${esc(i.detail)}</p>
           ${i.evidence.length ? `<ul class="detail">${i.evidence.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>` : ""}
           <p class="pn-fix"><b>Suggestion:</b> ${esc(i.suggestion)}</p>
@@ -214,6 +245,16 @@ async function insightsPage(tab) {
     }));
   };
   if (tab === "setup") return insightsSetup(body, m);
+  const drawResolved = (r) => {
+    const list = (r.resolved || []).slice().reverse();
+    body.innerHTML = `<div class="panel pad">
+      <p class="muted small">Insights that went away in the last 7 days: fixed, or the condition passed.</p>
+      ${list.length ? `<div class="scroll"><table><thead><tr><th>Insight</th><th>Area</th><th>Open from</th><th>Resolved</th></tr></thead><tbody>
+        ${list.map((x) => `<tr><td>${esc(x.title)}${x.service ? ` <a class="mono" href="#/s/${encodeURIComponent(x.service)}">${esc(x.service)}</a>` : ""}</td>
+          <td><span class="tag">${esc(AREAS[x.area] || x.area)}</span></td>
+          <td class="detail">${esc(new Date(x.first_seen).toLocaleString())}</td><td class="detail">${esc(new Date(x.resolved).toLocaleString())}</td></tr>`).join("")}
+      </tbody></table></div>` : `<p class="muted">Nothing resolved this week.</p>`}</div>`;
+  };
   const load = () => api("GET", "/api/insights").then(draw).catch((e) => flash(m, e.message));
   const run = document.getElementById("run");
   if (run) run.onclick = async () => {
@@ -232,7 +273,16 @@ async function insightsSetup(body, m) {
     <p class="muted">What Cowpoke can't work out alone. <b>Pairs</b>: a command and the feedback that should follow it (a pump and its running signal, a valve setpoint and its position); Cowpoke checks every update and raises an Equipment insight when the feedback doesn't follow within the delay.</p>
     <label class="pn-lbl" for="cfg">insights.yaml</label>
     <textarea id="cfg" class="mono pn-small-ta" rows="16" spellcheck="false">${esc(empty ? PAIRS_EXAMPLE : text)}</textarea>
-    <div class="pn-actions"><button class="primary" id="save">Save</button></div></div>`;
+    <div class="pn-actions"><button class="primary" id="save">Save</button> <button id="digest">Send digest now</button></div>
+    <pre id="digest-out" class="detail" hidden></pre></div>`;
+  document.getElementById("digest").onclick = async () => {
+    try {
+      const r = await api("POST", "/api/insights/digest");
+      const out = document.getElementById("digest-out");
+      out.hidden = false;
+      out.textContent = `Sent through ${r.hooks} hook${r.hooks === 1 ? "" : "s"}:\n\n${r.text}`;
+    } catch (e) { flash(m, e.message); }
+  };
   document.getElementById("save").onclick = async () => {
     try {
       const r = await fetch("/api/insights/config", { method: "PUT", credentials: "same-origin", headers: { "content-type": "application/yaml" }, body: document.getElementById("cfg").value });

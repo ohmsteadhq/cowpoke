@@ -380,6 +380,15 @@ async fn run_insights(State(p): State<Panels>, me: Me) -> R<Json<Value>> {
     Ok(Json(p.insights.report()))
 }
 
+/// Send the digest now (all open insights), through the configured hooks.
+async fn send_digest_now(State(p): State<Panels>, me: Me) -> R<Json<Value>> {
+    me.need(Role::Admin)?;
+    let cfg: crate::insights::InsightsConfig = serde_yaml::from_str(&p.insights.config_yaml()).unwrap_or_default();
+    let Some(d) = cfg.digest else { return Err(bad("no digest in insights.yaml: add `digest: { hooks: [...] }` on the Setup tab")) };
+    let sent = crate::insights::send_digest(&p.insights, &p.engine, &d.hooks, None);
+    Ok(Json(json!({"hooks": sent, "text": p.insights.digest_text(None).1})))
+}
+
 async fn insights_config(State(p): State<Panels>, _me: Me) -> String {
     p.insights.config_yaml()
 }
@@ -424,6 +433,7 @@ pub fn router(p: Panels) -> Router {
         .route("/api/insights", get(list_insights))
         .route("/api/insights/run", post(run_insights))
         .route("/api/insights/config", get(insights_config).put(put_insights_config))
+        .route("/api/insights/digest", post(send_digest_now))
         .route("/api/insights/{id}/dismiss", post(dismiss_insight).delete(restore_insight))
         .route("/api/dashboards", get(list_dashboards).post(create_dashboard))
         .route("/api/dashboards/{id}", get(get_dashboard).put(update_dashboard).delete(delete_dashboard))

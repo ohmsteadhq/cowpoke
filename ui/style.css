@@ -326,6 +326,9 @@ canvas.sp-row { width: 120px; height: 22px; }
 .b-tags { padding: 14px 0 0; }
 .b-tags .pad-x { padding: 0 18px 12px; }
 .b-tags h3 { margin: 0; }
+.b-ohm { border-top: 1px solid var(--rule); display: grid; gap: 10px; padding: 14px 18px; }
+.b-ohm p { margin: 0; }
+.b-ohm textarea { width: 100%; }
 .b-empty { padding: 18px; border-top: 1px solid var(--rule); }
 
 .fgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px 16px; align-items: start; }

@@ -331,6 +331,75 @@ function serviceBuilder(root, opts) {
     return null;
   };
 
+  // ---- import from Ohmstead (POST /api/import/ohmstead previews; "Add" merges into the form, Save saves)
+
+  const OHM_OPTS = {
+    modbus: [{ k: "start", label: "First address", ph: "0", num: true, help: "Per table. Tags already here keep their address." }, { k: "unit", label: "Unit id", ph: "1", num: true }],
+    opcua: [{ k: "ns", label: "Namespace index", ph: "2", num: true, client: true }, { k: "prefix", label: "Node id prefix", ph: "none, e.g. PLC1.", client: true }],
+    iolink: [{ k: "port_start", label: "First port", ph: "1", num: true, help: "One port per device." }],
+  };
+  const ohmOpts = () => (OHM_OPTS[st.def.kind] || []).filter((o) => !o.client || st.def.mode === "client");
+  const ohmPanel = () => {
+    const o = st.ohm, r = o.result;
+    const fld = (id, label, val, ph, extra = "") => `<label class="fld" for="${id}"><span class="lbl">${label}</span><input id="${id}" value="${esc(val || "")}" placeholder="${esc(ph)}" autocomplete="off" ${extra}></label>`;
+    return `<div class="pad b-ohm">
+      <p class="muted">Turn the PLC I/O drawn in an Ohmstead project into tags: one per wired channel, named by its device. Tags with the same name are updated, not duplicated.</p>
+      <span class="seg small-seg"><button type="button" data-ohm-src="paste" class="${o.src === "paste" ? "on" : ""}">Paste the export</button><button type="button" data-ohm-src="fetch" class="${o.src === "fetch" ? "on" : ""}">Fetch from Ohmstead</button></span>
+      ${o.src === "paste"
+        ? `<label class="fld wide" for="ohm-text"><span class="lbl">Ohmstead I/O export</span><textarea id="ohm-text" class="mono" rows="6" spellcheck="false" placeholder='{ "format": "ohmstead-io", "points": [ … ] }'>${esc(o.text)}</textarea>
+            <span class="hint">Ask your assistant to run <code>export_io_points</code> on the project (Ohmstead MCP), and paste the JSON it returns.</span></label>`
+        : `<div class="fgrid">${fld("ohm-project", "Project id", o.project, "from the project's URL", 'class="mono"')}
+            ${fld("ohm-token", "Access token", o.token, "ohm_…", 'type="password" class="mono"')}
+            ${fld("ohm-url", "MCP address", o.url, "https://mcp.ohmstead.io/mcp", 'class="mono"')}</div>
+            <span class="hint">Create a token in Ohmstead → Settings → MCP access tokens. Cowpoke uses it once and doesn't keep it.</span>`}
+      ${ohmOpts().length ? `<div class="fgrid">${ohmOpts().map((x) => `<label class="fld" for="ohm-o-${x.k}"><span class="lbl">${esc(x.label)}</span><input id="ohm-o-${x.k}" data-ohm-opt="${x.k}" class="mono" value="${esc(o.opts[x.k] ?? "")}" placeholder="${esc(x.ph)}">${x.help ? `<span class="hint">${esc(x.help)}</span>` : ""}</label>`).join("")}</div>` : ""}
+      <div class="row"><button type="button" class="small" id="ohm-preview">Preview</button>
+        ${r && r.preview.rows.length ? `<button type="button" class="small primary" id="ohm-add">Add ${r.preview.added.length} and update ${r.preview.updated.length} tag${r.preview.added.length + r.preview.updated.length === 1 ? "" : "s"}</button>` : ""}
+        <span class="spacer"></span><button type="button" class="small" id="ohm-close">Close</button></div>
+      <div id="ohm-msg">${o.error ? `<div class="msg err">${esc(o.error)}</div>` : ""}</div>
+      ${r ? `<p class="muted">${r.points} point${r.points === 1 ? "" : "s"}: ${r.preview.added.length} new, ${r.preview.updated.length} updated, ${r.preview.unchanged.length} unchanged${r.preview.not_in_import.length ? `. Not in the project, kept: ${esc(r.preview.not_in_import.join(", "))}` : ""}.</p>
+        ${r.preview.skipped.length ? `<div class="msg err">Skipped: ${r.preview.skipped.map((s) => `${esc(s.name)} (${esc(s.reason)})`).join("; ")}</div>` : ""}
+        <table class="mini"><thead><tr><th>Tag</th><th>Device</th><th>Channel</th><th>I/O</th><th>Type</th><th>Address</th><th></th></tr></thead>
+        <tbody>${r.preview.rows.map((x) => `<tr><td class="mono">${esc(x.name)}</td><td class="mono">${esc(x.device)}</td><td class="mono">${esc(x.channel)}</td><td>${esc(x.kind)} ${esc(x.direction)}</td><td class="mono">${esc(x.datatype)}</td><td class="mono">${esc(x.address || "—")}</td><td class="muted">${esc(x.status)}</td></tr>`).join("")}</tbody></table>` : ""}
+    </div>`;
+  };
+  const ohmRequest = () => {
+    const o = st.ohm;
+    const options = {};
+    for (const x of ohmOpts()) {
+      const v = String(o.opts[x.k] ?? "").trim();
+      if (v !== "") options[x.k] = x.num ? Number(v) : v;
+    }
+    const body = { definition: cleanDef(), options };
+    if (o.src === "paste") body.io = o.text;
+    else body.source = { url: o.url, token: o.token, project_id: o.project.trim() };
+    return body;
+  };
+  const wireOhm = () => {
+    root.querySelector("#b-ohm")?.addEventListener("click", () => {
+      st.ohm = st.ohm ? null : { src: "paste", text: "", url: "", token: "", project: "", opts: {}, result: null, error: null };
+      render();
+    });
+    if (!st.ohm) return;
+    const o = st.ohm;
+    root.querySelectorAll("[data-ohm-src]").forEach((b) => (b.onclick = () => { o.src = b.dataset.ohmSrc; o.result = null; o.error = null; render(); }));
+    const bind = (id, k) => root.querySelector(id)?.addEventListener("input", (e) => { o[k] = e.target.value; });
+    bind("#ohm-text", "text"); bind("#ohm-project", "project"); bind("#ohm-token", "token"); bind("#ohm-url", "url");
+    root.querySelectorAll("[data-ohm-opt]").forEach((el) => el.addEventListener("input", () => { o.opts[el.dataset.ohmOpt] = el.value; }));
+    root.querySelector("#ohm-close").onclick = () => { st.ohm = null; render(); };
+    root.querySelector("#ohm-preview").onclick = async (e) => {
+      e.target.disabled = true;
+      try { o.result = await api("POST", "/api/import/ohmstead", ohmRequest()); o.error = null; }
+      catch (err) { o.result = null; o.error = err.message; }
+      render();
+    };
+    root.querySelector("#ohm-add")?.addEventListener("click", () => {
+      st.def.tags = o.result.definition.tags;
+      st.ohm = null; st.open.clear();
+      render(); scheduleCheck();
+    });
+  };
+
   // ---- render
 
   const render = () => {
@@ -373,7 +442,9 @@ function serviceBuilder(root, opts) {
               ${d.mode === "server" && (d.tags || []).length ? `<button type="button" class="small" id="b-simall" title="Give every tag without one a generator">∿ Simulate all</button>
                 ${(d.tags || []).some((t) => t.simulate) ? `<button type="button" class="small" id="b-simnone">Stop all</button>` : ""}` : ""}
               <button type="button" class="small" id="b-example">Load example tags</button>
+              <button type="button" class="small${st.ohm ? " on" : ""}" id="b-ohm" aria-expanded="${!!st.ohm}">Import from Ohmstead</button>
               <button type="button" class="small primary" id="b-addtag">+ Add tag</button></div>
+            ${st.ohm ? ohmPanel() : ""}
             ${tagsTable()}
           </section>`}
         </div>
@@ -704,6 +775,7 @@ function serviceBuilder(root, opts) {
       render(); scheduleCheck();
     }));
     root.querySelector("#b-yaml")?.addEventListener("input", (e) => { st.yaml = e.target.value; });
+    wireOhm();
 
     root.querySelector("#b-save").onclick = save;
     wireTest();

@@ -604,6 +604,61 @@ async fn import_config(State(app): State<App>, me: Me, body: String) -> R<Status
     Ok(StatusCode::NO_CONTENT)
 }
 
+// ------------------------------------------------------------------ import from Ohmstead
+
+#[derive(Deserialize)]
+struct OhmsteadSource {
+    #[serde(default)]
+    url: String,
+    token: String,
+    project_id: String,
+}
+
+#[derive(Deserialize)]
+struct OhmsteadImport {
+    /// An existing service to import into.
+    service: Option<String>,
+    /// Or an unsaved service (the builder's form): the merged definition comes back, nothing is saved.
+    definition: Option<ServiceDef>,
+    /// The ohmstead-io JSON, as an object or pasted text.
+    io: Option<Value>,
+    /// Or fetch it from an Ohmstead MCP endpoint.
+    source: Option<OhmsteadSource>,
+    #[serde(default)]
+    options: crate::import_ohmstead::Options,
+    /// Save into `service`. Without it, only preview.
+    #[serde(default)]
+    apply: bool,
+}
+
+/// Map an Ohmstead project's I/O points to tags on a service. Previews unless `apply`.
+async fn import_ohmstead(State(app): State<App>, me: Me, Json(b): Json<OhmsteadImport>) -> R<Json<Value>> {
+    use crate::import_ohmstead as io;
+    me.need(Role::Admin)?;
+    let ex = match (b.io, b.source) {
+        (Some(Value::String(text)), _) => io::parse(&text).map_err(bad)?,
+        (Some(v), _) => io::from_value(v).map_err(bad)?,
+        (None, Some(s)) => io::fetch(&s.url, &s.token, &s.project_id).await.map_err(bad)?,
+        (None, None) => return Err(bad("send `io` (the Ohmstead I/O JSON) or `source` (url, token, project_id)")),
+    };
+    let mut def = match (&b.service, b.definition) {
+        (Some(id), _) => find(&app, id)?,
+        (None, Some(d)) => d,
+        (None, None) => return Err(bad("name a `service`, or send its `definition`")),
+    };
+    if b.apply && b.service.is_none() {
+        return Err(bad("`apply` saves into an existing `service`; save the new service first"));
+    }
+    let preview = io::apply(&mut def, &ex, &b.options);
+    if b.apply {
+        def.validate().map_err(bad)?;
+        let id = def.id.clone();
+        app.cfg.upsert(Some(&id), def.clone()).map_err(bad)?;
+        app.reload().await;
+    }
+    Ok(Json(json!({ "preview": preview, "definition": def, "saved": b.apply, "points": ex.points.len() })))
+}
+
 async fn template(_me: Me, Path((kind, mode)): Path<(String, String)>) -> R<impl IntoResponse> {
     let kind: Kind = serde_json::from_value(json!(kind)).map_err(|_| bad("unknown kind"))?;
     let mode: Mode = serde_json::from_value(json!(mode)).map_err(|_| bad("unknown mode"))?;
@@ -715,6 +770,7 @@ pub fn router(app: App) -> Router {
         .route("/api/agents/{id}", axum::routing::delete(delete_agent))
         .route("/api/agents/{id}/token", post(rotate_agent_token))
         .route("/api/config", get(export_config).put(import_config))
+        .route("/api/import/ohmstead", post(import_ohmstead))
         .route("/api/templates/{kind}/{mode}", get(template))
         .route("/api/events", get(events))
         .route("/x/{id}", any(mock))

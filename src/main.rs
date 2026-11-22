@@ -11,6 +11,7 @@ mod codec;
 mod dashboards;
 mod generate;
 mod historian;
+mod import_ohmstead;
 mod manager;
 mod model;
 mod panels;
@@ -24,6 +25,8 @@ mod web;
 mod agent_tests;
 #[cfg(test)]
 mod alarm_tests;
+#[cfg(test)]
+mod import_ohmstead_tests;
 #[cfg(test)]
 mod loopback_tests;
 

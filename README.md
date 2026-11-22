@@ -117,10 +117,54 @@ Sign in with `POST /api/login {"username","password"}`. It returns a `token`; se
 | `GET /api/services/<id>/history/<tag>?from=…&to=…&points=600` | viewer |
 | `GET /api/events` (server-sent events: `tag`, `status`) | viewer |
 | `GET /api/config` (export YAML), `PUT /api/config` (import, replaces all) | admin |
+| `POST /api/import/ohmstead`: tags from an Ohmstead project's PLC I/O (see below) | admin |
 | `GET /api/users`, `PUT /api/users/<name> {"password","role"}`, `DELETE /api/users/<name>` | admin (anyone can change their own password) |
 | `GET /api/services/<id>/certs`, `POST /api/services/<id>/certs/<file>/trust` · `reject` · `delete` | admin |
 
 API server-mode services without their own `port` answer at `/x/<id>/…` on the web port, with no sign-in, because they stand in for third-party APIs.
+
+## Import from Ohmstead
+
+Draw the panel in [Ohmstead](https://ohmstead.io), then test its I/O here without retyping a tag. Ohmstead lists each wired digital or analog channel of a PLC or I/O module as an *I/O point*, named by the field device on it (`LT-101`, or `K1.A1` when a device has several). Cowpoke turns the points into tags on one service.
+
+In the service builder, open **Import from Ohmstead** above the tag table, then either:
+
+- **Paste the export.** Ask your assistant to run `export_io_points` on the project through the Ohmstead MCP, and paste the JSON.
+- **Fetch from Ohmstead.** Give the project id and a personal access token (Ohmstead → Settings → MCP access tokens). The address defaults to `https://mcp.ohmstead.io/mcp`; point it at your own Ohmstead MCP if you host one. Cowpoke uses the token for that one call and doesn't store it.
+
+**Preview** shows each tag, its address and whether it's new, updated or unchanged. **Add** puts them in the form; nothing is saved until you save the service.
+
+The mapping rules are fixed:
+
+| Service | Digital in | Digital out | Analog in | Analog out |
+|---|---|---|---|---|
+| Modbus | discrete input, `bool` | coil, `bool` | input register, `float32` | holding register, `float32` |
+| OPC UA | `bool` | `bool` | `float32` | `float32` |
+| IO-Link | pd `in`, 1 bit | pd `out`, 1 bit | pd `in`, `uint16` | pd `out`, `uint16` |
+| Others | `bool` | `bool` | `float32` | `float32` |
+
+- **Modbus:** addresses count up in each table from *First address* (default 0). A float32 takes two registers.
+- **OPC UA client:** node ids are `ns=<index>;s=<prefix><name>` (index 2, no prefix by default). Server tags use Cowpoke's default node ids.
+- **IO-Link:** each device gets its own port, from *First port* up to the master's `ports` (default 8). Its points share that port and stack bit offsets from 0. Devices past the last port are skipped and listed.
+- Every tag gets a description (`device terminal → module:terminal`) and the units of the P&ID range, if the project has one. Outputs are writable. Inputs are writable only on server-mode services, where the simulator sets them.
+- **Importing again** matches tags by name. An existing tag keeps its address, history, simulation and scale. New points get the next free address. Tags that aren't in the project are left alone, and the preview lists them.
+
+From a script, send the export (an object, or the text) or a source:
+
+```bash
+curl -X POST localhost:8080/api/import/ohmstead -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"service":"plc-sim","io":'"$(cat io.json)"',"options":{"start":100},"apply":true}'
+```
+
+| Field | |
+|---|---|
+| `service` | An existing service's id. Or send `definition` (a whole service, unsaved) to get the merged one back. |
+| `io` | The `ohmstead-io` JSON, a bare array of points, or the MCP tool reply. |
+| `source` | Or `{"url","token","project_id"}` to fetch it from Ohmstead. |
+| `options` | `start`, `unit` (Modbus), `ns`, `prefix` (OPC UA client), `port_start` (IO-Link). All optional. |
+| `apply` | Save into `service`. Without it, Cowpoke only previews. |
+
+The reply has `preview` (`added`, `updated`, `unchanged`, `not_in_import`, `skipped`, `rows`), `definition` and `saved`.
 
 ## Edge agents
 

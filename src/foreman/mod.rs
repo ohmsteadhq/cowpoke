@@ -398,7 +398,7 @@ impl Diagnosis {
 /// Where the model runs.
 pub enum Engine {
     /// Any OpenAI-compatible chat endpoint (llama.cpp's server, mlx_lm.server, Ollama, the hub).
-    Http { url: String, model: String, http: reqwest::Client },
+    Http { url: String, model: String, http: reqwest::Client, ollama: bool },
     /// Built in: a GGUF file loaded with mistral.rs.
     #[cfg(feature = "foreman")]
     Builtin(mistralrs::Model),
@@ -413,7 +413,9 @@ impl Engine {
         }
         if let Ok(url) = std::env::var("COWPOKE_FOREMAN_URL") {
             let model = std::env::var("COWPOKE_FOREMAN_MODEL_NAME").unwrap_or_else(|_| "default_model".into());
-            return Ok(Self::Http { url, model, http: reqwest::Client::new() });
+            // Ollama's OpenAI endpoint can't turn Qwen's thinking off; its native API can.
+            let ollama = std::env::var("COWPOKE_FOREMAN_API").map(|a| a == "ollama").unwrap_or(false);
+            return Ok(Self::Http { url, model, http: reqwest::Client::new(), ollama });
         }
         Err(anyhow!("no foreman model: set COWPOKE_FOREMAN_MODEL (a .gguf file) or COWPOKE_FOREMAN_URL"))
     }
@@ -443,7 +445,23 @@ impl Engine {
     /// Ask the model; returns its reply text.
     pub async fn ask(&self, user: &str) -> Result<String> {
         match self {
-            Self::Http { url, model, http } => {
+            Self::Http { url, model, http, ollama: true } => {
+                let body = json!({
+                    "model": model, "stream": false, "think": false,
+                    "options": {"temperature": 0, "num_predict": 400},
+                    "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}],
+                });
+                let r: Value = http
+                    .post(format!("{}/api/chat", url.trim_end_matches('/')))
+                    .json(&body)
+                    .send()
+                    .await?
+                    .error_for_status()?
+                    .json()
+                    .await?;
+                Ok(r["message"]["content"].as_str().unwrap_or_default().to_string())
+            }
+            Self::Http { url, model, http, .. } => {
                 let body = json!({
                     "model": model, "temperature": 0, "max_tokens": 400,
                     "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}],

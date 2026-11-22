@@ -1,8 +1,10 @@
-//! The four service kinds, each with a client and a server mode.
+//! The service kinds, each with a client and a server mode.
 
 pub mod api;
+pub mod eip;
 pub mod iolink;
 pub mod modbus;
+pub mod mqtt;
 pub mod opcua;
 
 use anyhow::{Context as _, Result};
@@ -20,6 +22,10 @@ pub async fn run(ctx: &mut Ctx) -> Result<()> {
         (Kind::Api, Mode::Client) => api::client(ctx).await,
         (Kind::Iolink, Mode::Server) => iolink::server(ctx).await,
         (Kind::Iolink, Mode::Client) => iolink::client(ctx).await,
+        (Kind::Mqtt, Mode::Server) => mqtt::server(ctx).await,
+        (Kind::Mqtt, Mode::Client) => mqtt::client(ctx).await,
+        (Kind::Eip, Mode::Server) => eip::server(ctx).await,
+        (Kind::Eip, Mode::Client) => eip::client(ctx).await,
     }
 }
 
@@ -47,6 +53,10 @@ pub fn template(kind: Kind, mode: Mode) -> &'static str {
         (Kind::Api, Mode::Client) => include_str!("../../templates/api-client.yaml"),
         (Kind::Iolink, Mode::Server) => include_str!("../../templates/iolink-server.yaml"),
         (Kind::Iolink, Mode::Client) => include_str!("../../templates/iolink-client.yaml"),
+        (Kind::Mqtt, Mode::Server) => include_str!("../../templates/mqtt-server.yaml"),
+        (Kind::Mqtt, Mode::Client) => include_str!("../../templates/mqtt-client.yaml"),
+        (Kind::Eip, Mode::Server) => include_str!("../../templates/eip-server.yaml"),
+        (Kind::Eip, Mode::Client) => include_str!("../../templates/eip-client.yaml"),
     }
 }
 
@@ -78,6 +88,8 @@ pub fn check_settings(def: &crate::model::ServiceDef) -> Result<(), String> {
         Kind::Opcua => opcua::check_settings(def.mode, &def.settings),
         Kind::Api => api::check_settings(def.mode, &def.settings),
         Kind::Iolink => iolink::check_settings(def.mode, &def.settings),
+        Kind::Mqtt => mqtt::check_settings(def.mode, &def.settings),
+        Kind::Eip => eip::check_settings(def.mode, &def.settings),
     }
 }
 
@@ -91,6 +103,8 @@ pub fn listen_port(def: &crate::model::ServiceDef) -> Option<u16> {
         Kind::Modbus => Some(explicit.unwrap_or(502)),
         Kind::Opcua => Some(explicit.unwrap_or(4840)),
         Kind::Iolink => Some(explicit.unwrap_or(8080)),
+        Kind::Mqtt => Some(explicit.unwrap_or(1883)),
+        Kind::Eip => Some(explicit.unwrap_or(44818)),
         Kind::Api => explicit,
     }
 }

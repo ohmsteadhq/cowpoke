@@ -1,0 +1,26 @@
+# An MQTT broker inside Cowpoke. Every tag is published on change to
+# <prefix>/<tag> (or its own `topic`); publish to <topic>/set to write a tag.
+# Other clients can publish and subscribe to anything else, like any broker.
+id: mqtt-broker
+name: MQTT broker
+kind: mqtt
+mode: server
+# agent: plant-1          # run this service on an edge agent instead of the hub
+settings:
+  port: 1883
+  prefix: cowpoke/line1   # default: the service id
+  retain: true            # new subscribers get the last value at once
+  # username: cowpoke     # require these credentials from every client
+  # password: change-me-please
+tags:
+  - name: temperature
+    datatype: float64
+    initial: 21.5
+    simulate: { kind: walk, min: 18, max: 26, step: 0.2 }
+  - name: running
+    datatype: bool
+  - name: recipe
+    datatype: string
+    topic: cowpoke/line1/recipe/name
+    initial: "IPA-70"
+    writable: false

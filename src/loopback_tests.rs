@@ -378,3 +378,147 @@ tags:
     assert!(waves.len() >= 5, "the sine should move at the client: {waves:?}");
     rig.stop().await;
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn mqtt_client_broker() {
+    let p = free_port();
+    let rig = Rig::start(vec![
+        svc(&format!(
+            r#"
+id: srv
+kind: mqtt
+mode: server
+settings: {{ bind: 127.0.0.1, port: {p}, prefix: plant/line1, username: cow, password: poke }}
+tags:
+  - {{ name: level, datatype: float64, initial: 42.5 }}
+  - {{ name: run, datatype: bool }}
+  - {{ name: label, datatype: string, topic: plant/label, initial: "Cow1" }}
+  - {{ name: locked, datatype: int32, initial: 7, writable: false }}
+"#
+        )),
+        svc(&format!(
+            r#"
+id: cli
+kind: mqtt
+mode: client
+settings: {{ host: 127.0.0.1, port: {p}, qos: 1, username: cow, password: poke }}
+tags:
+  - {{ name: level, datatype: float64, topic: plant/line1/level }}
+  - {{ name: run, datatype: bool, topic: plant/line1/run }}
+  - {{ name: label, datatype: string, topic: plant/label }}
+  - {{ name: locked, datatype: int32, topic: plant/line1/locked }}
+  - {{ name: any_level, datatype: float64, topic: "plant/+/level", writable: false }}
+"#
+        )),
+    ])
+    .await;
+    rig.wait_running("srv").await;
+    rig.wait_running("cli").await;
+    // Retained values arrive on subscribe...
+    rig.wait_value("cli", "level", json!(42.5)).await;
+    rig.wait_value("cli", "any_level", json!(42.5)).await;
+    rig.wait_value("cli", "label", json!("Cow1")).await;
+    // ...client writes reach the broker's tags through <topic>/set...
+    rig.write("cli", "run", json!(true)).await;
+    rig.wait_value("srv", "run", json!(true)).await;
+    rig.wait_value("cli", "run", json!(true)).await;
+    rig.write("cli", "label", json!("Cow2")).await;
+    rig.wait_value("srv", "label", json!("Cow2")).await;
+    // ...and values set on the server are published to the client.
+    rig.write("srv", "level", json!(-3.5)).await;
+    rig.wait_value("cli", "level", json!(-3.5)).await;
+    // Read-only server tags ignore writes.
+    rig.write("cli", "locked", json!(9)).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(rig.tags.value("srv", "locked"), Some(json!(7)));
+    rig.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn mqtt_bad_password_is_refused() {
+    let p = free_port();
+    let rig = Rig::start(vec![
+        svc(&format!(
+            "id: srv\nkind: mqtt\nmode: server\nsettings: {{ bind: 127.0.0.1, port: {p}, username: cow, password: poke }}\ntags: [{{ name: level, datatype: float64, initial: 1.0 }}]\n"
+        )),
+        svc(&format!(
+            "id: cli\nkind: mqtt\nmode: client\nsettings: {{ host: 127.0.0.1, port: {p}, username: cow, password: nope }}\ntags: [{{ name: level, datatype: float64, topic: srv/level }}]\n"
+        )),
+    ])
+    .await;
+    rig.wait_running("srv").await;
+    tokio::time::sleep(Duration::from_millis(800)).await;
+    assert_ne!(rig.mgr.status("cli").state, State::Running);
+    assert_ne!(rig.tags.get("cli", "level").map(|s| s.quality), Some(Quality::Good));
+    rig.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn eip_client_logix_sim() {
+    let p = free_port();
+    let rig = Rig::start(vec![
+        svc(&format!(
+            r#"
+id: srv
+kind: eip
+mode: server
+settings: {{ bind: 127.0.0.1, port: {p} }}
+tags:
+  - {{ name: level, datatype: float32, cip_tag: Program:Main.Level, initial: 42.5 }}
+  - {{ name: run, datatype: bool, cip_tag: Pump_Run }}
+  - {{ name: count, datatype: int32, initial: -7 }}
+  - {{ name: big, datatype: int64, initial: 9000000000 }}
+  - {{ name: label, datatype: string, cip_tag: Batch.ID, initial: "B-0001" }}
+  - {{ name: locked, datatype: int16, initial: 3, writable: false }}
+"#
+        )),
+        svc(&format!(
+            r#"
+id: cli
+kind: eip
+mode: client
+settings: {{ host: 127.0.0.1, port: {p}, slot: 2, poll_ms: 100 }}
+tags:
+  - {{ name: level, datatype: float32, cip_tag: program:main.level }}
+  - {{ name: run, datatype: bool, cip_tag: Pump_Run }}
+  - {{ name: count, datatype: int32, cip_tag: count }}
+  - {{ name: big, datatype: int64, cip_tag: big }}
+  - {{ name: label, datatype: string, cip_tag: Batch.ID }}
+  - {{ name: locked, datatype: int16, cip_tag: locked }}
+"#
+        )),
+        svc(&format!(
+            r#"
+id: direct
+kind: eip
+mode: client
+settings: {{ host: 127.0.0.1, port: {p}, direct: true, poll_ms: 100 }}
+tags:
+  - {{ name: count, datatype: int32, cip_tag: count }}
+  - {{ name: missing, datatype: int32, cip_tag: Nope }}
+"#
+        )),
+    ])
+    .await;
+    rig.wait_running("srv").await;
+    rig.wait_value("cli", "level", json!(42.5)).await;
+    rig.wait_value("cli", "count", json!(-7)).await;
+    rig.wait_value("cli", "big", json!(9_000_000_000i64)).await;
+    rig.wait_value("cli", "label", json!("B-0001")).await;
+    rig.wait_value("direct", "count", json!(-7)).await;
+
+    rig.write("cli", "run", json!(true)).await;
+    rig.wait_value("srv", "run", json!(true)).await;
+    rig.write("cli", "level", json!(7.25)).await;
+    rig.wait_value("srv", "level", json!(7.25)).await;
+    rig.write("cli", "label", json!("B-0002")).await;
+    rig.wait_value("srv", "label", json!("B-0002")).await;
+    rig.write("srv", "count", json!(123)).await;
+    rig.wait_value("cli", "count", json!(123)).await;
+
+    // A read-only tag refuses writes; a missing tag reads bad.
+    assert!(rig.mgr.write(&rig.def("cli"), "locked", &json!(4)).await.is_err());
+    assert_eq!(rig.tags.value("srv", "locked"), Some(json!(3)));
+    assert_ne!(rig.tags.get("direct", "missing").map(|s| s.quality), Some(Quality::Good));
+    rig.stop().await;
+}

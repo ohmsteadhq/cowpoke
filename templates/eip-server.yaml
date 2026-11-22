@@ -1,0 +1,26 @@
+# A simulated Logix controller: answers EtherNet/IP Read Tag / Write Tag requests
+# (direct, routed to any slot, or batched) for the tags below, so HMIs and gateways
+# can test against it. Tag names are matched case-insensitively, like Logix.
+id: logix-sim
+name: Logix simulator
+kind: eip
+mode: server
+# agent: plant-1          # run this service on an edge agent instead of the hub
+settings:
+  port: 44818
+  product_name: Cowpoke Logix simulator
+tags:
+  - name: tank_level
+    datatype: float32               # REAL
+    cip_tag: Program:Main.Tank_Level  # default: the tag name
+    initial: 42.5
+    simulate: { kind: walk, min: 20, max: 80, step: 0.5 }
+  - name: pump_run
+    datatype: bool                  # BOOL
+    cip_tag: Pump_Run
+  - name: count
+    datatype: int32                 # DINT
+  - name: batch_id
+    datatype: string                # STRING
+    cip_tag: Batch.ID
+    initial: "B-0001"

@@ -1,0 +1,29 @@
+# Read and write tags on an Allen-Bradley ControlLogix / CompactLogix over
+# EtherNet/IP (CIP explicit messaging, symbolic tag names).
+id: logix-line1
+name: Line 1 Logix
+kind: eip
+mode: client
+# agent: plant-1          # run this service on an edge agent instead of the hub
+settings:
+  host: 192.168.1.10
+  port: 44818
+  slot: 0                 # the CPU's backplane slot (CompactLogix: 0)
+  # direct: true          # Micro800 and devices without a backplane
+  poll_ms: 1000
+  timeout_ms: 3000
+# Logix types: BOOL, SINT, INT, DINT, LINT, REAL, LREAL, STRING. Pick the Cowpoke
+# datatype that holds the value (SINT/INT → int16, DINT → int32, REAL → float32);
+# writes use whatever type the controller reports for the tag.
+tags:
+  - name: tank_level
+    datatype: float32
+    cip_tag: Program:Main.Tank_Level
+    writable: false
+    history: { mode: interval, interval_ms: 5000, retention_days: 90 }
+  - name: pump_run
+    datatype: bool
+    cip_tag: Pump_Run
+  - name: batch_id
+    datatype: string
+    cip_tag: Batch.ID

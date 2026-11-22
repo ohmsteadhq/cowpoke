@@ -13,6 +13,7 @@ async-opcua = { version = "0.19.0", features = ["server", "client"] }
 axum = { version = "0.8.9", features = ["macros", "ws"] }
 axum-extra = { version = "0.12.6", features = ["cookie"] }
 base64 = "0.23.1"
+bytes = "1"
 chrono = { version = "0.4.45", features = ["serde"] }
 dashmap = "6.2.1"
 futures = "0.3.34"

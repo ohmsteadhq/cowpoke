@@ -12,6 +12,9 @@ pub enum Kind {
     Opcua,
     Api,
     Iolink,
+    Mqtt,
+    /// EtherNet/IP (CIP explicit messaging to Logix controllers).
+    Eip,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -163,6 +166,17 @@ pub struct TagDef {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pointer: Option<String>,
 
+    // --- MQTT ---
+    /// Client: the topic (or filter) the value arrives on; `pointer` picks it out of JSON.
+    /// Server: where it is published; defaults to `<prefix>/<tag name>`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topic: Option<String>,
+
+    // --- EtherNet/IP ---
+    /// Logix tag name (`Program:Main.Level`, `Tank[3].Temp`). Server: defaults to the tag name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cip_tag: Option<String>,
+
     // --- IO-Link ---
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub port: Option<u8>,
@@ -310,6 +324,22 @@ impl ServiceDef {
                     if t.node_id.is_none() {
                         return Err(format!("tag `{}`: OPC UA client tags need `node_id`", t.name));
                     }
+                }
+                Kind::Mqtt => match (&t.topic, self.mode) {
+                    (None, Mode::Client) => {
+                        return Err(format!("tag `{}`: MQTT client tags need `topic`", t.name));
+                    }
+                    (Some(topic), Mode::Server) if topic.contains(['+', '#']) || topic.is_empty() => {
+                        return Err(format!("tag `{}`: a published topic can't be empty or hold + or #", t.name));
+                    }
+                    _ => {}
+                },
+                Kind::Eip => {
+                    if self.mode == Mode::Client && t.cip_tag.is_none() {
+                        return Err(format!("tag `{}`: EtherNet/IP client tags need `cip_tag`", t.name));
+                    }
+                    let name = t.cip_tag.as_deref().unwrap_or(&t.name);
+                    crate::services::eip::tag_path(name).map_err(|e| format!("tag `{}`: {e}", t.name))?;
                 }
                 Kind::Iolink => {
                     if t.port.is_none() {

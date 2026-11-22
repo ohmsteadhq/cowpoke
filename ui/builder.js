@@ -98,6 +98,40 @@ const SCHEMAS = {
     { k: "poll_ms", label: "Poll every (ms)", type: "number", ph: "1000" },
     { k: "timeout_ms", label: "Timeout (ms)", type: "number", ph: "3000", adv: true },
   ],
+  "mqtt/server": [
+    { k: "port", label: "Port", type: "number", ph: "1883", help: "Any MQTT 3.1.1 client can connect, publish and subscribe." },
+    { k: "prefix", label: "Topic prefix", type: "text", ph: "the service id", help: "Tags publish to <prefix>/<tag> on change; publish to <topic>/set to write one." },
+    { k: "retain", label: "Publish retained", type: "bool", dflt: true, help: "New subscribers get each tag's last value at once." },
+    { k: "username", label: "Username", type: "text", ph: "none: anyone can connect", adv: true },
+    { k: "password", label: "Password", type: "password", adv: true },
+    BIND,
+  ],
+  "mqtt/client": [
+    { k: "host", label: "Broker address", type: "text", ph: "broker.local", required: true },
+    { k: "port", label: "Port", type: "number", ph: "1883, or 8883 with TLS" },
+    { k: "tls", label: "Use TLS", type: "bool" },
+    { k: "username", label: "Username", type: "text", ph: "anonymous" },
+    { k: "password", label: "Password", type: "password" },
+    { k: "qos", label: "QoS", type: "number", ph: "0", help: "0: at most once. 1: at least once." },
+    { k: "write_topic", label: "Write topic", type: "text", ph: "{{topic}}/set", help: "Where writes are published. {{topic}} is the tag's topic, {{tag}} its name." },
+    { k: "retain", label: "Publish writes retained", type: "bool", adv: true },
+    { k: "client_id", label: "Client id", type: "text", ph: "cowpoke-<id>", adv: true },
+    { k: "keep_alive_s", label: "Keep-alive (s)", type: "number", ph: "30", adv: true },
+    { k: "ca", label: "CA certificate (PEM)", type: "body", ph: "-----BEGIN CERTIFICATE-----", adv: true, help: "For a broker with its own CA. Blank uses the system's roots." },
+  ],
+  "eip/server": [
+    { k: "port", label: "Port", type: "number", ph: "44818", help: "Answers Logix Read Tag / Write Tag requests, routed to any slot." },
+    { k: "product_name", label: "Product name", type: "text", ph: "Cowpoke Logix simulator", help: "What browse tools see in ListIdentity." },
+    BIND,
+  ],
+  "eip/client": [
+    { k: "host", label: "Controller address", type: "text", ph: "192.168.1.10", required: true },
+    { k: "slot", label: "CPU slot", type: "number", ph: "0", help: "The controller's backplane slot. CompactLogix: 0." },
+    { k: "direct", label: "No backplane routing", type: "bool", help: "For Micro800 and other controllers without a backplane." },
+    { k: "poll_ms", label: "Poll every (ms)", type: "number", ph: "1000" },
+    { k: "port", label: "Port", type: "number", ph: "44818", adv: true },
+    { k: "timeout_ms", label: "Timeout (ms)", type: "number", ph: "3000", adv: true },
+  ],
 };
 
 const DATATYPES = ["bool", "int16", "uint16", "int32", "uint32", "int64", "uint64", "float32", "float64", "string"].map((d) => [d, d]);
@@ -115,6 +149,11 @@ function tagColumns(kind, mode) {
     ];
     case "opcua": return [{ k: "node_id", label: mode === "client" ? "Node id" : "Node id (optional)", type: "text", ph: mode === "client" ? "ns=2;s=Line1.Temp" : "the tag name", w: 220 }];
     case "api": return mode === "client" ? [{ k: "pointer", label: "JSON pointer", type: "text", ph: "/<tag name>", w: 180 }] : [];
+    case "mqtt": return [
+      { k: "topic", label: mode === "client" ? "Topic" : "Topic (optional)", type: "text", ph: mode === "client" ? "plant/tank1/state" : "<prefix>/<tag name>", w: 200 },
+      ...(mode === "client" ? [{ k: "pointer", label: "JSON pointer", type: "text", ph: "whole payload", w: 140 }] : []),
+    ];
+    case "eip": return [{ k: "cip_tag", label: mode === "client" ? "Logix tag" : "Logix tag (optional)", type: "text", ph: mode === "client" ? "Program:Main.Level" : "the tag name", w: 200 }];
     case "iolink": return [
       { k: "port", label: "Port", type: "number", w: 56 },
       { k: "pd", label: "Data", type: "choice", options: [["in", "In"], ["out", "Out"]], dflt: "in", w: 76 },
@@ -730,7 +769,8 @@ function serviceBuilder(root, opts) {
   const newTag = (tags) => {
     const d = st.def, t = { name: uniqueName(tags, `tag_${tags.length + 1}`) };
     if (d.kind === "modbus") { t.datatype = "uint16"; t.register = nextRegister(tags, "holding_register"); }
-    if (d.kind === "opcua" || d.kind === "api") t.datatype = "float64";
+    if (d.kind === "opcua" || d.kind === "api" || d.kind === "mqtt") t.datatype = "float64";
+    if (d.kind === "eip") t.datatype = "float32";
     if (d.kind === "iolink") {
       const last = tags[tags.length - 1];
       t.datatype = "uint16"; t.port = last?.port || 1;

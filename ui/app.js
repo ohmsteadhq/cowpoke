@@ -11,6 +11,8 @@ const KINDS = {
   opcua: { label: "OPC UA", server: "An OPC UA server with your tags as variables.", client: "Read and write a real OPC UA server's nodes." },
   api: { label: "API request", server: "Mock an HTTP API with canned routes, and serve tags as JSON.", client: "Call an HTTP endpoint on a timer and read values from the JSON." },
   iolink: { label: "IO-Link", server: "A simulated IO-Link master (ifm IoT Core JSON).", client: "Read sensors through a real ifm IoT Core master." },
+  mqtt: { label: "MQTT", server: "A built-in broker that publishes every tag on change and takes writes on /set.", client: "Subscribe to a broker's topics and publish writes." },
+  eip: { label: "EtherNet/IP", server: "A simulated Logix controller answering tag reads and writes.", client: "Read and write tags on an Allen-Bradley ControlLogix or CompactLogix." },
 };
 
 // ---------------------------------------------------------------- helpers
@@ -206,7 +208,7 @@ function loginPage() {
 
 // ---------------------------------------------------------------- dashboard
 
-const SHORT = { modbus: "Modbus", opcua: "OPC UA", api: "API", iolink: "IO-Link" };
+const SHORT = { modbus: "Modbus", opcua: "OPC UA", api: "API", iolink: "IO-Link", mqtt: "MQTT", eip: "EtherNet/IP" };
 const STATE_COLOR = { running: "--teal", degraded: "--brass", starting: "--brass", error: "--alert", stopped: "--muted" };
 
 async function dashboardPage() {

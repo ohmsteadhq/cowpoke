@@ -1,0 +1,29 @@
+# Subscribe to topics on an MQTT broker. Payloads are JSON or plain text;
+# `pointer` picks a value out of a JSON payload. Writes publish to `write_topic`.
+id: mqtt-plant
+name: Plant MQTT
+kind: mqtt
+mode: client
+# agent: plant-1          # run this service on an edge agent instead of the hub
+settings:
+  host: broker.local
+  # port: 1883            # 8883 with tls
+  # client_id: cowpoke-mqtt-plant
+  # username: cowpoke
+  # password: change-me-please
+  tls: false
+  # ca: |                 # PEM CA certificate for a broker with its own CA
+  #   -----BEGIN CERTIFICATE-----
+  qos: 1                  # 0 or 1
+  retain: false           # publish writes retained
+  write_topic: "{{topic}}/set"   # also {{tag}}
+tags:
+  - name: tank_level
+    datatype: float64
+    topic: plant/tank1/state
+    pointer: /level
+    writable: false
+    history: { mode: deadband, deadband: 0.5 }
+  - name: pump_run
+    datatype: bool
+    topic: plant/pump1/run

@@ -9,6 +9,7 @@ mod alarms;
 mod auth;
 mod codec;
 mod dashboards;
+mod foreman;
 mod generate;
 mod historian;
 mod import_ohmstead;

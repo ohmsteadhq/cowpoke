@@ -477,6 +477,59 @@ async fn restart_service(State(app): State<App>, me: Me, Path(id): Path<String>)
 
 // ------------------------------------------------------------------ tags
 
+#[derive(serde::Deserialize)]
+struct DiagnoseReq {
+    /// Services to look at; or `prefix` for every service whose id starts with it.
+    #[serde(default)]
+    services: Vec<String>,
+    #[serde(default)]
+    prefix: Option<String>,
+    /// What the operator noticed, in their words.
+    #[serde(default)]
+    symptom: Option<String>,
+    /// Include Cowpoke's rule checks in the evidence.
+    #[serde(default = "yes_default")]
+    rules: bool,
+    /// Return the evidence and rule findings without asking a model.
+    #[serde(default)]
+    dry_run: bool,
+}
+
+fn yes_default() -> bool {
+    true
+}
+
+/// Ask the foreman why something is wrong: Cowpoke gathers the evidence, runs its rule
+/// checks, and a small model names the misconfigured service, the cause and the fix.
+async fn foreman_diagnose(State(app): State<App>, _me: Me, Json(req): Json<DiagnoseReq>) -> R<Json<Value>> {
+    let cfg = app.cfg.get();
+    let defs: Vec<&ServiceDef> = cfg
+        .services
+        .iter()
+        .filter(|s| req.services.contains(&s.id) || req.prefix.as_deref().is_some_and(|p| s.id.starts_with(p)))
+        .collect();
+    if defs.is_empty() {
+        return Err(bad("name the services to look at (`services` or `prefix`)"));
+    }
+    let seen: Vec<crate::foreman::Seen> = defs
+        .iter()
+        .map(|d| {
+            let status = serde_json::to_value(app.mgr.status(&d.id)).unwrap_or_default();
+            crate::foreman::Seen::gather(d, &status, &app.tags)
+        })
+        .collect();
+    let symptom = req.symptom.as_deref().unwrap_or("Please check these services.");
+    if req.dry_run {
+        let (evidence, findings) = crate::foreman::evidence(symptom, &seen, req.rules);
+        return Ok(Json(json!({"evidence": evidence, "rule_findings": findings})));
+    }
+    let engine = crate::foreman::engine().await.map_err(|e| bad(format!("{e:#}")))?;
+    let report = crate::foreman::diagnose(engine, symptom, &seen, req.rules)
+        .await
+        .map_err(|e| bad(format!("the model failed: {e:#}")))?;
+    Ok(Json(serde_json::to_value(report).unwrap_or_default()))
+}
+
 /// A monitor service's inventory of talkers and its recent events.
 async fn monitor_state(State(app): State<App>, _me: Me, Path(id): Path<String>) -> R<Json<Value>> {
     let s = find(&app, &id)?;
@@ -1002,6 +1055,7 @@ pub fn router(app: App) -> Router {
         .route("/api/tags", get(all_tags).post(write_tags))
         .route("/api/tags/ws", get(tags_ws))
         .route("/api/services/{id}/monitor", get(monitor_state))
+        .route("/api/foreman/diagnose", post(foreman_diagnose))
         .route("/api/services/{id}/tags/{tag}", put(write_tag))
         .route("/api/services/{id}/history/{tag}", get(history))
         .route("/api/services/{id}/certs", get(list_certs))

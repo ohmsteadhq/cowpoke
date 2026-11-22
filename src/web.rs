@@ -208,11 +208,54 @@ fn find(app: &App, id: &str) -> R<ServiceDef> {
     app.cfg.service(id).ok_or_else(|| not_found("such service"))
 }
 
-async fn get_service(State(app): State<App>, _me: Me, Path(id): Path<String>) -> R<Json<Value>> {
+async fn get_service(State(app): State<App>, me: Me, Path(id): Path<String>) -> R<Json<Value>> {
     let s = find(&app, &id)?;
     let mut v = service_json(&app, &s);
-    v["definition"] = serde_json::to_value(&s).unwrap_or_default();
+    let mut def = serde_json::to_value(&s).unwrap_or_default();
+    // Credentials are admin-only, like export_config. Others still get the
+    // definition (the service page reads e.g. settings.port), minus secrets.
+    if me.need(Role::Admin).is_err()
+        && let Some(settings) = def.get_mut("settings")
+    {
+        redact_secrets(settings);
+    }
+    v["definition"] = def;
     Ok(Json(v))
+}
+
+/// What a secret reads as for users who may not see it.
+const REDACTED: &str = "********";
+
+/// Blank out credentials anywhere in a service's settings: passwords
+/// (MQTT/OPC UA client and broker, OPC UA server `users[]`, Sparkplug broker),
+/// tokens and secrets, and every header value (API client requests and their
+/// `write` request, which commonly carry `Authorization`).
+fn redact_secrets(v: &mut Value) {
+    match v {
+        Value::Object(map) => {
+            for (k, val) in map.iter_mut() {
+                let key = k.to_ascii_lowercase();
+                if key == "headers"
+                    && let Value::Object(h) = val
+                {
+                    for hv in h.values_mut() {
+                        *hv = Value::String(REDACTED.into());
+                    }
+                    continue;
+                }
+                let secret = ["password", "passphrase", "secret", "token", "api_key", "apikey", "private_key"]
+                    .iter()
+                    .any(|w| key.contains(w));
+                if secret && !val.is_null() && !val.is_object() && !val.is_array() {
+                    *val = Value::String(REDACTED.into());
+                } else {
+                    redact_secrets(val);
+                }
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(redact_secrets),
+        _ => {}
+    }
 }
 
 /// Accept a service as JSON or YAML (by content type).
@@ -386,7 +429,9 @@ async fn delete_service(State(app): State<App>, me: Me, Path(id): Path<String>) 
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn get_service_yaml(State(app): State<App>, _me: Me, Path(id): Path<String>) -> R<impl IntoResponse> {
+async fn get_service_yaml(State(app): State<App>, me: Me, Path(id): Path<String>) -> R<impl IntoResponse> {
+    // The raw definition carries credentials; admin-only like export_config.
+    me.need(Role::Admin)?;
     let s = find(&app, &id)?;
     Ok((
         [(header::CONTENT_TYPE, "text/yaml; charset=utf-8")],
@@ -787,4 +832,40 @@ pub fn router(app: App) -> Router {
         .route("/x/{id}/", any(mock))
         .route("/x/{id}/{*rest}", any(mock))
         .with_state(app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn redact_secrets_blanks_credentials_but_keeps_the_rest() {
+        let mut v = json!({
+            "url": "https://example.test/api",
+            "port": 8080,
+            "username": "ops",
+            "password": "hunter2",
+            "headers": { "Authorization": "Bearer prod-token", "Accept": "application/json" },
+            "write": { "url": "https://example.test/w", "headers": { "X-Api-Key": "k" } },
+            "users": [{ "username": "a", "password": "p1" }, { "username": "b", "password": "p2" }],
+            "sparkplug": { "broker": { "host": "mq", "password": "bp" } },
+            "allow_anonymous": false,
+        });
+        redact_secrets(&mut v);
+        assert_eq!(v["password"], REDACTED);
+        assert_eq!(v["headers"]["Authorization"], REDACTED);
+        assert_eq!(v["headers"]["Accept"], REDACTED);
+        assert_eq!(v["write"]["headers"]["X-Api-Key"], REDACTED);
+        assert_eq!(v["users"][0]["password"], REDACTED);
+        assert_eq!(v["users"][1]["password"], REDACTED);
+        assert_eq!(v["sparkplug"]["broker"]["password"], REDACTED);
+        // Non-secret settings the UI reads are untouched.
+        assert_eq!(v["port"], 8080);
+        assert_eq!(v["url"], "https://example.test/api");
+        assert_eq!(v["username"], "ops");
+        assert_eq!(v["users"][1]["username"], "b");
+        assert_eq!(v["sparkplug"]["broker"]["host"], "mq");
+        assert_eq!(v["allow_anonymous"], false);
+        assert!(!v.to_string().contains("hunter2") && !v.to_string().contains("prod-token"));
+    }
 }

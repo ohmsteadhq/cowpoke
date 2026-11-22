@@ -1,0 +1,138 @@
+# A bigger demo plant: four simulated machines on four protocols, each read back by a client
+# the way a SCADA, HMI, MES or gateway would. Ports don't clash with examples/demo.yaml.
+# Run:  COWPOKE_CONFIG=examples/plant.yaml cargo run   (or POST each service to /api/services)
+services:
+  # ---- Pump station: a Modbus PLC (unit 1) and two VFDs behind it (units 2 and 3).
+  # Tag names follow Ohmstead's Pump and Tank project, as "Import from Ohmstead" makes them.
+  - id: pumpstation-sim
+    name: Pump station (PLC + 2 drives)
+    kind: modbus
+    mode: server
+    settings: { port: 5021, units: [1, 2, 3] }
+    tags:
+      - { name: LT-101, description: "Level Transmitter 4-20mA: LT-101 - → AI1:CH0", datatype: float32, table: input_register, register: 0, units: "%", initial: 55, simulate: { kind: sine, min: 20, max: 85, period_ms: 180000, noise: 0.4 } }
+      - { name: FT-101, description: "Flow Transmitter 4-20mA: FT-101 - → AI1:CH1", datatype: float32, table: input_register, register: 2, units: m³/h, initial: 14, simulate: { kind: walk, min: 0, max: 30, step: 0.6 } }
+      - { name: PT-102, description: "Discharge pressure", datatype: float32, table: input_register, register: 4, units: bar, initial: 3.2, simulate: { kind: walk, min: 2.5, max: 4.5, step: 0.05 } }
+      - { name: LSH-101, description: "Float Level Switch: LSH-101 2 → DI1:I0", datatype: bool, table: discrete_input, register: 0, simulate: { kind: square, period_ms: 180000 } }
+      - { name: K1.14, description: "Contactor K1 feedback → DI1:I1", datatype: bool, table: discrete_input, register: 1, simulate: { kind: square, period_ms: 60000 } }
+      - { name: ES-1, description: "E-stop healthy", datatype: bool, table: discrete_input, register: 2, initial: true }
+      - { name: K1.A1, description: "Pump contactor coil DO1:O0", datatype: bool, table: coil, register: 0 }
+      - { name: SV-101, description: "Solenoid valve DO1:O1", datatype: bool, table: coil, register: 1 }
+      - { name: level_sp, description: "Level setpoint", datatype: float32, register: 0, units: "%", initial: 60 }
+      - { name: pump_starts, datatype: uint32, register: 2, simulate: { kind: counter, interval_ms: 60000 } }
+      - { name: plc_heartbeat, datatype: uint16, register: 4, simulate: { kind: counter, interval_ms: 1000, max: 65535 } }
+      # Drives: speed, current and a status word on each unit.
+      - { name: VFD1.speed, unit: 2, datatype: int16, register: 0, scale: 0.1, units: Hz, initial: 45, simulate: { kind: triangle, min: 30, max: 50, period_ms: 120000 } }
+      - { name: VFD1.current, unit: 2, datatype: int16, table: input_register, register: 0, scale: 0.01, units: A, initial: 6.4, simulate: { kind: walk, min: 5, max: 8, step: 0.1 } }
+      - { name: VFD1.status, unit: 2, datatype: uint16, table: input_register, register: 1, simulate: { kind: sequence, interval_ms: 20000, values: [1, 1, 1, 3, 1, 1, 9] } }
+      - { name: VFD2.speed, unit: 3, datatype: int16, register: 0, scale: 0.1, units: Hz, initial: 0 }
+      - { name: VFD2.current, unit: 3, datatype: int16, table: input_register, register: 0, scale: 0.01, units: A, initial: 0 }
+      - { name: VFD2.status, unit: 3, datatype: uint16, table: input_register, register: 1, initial: 0 }
+
+  - id: pumpstation-scada
+    name: Pump station SCADA
+    kind: modbus
+    mode: client
+    settings: { host: 127.0.0.1, port: 5021, poll_ms: 500 }
+    tags:
+      - { name: LT-101, datatype: float32, table: input_register, register: 0, units: "%", writable: false, history: { mode: deadband, deadband: 0.5 } }
+      - { name: FT-101, datatype: float32, table: input_register, register: 2, units: m³/h, writable: false, history: { mode: interval, interval_ms: 5000 } }
+      - { name: PT-102, datatype: float32, table: input_register, register: 4, units: bar, writable: false, history: { mode: deadband, deadband: 0.05 } }
+      - { name: LSH-101, datatype: bool, table: discrete_input, register: 0, writable: false }
+      - { name: K1.14, datatype: bool, table: discrete_input, register: 1, writable: false }
+      - { name: ES-1, datatype: bool, table: discrete_input, register: 2, writable: false }
+      - { name: K1.A1, datatype: bool, table: coil, register: 0 }
+      - { name: SV-101, datatype: bool, table: coil, register: 1 }
+      - { name: level_sp, datatype: float32, register: 0, units: "%" }
+      - { name: pump_starts, datatype: uint32, register: 2, writable: false }
+      - { name: VFD1.speed, unit: 2, datatype: int16, register: 0, scale: 0.1, units: Hz, history: { mode: deadband, deadband: 0.5 } }
+      - { name: VFD1.current, unit: 2, datatype: int16, table: input_register, register: 0, scale: 0.01, units: A, writable: false }
+      - { name: VFD1.status, unit: 2, datatype: uint16, table: input_register, register: 1, writable: false }
+      - { name: VFD2.speed, unit: 3, datatype: int16, register: 0, scale: 0.1, units: Hz }
+
+  # ---- Boiler house: an OPC UA server, and an HMI reading it.
+  - id: boiler-ua
+    name: Boiler house (OPC UA)
+    kind: opcua
+    mode: server
+    settings: { port: 4842, hostname: localhost, trust_client_certs: true }
+    tags:
+      - { name: Boiler1.SteamPressure, datatype: float64, units: bar, initial: 8.2, simulate: { kind: walk, min: 7.5, max: 9.5, step: 0.05 } }
+      - { name: Boiler1.WaterTemp, datatype: float64, units: °C, initial: 172, simulate: { kind: sine, min: 168, max: 178, period_ms: 240000, noise: 0.2 } }
+      - { name: Boiler1.FlueTemp, datatype: float64, units: °C, initial: 210, simulate: { kind: walk, min: 190, max: 240, step: 1 } }
+      - { name: Boiler1.O2, datatype: float32, units: "%", initial: 3.5, simulate: { kind: walk, min: 2.5, max: 5, step: 0.05 } }
+      - { name: Boiler1.FiringRate, datatype: float32, units: "%", initial: 60, simulate: { kind: triangle, min: 30, max: 95, period_ms: 300000 } }
+      - { name: Boiler1.BurnerOn, datatype: bool, initial: true, simulate: { kind: square, period_ms: 300000 } }
+      - { name: Boiler1.State, datatype: string, initial: Firing, simulate: { kind: sequence, interval_ms: 30000, values: [Purge, Ignition, Firing, Firing, Firing, Modulating, Firing, Post-purge, Standby] } }
+      - { name: Boiler1.PressureSP, datatype: float64, units: bar, initial: 8.5 }
+      - { name: Feedwater.TankLevel, datatype: float32, units: "%", initial: 70, simulate: { kind: sine, min: 55, max: 85, period_ms: 200000 } }
+      - { name: Feedwater.PumpRuntime, datatype: uint32, units: s, simulate: { kind: counter, interval_ms: 1000, max: 4000000000 } }
+
+  - id: boiler-hmi
+    name: Boiler HMI
+    kind: opcua
+    mode: client
+    settings: { url: "opc.tcp://localhost:4842/", trust_server_certs: true, poll_ms: 1000 }
+    tags:
+      - { name: steam_pressure, datatype: float64, node_id: "ns=2;s=Boiler1.SteamPressure", units: bar, writable: false, history: { mode: deadband, deadband: 0.05 } }
+      - { name: water_temp, datatype: float64, node_id: "ns=2;s=Boiler1.WaterTemp", units: °C, writable: false, history: { mode: deadband, deadband: 0.5 } }
+      - { name: o2, datatype: float32, node_id: "ns=2;s=Boiler1.O2", units: "%", writable: false }
+      - { name: firing_rate, datatype: float32, node_id: "ns=2;s=Boiler1.FiringRate", units: "%", writable: false }
+      - { name: burner_on, datatype: bool, node_id: "ns=2;s=Boiler1.BurnerOn", writable: false }
+      - { name: state, datatype: string, node_id: "ns=2;s=Boiler1.State", writable: false }
+      - { name: pressure_sp, datatype: float64, node_id: "ns=2;s=Boiler1.PressureSP", units: bar }
+
+  # ---- Packaging line: an MQTT broker with the line's tags, and an MES subscribing.
+  - id: line-mqtt
+    name: Packaging line (MQTT broker)
+    kind: mqtt
+    mode: server
+    settings: { port: 1884, prefix: plant/line2, retain: true }
+    tags:
+      - { name: good_count, datatype: uint32, simulate: { kind: counter, interval_ms: 1500, max: 4000000000 } }
+      - { name: reject_count, datatype: uint32, simulate: { kind: counter, interval_ms: 45000, max: 4000000000 } }
+      - { name: speed_ppm, datatype: float64, units: ppm, initial: 40, simulate: { kind: walk, min: 32, max: 44, step: 0.5 } }
+      - { name: state, datatype: string, initial: Running, simulate: { kind: sequence, interval_ms: 25000, values: [Running, Running, Running, Starved, Running, Running, Blocked, Running, Changeover] } }
+      - { name: oee, datatype: float64, units: "%", initial: 78, simulate: { kind: walk, min: 65, max: 88, step: 0.3 } }
+      - { name: recipe, datatype: string, initial: "SKU-1042 330ml" }
+      - { name: run, datatype: bool, initial: true }
+
+  - id: line-mes
+    name: Line 2 MES
+    kind: mqtt
+    mode: client
+    settings: { host: 127.0.0.1, port: 1884, qos: 1 }
+    tags:
+      - { name: good_count, datatype: uint32, topic: plant/line2/good_count, writable: false, history: { mode: interval, interval_ms: 10000 } }
+      - { name: reject_count, datatype: uint32, topic: plant/line2/reject_count, writable: false }
+      - { name: speed_ppm, datatype: float64, topic: plant/line2/speed_ppm, writable: false, history: { mode: deadband, deadband: 0.5 } }
+      - { name: state, datatype: string, topic: plant/line2/state, writable: false }
+      - { name: oee, datatype: float64, topic: plant/line2/oee, writable: false }
+      - { name: recipe, datatype: string, topic: plant/line2/recipe }
+      - { name: run, datatype: bool, topic: plant/line2/run }
+
+  # ---- Filler: a Logix controller on EtherNet/IP, and a gateway reading it.
+  - id: filler-logix
+    name: Filler (Logix)
+    kind: eip
+    mode: server
+    settings: { port: 44819, product_name: Filler CompactLogix }
+    tags:
+      - { name: bowl_level, datatype: float32, cip_tag: Program:Filler.Bowl_Level, units: "%", initial: 62, simulate: { kind: sine, min: 50, max: 75, period_ms: 90000, noise: 0.3 } }
+      - { name: fill_volume, datatype: float32, cip_tag: Program:Filler.Fill_Volume, units: ml, initial: 330, simulate: { kind: walk, min: 328, max: 333, step: 0.2 } }
+      - { name: valves_open, datatype: int32, cip_tag: Valves_Open, simulate: { kind: sequence, interval_ms: 3000, values: [24, 24, 23, 24, 22, 24] } }
+      - { name: bottles_filled, datatype: int32, cip_tag: Bottles_Filled, simulate: { kind: counter, interval_ms: 1000, max: 2000000000 } }
+      - { name: running, datatype: bool, cip_tag: Running, initial: true }
+      - { name: batch_id, datatype: string, cip_tag: Batch.ID, initial: "B-2026-1121-07" }
+
+  - id: filler-gateway
+    name: Filler gateway
+    kind: eip
+    mode: client
+    settings: { host: 127.0.0.1, port: 44819, slot: 0, poll_ms: 1000 }
+    tags:
+      - { name: bowl_level, datatype: float32, cip_tag: Program:Filler.Bowl_Level, units: "%", writable: false, history: { mode: deadband, deadband: 0.5 } }
+      - { name: fill_volume, datatype: float32, cip_tag: Program:Filler.Fill_Volume, units: ml, writable: false }
+      - { name: bottles_filled, datatype: int32, cip_tag: Bottles_Filled, writable: false }
+      - { name: running, datatype: bool, cip_tag: Running }
+      - { name: batch_id, datatype: string, cip_tag: Batch.ID }

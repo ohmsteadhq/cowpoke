@@ -44,6 +44,8 @@ To try every protocol at once, start with the demo. It has four simulated device
 COWPOKE_CONFIG=examples/demo.yaml COWPOKE_ADMIN_PASSWORD=dev-password cargo run
 ```
 
+For something closer to a real plant, `examples/plant.yaml` has four machines on four protocols: a Modbus pump station (a PLC and two drives on unit ids 1 to 3, with tag names from Ohmstead's Pump and Tank project), an OPC UA boiler house, a packaging line on an MQTT broker and an EtherNet/IP filler. Each one has a client reading it back, like a SCADA, HMI, MES or gateway would.
+
 ### Environment
 
 | Variable | Default | |

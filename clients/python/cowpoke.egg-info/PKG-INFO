@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: cowpoke
+Version: 0.2.0
+Summary: Read, write and follow every Cowpoke tag from Python, in real time
+License: See the Cowpoke repository
+Requires-Python: >=3.9
+Requires-Dist: websockets>=12
+Provides-Extra: pandas
+Requires-Dist: pandas>=1.5; extra == "pandas"
+Provides-Extra: test
+Requires-Dist: pytest>=7; extra == "test"

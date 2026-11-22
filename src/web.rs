@@ -513,19 +513,203 @@ async fn write_tag(State(app): State<App>, me: Me, Path((id, tag)): Path<(String
         Value::Object(o) if o.contains_key("value") => o["value"].clone(),
         other => other,
     };
-    let written = match &s.agent {
+    let written = do_write(&app, &s, &tag, &v).await.map_err(bad)?;
+    Ok(Json(json!({"value": written})))
+}
+
+/// Writes one tag of a service, locally or through its agent. Returns the value written.
+async fn do_write(app: &App, s: &ServiceDef, tag: &str, v: &Value) -> Result<Value, String> {
+    match &s.agent {
         Some(agent) => {
             // Check it here so mistakes don't need a round trip; the agent writes it.
-            let t = s.tag(&tag).ok_or_else(|| bad(format!("no tag `{tag}`")))?;
-            let v = crate::tags::coerce_tag(t, &v).map_err(bad)?;
+            let t = s.tag(tag).ok_or_else(|| format!("no tag `{tag}`"))?;
+            let v = crate::tags::coerce_tag(t, v)?;
             if s.mode == Mode::Client && !t.writable {
-                return Err(bad(format!("tag `{tag}` is read-only")));
+                return Err(format!("tag `{tag}` is read-only"));
             }
-            app.agents.write(agent, &id, &tag, v).await.map_err(bad)?
+            app.agents.write(agent, &s.id, tag, v).await
         }
-        None => app.mgr.write(&s, &tag, &v).await.map_err(bad)?,
+        None => app.mgr.write(s, tag, v).await,
+    }
+}
+
+// ------------------------------------------------------------------ every tag at once
+
+/// `*` matches any run of characters; everything else matches itself.
+fn glob(pat: &str, text: &str) -> bool {
+    let (p, t): (Vec<char>, Vec<char>) = (pat.chars().collect(), text.chars().collect());
+    let (mut pi, mut ti, mut star, mut mark) = (0, 0, None, 0);
+    while ti < t.len() {
+        if pi < p.len() && p[pi] != '*' && p[pi] == t[ti] {
+            pi += 1;
+            ti += 1;
+        } else if pi < p.len() && p[pi] == '*' {
+            star = Some(pi);
+            mark = ti;
+            pi += 1;
+        } else if let Some(sp) = star {
+            pi = sp + 1;
+            mark += 1;
+            ti = mark;
+        } else {
+            return false;
+        }
+    }
+    p[pi..].iter().all(|&c| c == '*')
+}
+
+fn matches(pats: &[String], name: &str) -> bool {
+    pats.is_empty() || pats.iter().any(|p| glob(p, name))
+}
+
+/// Splits `service.tag` at the first dot (service ids have none).
+fn split_name(name: &str) -> Option<(&str, &str)> {
+    name.split_once('.').filter(|(s, t)| !s.is_empty() && !t.is_empty())
+}
+
+fn tag_snapshot(app: &App, pats: &[String]) -> Vec<Value> {
+    let cfg = app.cfg.get();
+    let mut out = Vec::new();
+    for s in &cfg.services {
+        for t in &s.tags {
+            let name = format!("{}.{}", s.id, t.name);
+            if !matches(pats, &name) {
+                continue;
+            }
+            let st = app.tags.get(&s.id, &t.name);
+            out.push(json!({
+                "name": name, "service": s.id, "tag": t.name,
+                "datatype": t.datatype, "writable": t.writable || s.mode == Mode::Server,
+                "units": t.units,
+                "value": st.as_ref().map(|x| x.value.clone()),
+                "quality": st.as_ref().map(|x| x.quality),
+                "ts": st.as_ref().map(|x| x.ts),
+            }));
+        }
+    }
+    out
+}
+
+#[derive(Deserialize)]
+struct TagsQuery {
+    /// Comma-separated `service.tag` patterns; `*` is a wildcard.
+    #[serde(rename = "match")]
+    pattern: Option<String>,
+}
+
+fn patterns(q: &Option<String>) -> Vec<String> {
+    q.as_deref()
+        .unwrap_or("")
+        .split(',')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .map(String::from)
+        .collect()
+}
+
+async fn all_tags(State(app): State<App>, _me: Me, Query(q): Query<TagsQuery>) -> Json<Value> {
+    Json(Value::Array(tag_snapshot(&app, &patterns(&q.pattern))))
+}
+
+/// Writes several tags: `{"plc1.speed": 50, "plc1.run": true}`. Each is reported on its own.
+async fn write_many(app: &App, writes: &serde_json::Map<String, Value>) -> Value {
+    let mut out = serde_json::Map::new();
+    for (name, v) in writes {
+        let r = match split_name(name) {
+            None => Err(format!("`{name}` is not service.tag")),
+            Some((sid, tag)) => match app.cfg.service(sid) {
+                None => Err(format!("no service `{sid}`")),
+                Some(s) => do_write(app, &s, tag, v).await,
+            },
+        };
+        out.insert(
+            name.clone(),
+            match r {
+                Ok(v) => json!({"ok": true, "value": v}),
+                Err(e) => json!({"ok": false, "error": e}),
+            },
+        );
+    }
+    Value::Object(out)
+}
+
+async fn write_tags(State(app): State<App>, me: Me, Json(body): Json<Value>) -> R<Json<Value>> {
+    me.need(Role::Operator)?;
+    let Value::Object(w) = body else {
+        return Err(bad("send an object of {\"service.tag\": value}"));
     };
-    Ok(Json(json!({"value": written})))
+    Ok(Json(write_many(&app, &w).await))
+}
+
+/// A WebSocket for scripts: a snapshot, then every change, and writes on the same socket.
+///
+/// Client → server: `{"subscribe": ["plc1.*"]}` (replaces the set; empty = all),
+/// `{"write": {"plc1.speed": 50}, "id": 7}`, `{"read": ["plc1.*"], "id": 8}`.
+/// Server → client: `{"type":"snapshot","tags":[…]}`, `{"type":"tag",…}`,
+/// `{"type":"written","id":7,"results":{…}}`, `{"type":"values","id":8,"tags":[…]}`, `{"type":"error",…}`.
+async fn tags_ws(State(app): State<App>, me: Me, Query(q): Query<TagsQuery>, ws: axum::extract::ws::WebSocketUpgrade) -> Response {
+    let pats = patterns(&q.pattern);
+    ws.on_upgrade(move |socket| tags_socket(app, me, pats, socket))
+}
+
+async fn tags_socket(app: App, me: Me, mut pats: Vec<String>, mut socket: axum::extract::ws::WebSocket) {
+    use axum::extract::ws::Message;
+    let mut rx = app.tags.subscribe();
+    let send = |v: Value| Message::Text(v.to_string().into());
+    if socket.send(send(json!({"type": "snapshot", "tags": tag_snapshot(&app, &pats)}))).await.is_err() {
+        return;
+    }
+    loop {
+        tokio::select! {
+            r = rx.recv() => match r {
+                Ok(e) => {
+                    let name = format!("{}.{}", e.service, e.tag);
+                    if !matches(&pats, &name) { continue; }
+                    let m = json!({"type": "tag", "name": name, "service": e.service, "tag": e.tag,
+                        "value": e.state.value, "quality": e.state.quality, "ts": e.state.ts});
+                    if socket.send(send(m)).await.is_err() { return; }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    // Too slow to keep up: say so, and resend where everything stands.
+                    let m = json!({"type": "snapshot", "lagged": n, "tags": tag_snapshot(&app, &pats)});
+                    if socket.send(send(m)).await.is_err() { return; }
+                }
+                Err(_) => return,
+            },
+            m = socket.recv() => {
+                let Some(Ok(m)) = m else { return };
+                let text = match m {
+                    Message::Text(t) => t.to_string(),
+                    Message::Close(_) => return,
+                    _ => continue,
+                };
+                let reply = match serde_json::from_str::<Value>(&text) {
+                    Err(e) => json!({"type": "error", "error": format!("not JSON: {e}")}),
+                    Ok(cmd) => {
+                        let id = cmd.get("id").cloned().unwrap_or(Value::Null);
+                        let list = |v: &Value| -> Vec<String> {
+                            v.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default()
+                        };
+                        if let Some(sub) = cmd.get("subscribe") {
+                            pats = list(sub);
+                            json!({"type": "snapshot", "id": id, "tags": tag_snapshot(&app, &pats)})
+                        } else if let Some(r) = cmd.get("read") {
+                            json!({"type": "values", "id": id, "tags": tag_snapshot(&app, &list(r))})
+                        } else if let Some(Value::Object(w)) = cmd.get("write") {
+                            if me.0.role < Role::Operator {
+                                json!({"type": "error", "id": id, "error": "writing needs the Operator role"})
+                            } else {
+                                json!({"type": "written", "id": id, "results": write_many(&app, w).await})
+                            }
+                        } else {
+                            json!({"type": "error", "id": id, "error": "expected subscribe, read or write"})
+                        }
+                    }
+                };
+                if socket.send(send(reply)).await.is_err() { return; }
+            }
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -815,6 +999,8 @@ pub fn router(app: App) -> Router {
         .route("/api/services/{id}/stop", post(stop_service))
         .route("/api/services/{id}/restart", post(restart_service))
         .route("/api/services/{id}/tags", get(list_tags))
+        .route("/api/tags", get(all_tags).post(write_tags))
+        .route("/api/tags/ws", get(tags_ws))
         .route("/api/services/{id}/monitor", get(monitor_state))
         .route("/api/services/{id}/tags/{tag}", put(write_tag))
         .route("/api/services/{id}/history/{tag}", get(history))

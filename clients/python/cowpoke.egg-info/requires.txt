@@ -1,0 +1,7 @@
+websockets>=12
+
+[pandas]
+pandas>=1.5
+
+[test]
+pytest>=7

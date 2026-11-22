@@ -1,0 +1,96 @@
+# Cowpoke configuration. Edited by the web UI and API; safe to edit by hand while Cowpoke is stopped.
+services:
+- id: tank-plc
+  name: Tank PLC (simulated)
+  kind: modbus
+  mode: server
+  enabled: true
+  settings:
+    port: 5021
+  tags:
+  - name: level
+    datatype: float32
+    description: Written by tank_loop.py (the process)
+    initial: 50
+    writable: true
+    units: '%'
+    register: 0
+  - name: inflow
+    datatype: float32
+    initial: 12
+    writable: true
+    units: m³/h
+    register: 2
+    simulate:
+      kind: walk
+      min: 8.0
+      max: 16.0
+      interval_ms: 1000
+      step: 0.4
+  - name: pump_run
+    datatype: bool
+    writable: true
+    table: coil
+    register: 0
+  - name: high_sp
+    datatype: float32
+    initial: 70
+    writable: true
+    units: '%'
+    register: 10
+  - name: low_sp
+    datatype: float32
+    initial: 30
+    writable: true
+    units: '%'
+    register: 12
+- id: scada
+  name: SCADA (Modbus client)
+  kind: modbus
+  mode: client
+  enabled: true
+  settings:
+    host: 127.0.0.1
+    poll_ms: 200
+    port: 5021
+  tags:
+  - name: level
+    datatype: float32
+    writable: false
+    units: '%'
+    register: 0
+    history:
+      mode: deadband
+      deadband: 0.2
+      interval_ms: 1000
+      retention_days: 30
+  - name: inflow
+    datatype: float32
+    writable: false
+    units: m³/h
+    register: 2
+    history:
+      mode: deadband
+      deadband: 0.1
+      interval_ms: 1000
+      retention_days: 30
+  - name: pump_run
+    datatype: bool
+    writable: true
+    table: coil
+    register: 0
+    history:
+      mode: deadband
+      deadband: 0.0
+      interval_ms: 1000
+      retention_days: 30
+  - name: high_sp
+    datatype: float32
+    writable: true
+    units: '%'
+    register: 10
+  - name: low_sp
+    datatype: float32
+    writable: true
+    units: '%'
+    register: 12

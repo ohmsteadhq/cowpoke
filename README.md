@@ -125,12 +125,32 @@ Sign in with `POST /api/login {"username","password"}`. It returns a `token`; se
 | `GET /api/services/<id>/tags`, `PUT /api/services/<id>/tags/<tag> {"value": …}` | viewer / operator |
 | `GET /api/services/<id>/history/<tag>?from=…&to=…&points=600` | viewer |
 | `GET /api/events` (server-sent events: `tag`, `status`) | viewer |
+| `GET /api/tags?match=plc1.*,line2.*`: every tag of every service as `service.tag`, with value, quality, time, datatype, units, writable | viewer |
+| `POST /api/tags {"plc1.speed": 50, "plc1.run": true}`: write several tags; each answers `ok` and `value`, or `error` | operator |
+| `GET /api/tags/ws` (WebSocket): a snapshot, then every change; send `{"subscribe": [patterns]}`, `{"read": [patterns], "id": n}` or `{"write": {…}, "id": n}` | viewer (writes: operator) |
 | `GET /api/config` (export YAML), `PUT /api/config` (import, replaces all) | admin |
 | `POST /api/import/ohmstead`: tags from an Ohmstead project's PLC I/O (see below) | admin |
 | `GET /api/users`, `PUT /api/users/<name> {"password","role"}`, `DELETE /api/users/<name>` | admin (anyone can change their own password) |
 | `GET /api/services/<id>/certs`, `POST /api/services/<id>/certs/<file>/trust` · `reject` · `delete` | admin |
 
 API server-mode services without their own `port` answer at `/x/<id>/…` on the web port, with no sign-in, because they stand in for third-party APIs.
+
+
+### From Python
+
+`clients/python` is a small client over that WebSocket. It keeps every tag's value live in memory and writes on the same connection:
+
+```python
+from cowpoke import Cowpoke  # pip install ./clients/python
+
+with Cowpoke("http://localhost:8080", user="admin", password="...") as cp:
+    print(cp.values)                       # {"plc1.Motor_Speed": 41.2, ...}
+    cp["plc1.Motor_Speed"] = 50            # raises CowpokeError if it fails
+    for name, value in cp.watch("plc1.*"):
+        print(name, value)
+```
+
+For a working example, `examples/python/tank_loop.py` runs a tank level control loop over Modbus against `examples/python-demo.yaml`. The client runs outside the container; the image stays one Rust binary.
 
 ## Import from Ohmstead
 

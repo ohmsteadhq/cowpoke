@@ -66,7 +66,7 @@ function clearPage() {
 // ---------------------------------------------------------------- shell
 
 function shell(current, inner) {
-  const links = [["#/", "Dashboard", "dashboard"], ["#/services", "Services", "services"]];
+  const links = [["#/", "Dashboard", "dashboard"], ["#/services", "Services", "services"], ["#/agents", "Agents", "agents"]];
   if (can("admin")) links.push(["#/users", "Users", "users"]);
   links.push(["#/settings", "Settings", "settings"]);
   $app.innerHTML = `
@@ -228,12 +228,14 @@ async function dashboardPage() {
     </div>`);
 
   let services = [];
+  let agents = [];
   let tagsBy = {};
   let filter = "all", q = "";
   const m = document.getElementById("attn");
 
   const load = async () => {
     services = await api("GET", "/api/services");
+    agents = await api("GET", "/api/agents").catch(() => []);
     const lists = await Promise.all(services.map((s) => api("GET", `/api/services/${s.id}/tags`).catch(() => [])));
     tagsBy = {};
     services.forEach((s, i) => {
@@ -270,6 +272,7 @@ async function dashboardPage() {
         <div class="card-h"><span class="dot"></span><b class="nm">${esc(s.name)}</b><span class="spacer"></span>
           <span class="badge">${esc(SHORT[s.kind] || s.kind)} · ${s.mode === "server" ? "server" : "client"}</span></div>
         <div class="detail card-d"></div>
+        ${s.agent ? `<div class="via">via agent <span class="mono">${esc(s.agent)}</span></div>` : ""}
         <div class="vals">${tags.length ? tags.map((t) => `
           <div class="vrow" data-tag="${esc(t.name)}">
             <span class="vn mono">${esc(t.name)}</span>
@@ -303,7 +306,10 @@ async function dashboardPage() {
         <span class="s">${errors.length ? `${errors.length} failing` : ""}${errors.length && degraded.length ? " · " : ""}${degraded.length ? `${degraded.length} degraded` : ""}${!errors.length && !degraded.length ? "all clear" : ""}</span></div>
       <div class="kpi"><span class="k">Tags good</span><span class="n">${good}<small>/${total}</small></span>
         <span class="bar"><i style="width:${total ? (good / total) * 100 : 0}%"></i></span></div>
-      <div class="kpi"><span class="k">Updates / s</span><span class="n">${rate}</span><span class="s">last 10 s</span></div>`;
+      <div class="kpi"><span class="k">Updates / s</span><span class="n">${rate}</span><span class="s">last 10 s</span></div>
+      ${agents.length ? `<a class="kpi kpi-link ${agents.some((a) => !a.online) ? "warn" : ""}" href="#/agents"><span class="k">Agents online</span>
+        <span class="n">${agents.filter((a) => a.online).length}<small>/${agents.length}</small></span>
+        <span class="s">${agents.some((a) => !a.online) ? `${agents.filter((a) => !a.online).map((a) => esc(a.name)).join(", ")} offline` : "all connected"}</span></a>` : ""}`;
 
     // Problems first, in words.
     const problems = [...errors, ...degraded];
@@ -355,6 +361,7 @@ async function dashboardPage() {
     if (ids !== services.map((s) => s.id).sort().join()) load(); else render();
   } };
   S.timers.push(setInterval(render, 1000));
+  S.timers.push(setInterval(() => api("GET", "/api/agents").then((a) => { agents = a; }).catch(() => {}), 5000));
   load().catch((e) => flash(m, e.message));
 }
 
@@ -367,14 +374,14 @@ async function servicesPage() {
       <span class="spacer"></span>${can("admin") ? `<a class="btn" href="#/new">New service</a>` : ""}</div>
     <div id="m"></div>
     <div class="panel scroll"><table>
-      <thead><tr><th>Service</th><th>Protocol</th><th>Mode</th><th class="num">Tags</th><th>State</th><th class="hide-sm">Detail</th><th></th></tr></thead>
-      <tbody id="rows"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody></table></div>`);
+      <thead><tr><th>Service</th><th>Protocol</th><th>Mode</th><th class="hide-sm">Runs on</th><th class="num">Tags</th><th>State</th><th class="hide-sm">Detail</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="8" class="muted">Loading…</td></tr></tbody></table></div>`);
   const draw = (list) => {
     S.services = list;
     const rows = document.getElementById("rows");
     if (!rows) return;
     if (!list.length) {
-      rows.innerHTML = `<tr><td colspan="7" class="muted">No services yet.${can("admin") ? ` <a href="#/new">Create one</a>.` : ""}</td></tr>`;
+      rows.innerHTML = `<tr><td colspan="8" class="muted">No services yet.${can("admin") ? ` <a href="#/new">Create one</a>.` : ""}</td></tr>`;
       return;
     }
     rows.innerHTML = list.map((s) => `
@@ -382,6 +389,7 @@ async function servicesPage() {
         <td><b>${esc(s.name)}</b><br><span class="tag">${esc(s.id)}</span></td>
         <td>${esc(KINDS[s.kind]?.label || s.kind)}</td>
         <td>${esc(s.mode)}</td>
+        <td class="hide-sm">${s.agent ? `<span class="tag">${esc(s.agent)}</span>` : `<span class="muted">hub</span>`}</td>
         <td class="num">${s.tag_count}</td>
         <td class="st-${esc(s.status.state)}">${status(s.status)}</td>
         <td class="hide-sm st-${esc(s.status.state)}"><span class="detail">${esc(s.status.detail)}</span></td>
@@ -449,7 +457,7 @@ async function servicePage(id, tab = "tags") {
   shell("services", `
     <div class="row"><div>
       <h1>${esc(svc.name)}</h1>
-      <p class="sub"><span class="tag">${esc(svc.id)}</span> ${esc(KINDS[svc.kind]?.label || svc.kind)} ${esc(svc.mode)}</p></div>
+      <p class="sub"><span class="tag">${esc(svc.id)}</span> ${esc(KINDS[svc.kind]?.label || svc.kind)} ${esc(svc.mode)}${svc.agent ? ` · runs on agent <a href="#/agents" class="mono">${esc(svc.agent)}</a>` : ""}</p></div>
       <span class="spacer"></span>
       ${can("operator") ? `<button id="toggle">${svc.enabled ? "Stop" : "Start"}</button><button id="restart" ${svc.enabled ? "" : "disabled"}>Restart</button>` : ""}
       ${can("admin") ? `<button class="danger" id="del">Delete</button>` : ""}
@@ -649,6 +657,94 @@ async function certsTab(svc, body, m) {
   load().catch((e) => flash(m, e.message));
 }
 
+// ---------------------------------------------------------------- agents
+
+async function agentsPage() {
+  clearPage();
+  shell("agents", `
+    <div class="row"><div><h1>Agents</h1>
+      <p class="sub">An edge agent runs services on a plant network and dials out to this Cowpoke, so the plant needs no inbound firewall rules.</p></div></div>
+    <div id="m"></div>
+    <div id="newtoken"></div>
+    <div class="agents" id="list"><div class="panel pad muted">Loading…</div></div>
+    ${can("admin") ? `
+    <h2>Add an agent</h2>
+    <form class="panel pad row" id="add">
+      <label>Id <input name="id" class="mono" required pattern="[a-z0-9_-]{1,64}" placeholder="plant-1" title="a-z, 0-9, - and _"></label>
+      <label>Name <input name="name" placeholder="Plant 1"></label>
+      <button class="primary">Create agent</button>
+    </form>` : ""}`);
+  const m = document.getElementById("m");
+
+  const showToken = (id, token) => {
+    const hub = location.origin;
+    const cmd = `docker run -d --name cowpoke-agent --restart unless-stopped --network host \\\n  -v cowpoke-agent:/data \\\n  -e COWPOKE_HUB=${hub} \\\n  -e COWPOKE_AGENT_TOKEN=${token} \\\n  cowpoke agent`;
+    document.getElementById("newtoken").innerHTML = `
+      <div class="panel pad token-box">
+        <div class="row"><b>Token for <span class="mono">${esc(id)}</span></b><span class="spacer"></span><button class="small" id="hide">Done</button></div>
+        <p class="warn-text">Copy it now. Cowpoke keeps only a hash, so it can't show this token again.</p>
+        <div class="copyrow"><code id="tok">${esc(token)}</code><button class="small" data-copy="tok">Copy</button></div>
+        <p class="muted">Start the agent on the plant network:</p>
+        <div class="copyrow"><pre id="cmd">${esc(cmd)}</pre><button class="small" data-copy="cmd">Copy</button></div>
+        <p class="muted">Then put <span class="mono">agent: ${esc(id)}</span> in each service that should run there.</p>
+      </div>`;
+    document.getElementById("hide").onclick = () => (document.getElementById("newtoken").innerHTML = "");
+    document.querySelectorAll("[data-copy]").forEach((b) => (b.onclick = async () => {
+      const el = document.getElementById(b.dataset.copy);
+      try { await navigator.clipboard.writeText(el.textContent); b.textContent = "Copied"; }
+      catch (e) { const r = document.createRange(); r.selectNodeContents(el); getSelection().removeAllRanges(); getSelection().addRange(r); b.textContent = "Press ⌘C"; }
+    }));
+  };
+
+  const load = async () => {
+    const agents = await api("GET", "/api/agents");
+    const list = document.getElementById("list");
+    if (!list) return;
+    list.innerHTML = agents.length ? agents.map((a) => `
+      <div class="panel agent ${a.online ? "on" : "off"}" data-id="${esc(a.id)}">
+        <div class="agent-h">
+          <span class="${a.online ? "st-running" : "st-error"}"><span class="dot"></span></span>
+          <b>${esc(a.name)}</b><span class="tag">${esc(a.id)}</span><span class="spacer"></span>
+          <span class="badge">${a.online ? "online" : "offline"}</span>
+        </div>
+        <dl class="agent-d">
+          <div><dt>Host</dt><dd class="mono">${esc(a.hostname || "—")}</dd></div>
+          <div><dt>Version</dt><dd class="mono">${esc(a.version || "—")}</dd></div>
+          <div><dt>${a.online ? "Connected" : "Last seen"}</dt><dd>${esc(a.online ? ago(a.connected_since) : a.last_seen ? ago(a.last_seen) : "never")}</dd></div>
+          <div><dt>Services</dt><dd>${a.services ? `<a href="#/services">${a.services}</a>` : "0"}</dd></div>
+        </dl>
+        ${can("admin") ? `<div class="row agent-a"><button class="small" data-rotate>New token</button><button class="small danger" data-del>Delete</button></div>` : ""}
+      </div>`).join("")
+      : `<div class="panel pad empty"><b>No agents yet.</b><p class="muted">${can("admin") ? "Add one below, then start it on the plant network with the command Cowpoke gives you." : "An admin can add one."}</p></div>`;
+    list.querySelectorAll("[data-rotate]").forEach((b) => (b.onclick = async () => {
+      const id = b.closest("[data-id]").dataset.id;
+      if (!confirm(`Make a new token for ${id}? The agent disconnects until it's restarted with the new token.`)) return;
+      try { const r = await api("POST", `/api/agents/${encodeURIComponent(id)}/token`); showToken(r.id, r.token); load(); }
+      catch (e) { flash(m, e.message); }
+    }));
+    list.querySelectorAll("[data-del]").forEach((b) => (b.onclick = async () => {
+      const id = b.closest("[data-id]").dataset.id;
+      if (!confirm(`Delete agent ${id}? It disconnects and its token stops working.`)) return;
+      try { await api("DELETE", `/api/agents/${encodeURIComponent(id)}`); flash(m, ""); load(); }
+      catch (e) { flash(m, e.message); }
+    }));
+  };
+
+  const f = document.getElementById("add");
+  if (f) f.onsubmit = async (ev) => {
+    ev.preventDefault();
+    try {
+      const r = await api("POST", "/api/agents", { id: f.elements.namedItem("id").value.trim(), name: f.elements.namedItem("name").value.trim() });
+      f.reset();
+      flash(m, "");
+      showToken(r.id, r.token);
+      load();
+    } catch (e) { flash(m, e.message); }
+  };
+  S.timers.push(setInterval(() => load().catch(() => {}), 3000));
+  load().catch((e) => flash(m, e.message));
+}
+
 // ---------------------------------------------------------------- users
 
 async function usersPage() {
@@ -752,6 +848,7 @@ async function route() {
   if (parts[0] === "users") return usersPage();
   if (parts[0] === "settings") return settingsPage();
   if (parts[0] === "services") return servicesPage();
+  if (parts[0] === "agents") return agentsPage();
   return dashboardPage();
 }
 

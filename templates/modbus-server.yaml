@@ -1,0 +1,28 @@
+# A simulated Modbus TCP device. Other software reads and writes these registers.
+id: plc-sim
+name: PLC simulator
+kind: modbus
+mode: server
+settings:
+  port: 5020            # 502 is the standard port; map it in Docker
+  word_order: big       # big (ABCD) or little (CDAB) for 32/64-bit values
+  # units: [1, 2]       # unit ids to answer as (default: every unit a tag uses)
+  # strict: false       # true: unmapped registers return Illegal Data Address
+tags:
+  - name: tank_level
+    datatype: float32
+    table: holding_register   # holding_register | input_register | coil | discrete_input
+    register: 0               # zero-based: 40001 is holding register 0
+    initial: 42.5
+    units: "%"
+    history: { mode: deadband, deadband: 0.5 }
+  - name: pump_run
+    datatype: bool
+    table: coil
+    register: 0
+  - name: flow_raw
+    datatype: int16
+    table: input_register
+    register: 10
+    scale: 0.1
+    unit: 2                   # a second device behind the same port

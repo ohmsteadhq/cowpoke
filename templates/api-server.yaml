@@ -1,0 +1,35 @@
+# Mock an HTTP API, and serve the tags as JSON.
+# Without `port`, it answers at http://<cowpoke>:8080/x/<id>/... (no sign-in needed).
+id: weather-mock
+name: Weather API mock
+kind: api
+mode: server
+settings:
+  # port: 9000          # its own port, serving routes at /
+  expose_tags: true     # GET /tags, GET /tags/NAME, PUT /tags/NAME
+  routes:
+    - method: GET
+      path: /v1/current
+      body:
+        temperature: "{{tags.temperature}}"
+        updated: "{{now}}"
+    - method: GET
+      path: /v1/stations/:id
+      body: { station: "{{params.id}}", online: true }
+    - method: POST
+      path: /v1/setpoint
+      set: { setpoint: /value }   # tag name: JSON pointer into the request body
+      status: 202
+      body: { accepted: true }
+    - method: GET
+      path: /v1/slow
+      delay_ms: 2000
+      status: 503
+      body: "try again later"
+tags:
+  - name: temperature
+    datatype: float64
+    initial: 18.4
+  - name: setpoint
+    datatype: float64
+    initial: 20

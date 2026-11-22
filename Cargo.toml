@@ -1,0 +1,40 @@
+[package]
+name = "cowpoke"
+version = "0.1.0"
+edition = "2024"
+description = "One container, many industrial communication services: Modbus TCP, OPC UA, HTTP APIs and IO-Link, each as client or server, with a historian."
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+anyhow = "1.0.104"
+argon2 = "0.6.0"
+async-opcua = { version = "0.19.0", features = ["server", "client"] }
+axum = { version = "0.8.9", features = ["macros"] }
+axum-extra = { version = "0.12.6", features = ["cookie"] }
+base64 = "0.23.1"
+chrono = { version = "0.4.45", features = ["serde"] }
+dashmap = "6.2.1"
+futures = "0.3.34"
+hex = "0.4.3"
+parking_lot = "0.12.5"
+rand = "0.8"
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls", "query"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+serde_yaml = "0.9.34"
+thiserror = "2.0.21"
+tokio = { version = "1.54.1", features = ["full"] }
+tokio-modbus = { version = "0.17.0", default-features = false, features = ["tcp", "tcp-server"] }
+tokio-stream = { version = "0.1.19", features = ["sync"] }
+tokio-util = { version = "0.7.20", features = ["rt"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+uuid = { version = "1.29.3", features = ["v4", "serde"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[profile.release]
+lto = "thin"
+strip = true

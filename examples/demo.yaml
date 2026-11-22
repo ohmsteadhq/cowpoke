@@ -1,0 +1,77 @@
+# A self-contained demo: four simulated devices, and four clients reading them back.
+# Run:  COWPOKE_CONFIG=examples/demo.yaml cargo run   (or copy it to /data/cowpoke.yaml in Docker)
+services:
+  - id: plc-sim
+    name: PLC simulator
+    kind: modbus
+    mode: server
+    settings: { port: 5020 }
+    tags:
+      - { name: tank_level, datatype: float32, register: 0, initial: 42.5, units: "%", history: { mode: interval, interval_ms: 2000 } }
+      - { name: pump_run, datatype: bool, table: coil, register: 0 }
+      - { name: flow, datatype: int16, table: input_register, register: 10, scale: 0.1, initial: 12.3, units: m³/h }
+  - id: plc-reader
+    name: PLC reader
+    kind: modbus
+    mode: client
+    settings: { host: 127.0.0.1, port: 5020, poll_ms: 500 }
+    tags:
+      - { name: tank_level, datatype: float32, register: 0, units: "%", history: { mode: deadband, deadband: 0.1 } }
+      - { name: pump_run, datatype: bool, table: coil, register: 0 }
+      - { name: flow, datatype: int16, table: input_register, register: 10, scale: 0.1, units: m³/h, writable: false }
+
+  - id: ua-sim
+    name: OPC UA simulator
+    kind: opcua
+    mode: server
+    settings: { port: 4841, hostname: localhost, trust_client_certs: true }
+    tags:
+      - { name: Temperature, datatype: float64, initial: 21.5, units: °C }
+      - { name: Running, datatype: bool }
+  - id: ua-reader
+    name: OPC UA reader
+    kind: opcua
+    mode: client
+    settings: { url: "opc.tcp://localhost:4841/", poll_ms: 500, trust_server_certs: true }
+    tags:
+      - { name: temperature, datatype: float64, node_id: "ns=2;s=Temperature", units: °C, history: { mode: deadband, deadband: 0.05 } }
+      - { name: running, datatype: bool, node_id: "ns=2;s=Running" }
+
+  - id: weather-mock
+    name: Weather API mock
+    kind: api
+    mode: server
+    settings:
+      port: 9000
+      routes:
+        - { method: GET, path: /v1/current, body: { main: { temp: "{{tags.temperature}}" }, updated: "{{now}}" } }
+    tags:
+      - { name: temperature, datatype: float64, initial: 18.4 }
+  - id: weather
+    name: Weather reader
+    kind: api
+    mode: client
+    settings: { url: "http://127.0.0.1:9000/v1/current", interval_ms: 1000 }
+    tags:
+      - { name: temperature, datatype: float64, pointer: /main/temp, writable: false }
+
+  - id: iolink-sim
+    name: IO-Link master simulator
+    kind: iolink
+    mode: server
+    settings:
+      port: 8081
+      devices: [{ port: 1, product_name: TV7105, vendor_id: 310, pdin_bytes: 4 }]
+    tags:
+      - { name: temperature, datatype: int16, port: 1, bit_offset: 16, bit_length: 16, scale: 0.1, initial: 21.5, units: °C }
+      - { name: out1, datatype: bool, port: 1, bit_offset: 0 }
+      - { name: lamp, datatype: bool, port: 2, pd: out, bit_offset: 0 }
+  - id: iolink-reader
+    name: IO-Link reader
+    kind: iolink
+    mode: client
+    settings: { host: 127.0.0.1, port: 8081, poll_ms: 500 }
+    tags:
+      - { name: temperature, datatype: int16, port: 1, bit_offset: 16, bit_length: 16, scale: 0.1, units: °C, writable: false }
+      - { name: out1, datatype: bool, port: 1, bit_offset: 0, writable: false }
+      - { name: lamp, datatype: bool, port: 2, pd: out, bit_offset: 0 }

@@ -1,0 +1,20 @@
+# A simulated ifm-style IO-Link master (IoT Core JSON API).
+# Clients POST {"code":"request","cid":1,"adr":"/iolinkmaster/port[1]/iolinkdevice/pdin/getdata"}.
+id: iolink-sim
+name: IO-Link master simulator
+kind: iolink
+mode: server
+settings:
+  port: 8081
+  ports: 8
+  product_name: Cowpoke IO-Link master
+  devices:
+    - { port: 1, product_name: TV7105, vendor_id: 310, device_id: 1076, pdin_bytes: 4 }
+    - { port: 2, product_name: Signal lamp, vendor_id: 310, device_id: 2001, pdout_bytes: 1 }
+tags:
+  # bit_offset counts from the least significant bit of the last byte, as in the IODD.
+  - { name: temperature, datatype: int16, port: 1, pd: in, bit_offset: 16, bit_length: 16, scale: 0.1, initial: 21.5, units: "°C" }
+  - { name: out1, datatype: bool, port: 1, pd: in, bit_offset: 0 }
+  - { name: out2, datatype: bool, port: 1, pd: in, bit_offset: 1 }
+  - { name: lamp_green, datatype: bool, port: 2, pd: out, bit_offset: 0 }
+  - { name: lamp_red, datatype: bool, port: 2, pd: out, bit_offset: 1 }

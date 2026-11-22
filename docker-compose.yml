@@ -1,0 +1,19 @@
+# docker compose up -d, then open http://localhost:8080 and sign in as admin.
+services:
+  cowpoke:
+    build: .
+    image: cowpoke:latest
+    restart: unless-stopped
+    environment:
+      # Only used the first time, when there are no users yet. Change it after signing in.
+      COWPOKE_ADMIN_PASSWORD: ${COWPOKE_ADMIN_PASSWORD:?set COWPOKE_ADMIN_PASSWORD}
+    volumes:
+      - cowpoke-data:/data
+    ports:
+      - "8080:8080"   # web UI and API
+      - "502:5020"    # Modbus TCP server services (example)
+      - "4840:4840"   # OPC UA server services
+      - "8081:8081"   # IO-Link master simulator
+    # Simplest on Linux when services use many ports: network_mode: host (and drop `ports`).
+volumes:
+  cowpoke-data:

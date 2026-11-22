@@ -1,0 +1,26 @@
+# Poll a real Modbus TCP device (or a gateway with several unit ids behind it).
+id: plc-line1
+name: Line 1 PLC
+kind: modbus
+mode: client
+settings:
+  host: 192.168.1.50
+  port: 502
+  poll_ms: 1000
+  timeout_ms: 3000
+  word_order: big
+tags:
+  - name: tank_level
+    datatype: float32
+    register: 0
+    writable: false
+    history: { mode: interval, interval_ms: 5000, retention_days: 90 }
+  - name: setpoint
+    datatype: uint16
+    register: 20
+  - name: drive_temp
+    datatype: int16
+    table: input_register
+    register: 100
+    unit: 3
+    scale: 0.1

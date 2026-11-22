@@ -1,0 +1,24 @@
+# An OPC UA server. Tags appear as variables under Objects/<service name>.
+id: ua-sim
+name: OPC UA simulator
+kind: opcua
+mode: server
+settings:
+  port: 4840
+  # hostname: cowpoke.local         # name clients use; goes into the endpoint URL
+  security_policies: [none, basic256sha256, aes128_sha256_rsa_oaep, aes256_sha256_rsa_pss]
+  allow_anonymous: true
+  users:
+    - { username: operator, password: change-me-please }
+  trust_client_certs: false         # new client certs wait in the trust list until an admin trusts them
+tags:
+  - name: Temperature
+    datatype: float64
+    initial: 21.5
+    history: { mode: deadband, deadband: 0.1 }
+  - name: Running
+    datatype: bool
+  - name: Recipe
+    datatype: string
+    initial: "IPA-70"
+    writable: false

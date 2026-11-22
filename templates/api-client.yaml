@@ -1,0 +1,27 @@
+# Call an HTTP endpoint on a timer and read values out of the JSON answer.
+id: weather
+name: Weather service
+kind: api
+mode: client
+settings:
+  url: https://api.example.com/v1/current?site=plant-1
+  method: GET
+  headers:
+    Authorization: Bearer YOUR-TOKEN
+  interval_ms: 60000
+  timeout_ms: 10000
+  # Optional: the request to send when a tag is written ({{tag}}, {{value}}, {{tags.NAME}})
+  write:
+    url: https://api.example.com/v1/setpoints/{{tag}}
+    method: PUT
+    body: { value: "{{value}}" }
+tags:
+  - name: temperature
+    datatype: float64
+    pointer: /main/temp          # JSON pointer into the response
+    writable: false
+    history: { mode: interval, interval_ms: 60000, retention_days: 365 }
+  - name: humidity
+    datatype: float64
+    pointer: /main/humidity
+    writable: false

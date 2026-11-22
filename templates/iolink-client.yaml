@@ -1,0 +1,13 @@
+# Read IO-Link sensors through a real ifm IoT Core master (AL13xx and similar).
+id: iolink-cell2
+name: Cell 2 IO-Link master
+kind: iolink
+mode: client
+settings:
+  host: 192.168.1.70
+  port: 80
+  poll_ms: 500
+tags:
+  - { name: temperature, datatype: int16, port: 1, bit_offset: 16, bit_length: 16, scale: 0.1, writable: false, history: { mode: deadband, deadband: 0.2 } }
+  - { name: switch1, datatype: bool, port: 1, bit_offset: 0, writable: false }
+  - { name: valve_open, datatype: bool, port: 3, pd: out, bit_offset: 0 }

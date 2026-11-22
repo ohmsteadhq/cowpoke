@@ -149,12 +149,27 @@ function panelsRoute(parts) {
 
 // ---------------------------------------------------------------- insights
 
-const AREAS = { network: "Network", comms: "Communications", alarms: "Alarms", historian: "Historian" };
+const AREAS = { network: "Network", comms: "Communications", equipment: "Equipment", process: "Process", alarms: "Alarms", historian: "Historian" };
+const PAIRS_EXAMPLE = `# Commands and the feedback that should follow them.
+pairs:
+  - name: Feed pump
+    command: line1/pump_run        # service/tag
+    feedback: line1/pump_running
+    kind: runs                     # runs: feedback on while commanded on
+    delay_s: 10
+  - name: Inlet valve
+    command: line1/valve_sp
+    feedback: line1/valve_pos
+    kind: follows                  # follows: feedback within tolerance of the command
+    tolerance: 2
+    delay_s: 30
+`;
 const LEVELS = { warn: ["Check", "pn-sev pn-sev-high"], suggest: ["Suggestion", "pn-sev pn-sev-medium"], info: ["Note", "pn-sev"] };
 
 async function insightsPage(tab) {
   clearPage();
-  const tabs = [["open", "Open"], ["network", "Network"], ["comms", "Communications"], ["alarms", "Alarms"], ["historian", "Historian"], ["dismissed", "Dismissed"]];
+  const tabs = [["open", "Open"], ["network", "Network"], ["comms", "Communications"], ["equipment", "Equipment"], ["process", "Process"], ["alarms", "Alarms"], ["historian", "Historian"], ["dismissed", "Dismissed"]];
+  if (can("admin")) tabs.push(["setup", "Setup"]);
   shell("insights", `
     <div class="row"><div><h1>Insights</h1>
       <p class="sub">What Cowpoke has learned from watching every tag, service and alarm: polling faster than values change, flapping connections, bad reads, noisy history and alarm hygiene. Suggestions only: nothing changes until you change it.</p></div>
@@ -198,6 +213,7 @@ async function insightsPage(tab) {
       } catch (e) { flash(m, e.message); }
     }));
   };
+  if (tab === "setup") return insightsSetup(body, m);
   const load = () => api("GET", "/api/insights").then(draw).catch((e) => flash(m, e.message));
   const run = document.getElementById("run");
   if (run) run.onclick = async () => {
@@ -206,6 +222,24 @@ async function insightsPage(tab) {
     run.disabled = false;
   };
   load();
+}
+
+async function insightsSetup(body, m) {
+  let text = "";
+  try { text = await fetch("/api/insights/config", { credentials: "same-origin" }).then((r) => r.text()); } catch (e) { flash(m, e.message); }
+  const empty = !text.trim() || /^pairs: \[\]\s*$/.test(text.trim());
+  body.innerHTML = `<div class="panel pad">
+    <p class="muted">What Cowpoke can't work out alone. <b>Pairs</b>: a command and the feedback that should follow it (a pump and its running signal, a valve setpoint and its position); Cowpoke checks every update and raises an Equipment insight when the feedback doesn't follow within the delay.</p>
+    <label class="pn-lbl" for="cfg">insights.yaml</label>
+    <textarea id="cfg" class="mono pn-small-ta" rows="16" spellcheck="false">${esc(empty ? PAIRS_EXAMPLE : text)}</textarea>
+    <div class="pn-actions"><button class="primary" id="save">Save</button></div></div>`;
+  document.getElementById("save").onclick = async () => {
+    try {
+      const r = await fetch("/api/insights/config", { method: "PUT", credentials: "same-origin", headers: { "content-type": "application/yaml" }, body: document.getElementById("cfg").value });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+      flash(m, "Saved.", "ok");
+    } catch (e) { flash(m, e.message); }
+  };
 }
 
 // ---------------------------------------------------------------- boards list

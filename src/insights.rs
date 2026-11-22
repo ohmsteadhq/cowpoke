@@ -46,9 +46,53 @@ pub struct TagStats {
     pub gaps: Vec<f64>,
     /// Size of each numeric change (the most recent samples).
     pub steps: Vec<f64>,
+    /// Per-hour statistics of numeric values, the last 72 hours.
+    #[serde(default)]
+    pub hours: Vec<Bucket>,
+    /// The latest numeric values (ms since epoch, value), for short-term trends.
+    #[serde(default)]
+    pub recent: Vec<(i64, f64)>,
+    /// Values more than 6 standard deviations from the mean.
+    #[serde(default)]
+    pub spikes: u64,
+    /// Values at an integer type's limits (32767, 65535, …): a broken wire or a sensor out of range.
+    #[serde(default)]
+    pub rails: u64,
+    /// On/off tags: the current state and since when, and how long earlier runs of
+    /// each state lasted and the time between switch-ons (seconds).
+    #[serde(default)]
+    pub state: Option<bool>,
+    #[serde(default)]
+    pub state_since: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub on_runs: Vec<f64>,
+    #[serde(default)]
+    pub off_runs: Vec<f64>,
+    #[serde(default)]
+    pub periods: Vec<f64>,
+    #[serde(default)]
+    pub last_rise: Option<DateTime<Utc>>,
     #[serde(skip)]
     last_value: Option<Value>,
 }
+
+/// One hour of a tag's numeric values.
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct Bucket {
+    /// Hours since the epoch.
+    pub hour: i64,
+    pub n: u64,
+    pub mean: f64,
+    pub m2: f64,
+}
+
+impl Bucket {
+    pub fn std(&self) -> f64 {
+        if self.n > 1 { (self.m2 / (self.n - 1) as f64).sqrt() } else { 0.0 }
+    }
+}
+
+const RAILS: [f64; 6] = [32767.0, -32768.0, 65535.0, 2147483647.0, -2147483648.0, 4294967295.0];
 
 fn push(v: &mut Vec<f64>, x: f64) {
     if v.len() >= RESERVOIR {
@@ -89,7 +133,47 @@ impl TagStats {
             self.last_change = Some(ts);
             self.last_value = Some(v.clone());
         }
+        if let Value::Bool(b) = v {
+            if self.state != Some(*b) {
+                if let (Some(prev), Some(since)) = (self.state, self.state_since) {
+                    let d = (ts - since).num_milliseconds().max(0) as f64 / 1000.0;
+                    push(if prev { &mut self.on_runs } else { &mut self.off_runs }, d);
+                }
+                if *b {
+                    if let Some(r) = self.last_rise {
+                        push(&mut self.periods, (ts - r).num_milliseconds().max(0) as f64 / 1000.0);
+                    }
+                    self.last_rise = Some(ts);
+                }
+                self.state = Some(*b);
+                self.state_since = Some(ts);
+            }
+            return;
+        }
         if let Some(x) = as_f64(v).filter(|x| x.is_finite()) {
+            if RAILS.contains(&x) {
+                self.rails += 1;
+            }
+            let sd = self.std();
+            if self.n > 100 && sd > 0.0 && (x - self.mean).abs() > 6.0 * sd {
+                self.spikes += 1;
+            }
+            let hour = ts.timestamp().div_euclid(3600);
+            if self.hours.last().is_none_or(|b| b.hour != hour) {
+                self.hours.push(Bucket { hour, ..Default::default() });
+                if self.hours.len() > 72 {
+                    self.hours.remove(0);
+                }
+            }
+            let b = self.hours.last_mut().unwrap();
+            b.n += 1;
+            let d = x - b.mean;
+            b.mean += d / b.n as f64;
+            b.m2 += d * (x - b.mean);
+            if self.recent.len() >= 120 {
+                self.recent.remove(0);
+            }
+            self.recent.push((ts.timestamp_millis(), x));
             self.n += 1;
             let d = x - self.mean;
             self.mean += d / self.n as f64;
@@ -128,6 +212,8 @@ pub struct ServiceStats {
 pub enum Area {
     Network,
     Comms,
+    Equipment,
+    Process,
     Alarms,
     Historian,
 }
@@ -271,6 +357,109 @@ pub struct Snapshot<'a> {
     pub alarm_names: &'a HashMap<String, String>,
     /// Each traffic monitor's talkers and address conflicts.
     pub monitors: &'a [(String, Vec<crate::monitor::Talker>, Vec<crate::monitor::AddressConflict>)],
+    pub alarm_defs: &'a [crate::alarms::AlarmDef],
+    /// Command/feedback pairs and what has happened to each.
+    pub pairs: &'a [(Pair, PairState)],
+}
+
+// ------------------------------------------------------------------ configuration
+
+/// `insights.yaml` in the data folder: what Cowpoke can't work out alone.
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[serde(deny_unknown_fields)]
+pub struct InsightsConfig {
+    /// Commands and the feedback that should follow them.
+    #[serde(default)]
+    pub pairs: Vec<Pair>,
+}
+
+/// A command and its feedback: a valve and its position, a motor and its current.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Pair {
+    /// What to call it, e.g. "Feed pump".
+    pub name: String,
+    /// `service/tag` of the command (a run bool or a setpoint).
+    pub command: String,
+    /// `service/tag` of the feedback (running bool, current, position).
+    pub feedback: String,
+    #[serde(default)]
+    pub kind: PairKind,
+    /// `follows`: how far feedback may differ from the command (engineering units).
+    #[serde(default)]
+    pub tolerance: f64,
+    /// Seconds the feedback gets to respond before it counts as missing.
+    #[serde(default = "default_delay")]
+    pub delay_s: u64,
+}
+
+fn default_delay() -> u64 {
+    10
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum PairKind {
+    /// While the command is on (true or non-zero), the feedback must be on too.
+    #[default]
+    Runs,
+    /// The feedback must come within `tolerance` of the command (a position or speed).
+    Follows,
+}
+
+impl Pair {
+    fn split(s: &str) -> Option<(String, String)> {
+        s.split_once('/').map(|(a, b)| (a.to_string(), b.to_string()))
+    }
+    pub fn validate(&self) -> Result<(), String> {
+        if Self::split(&self.command).is_none() || Self::split(&self.feedback).is_none() {
+            return Err(format!("pair `{}`: command and feedback are `service/tag`", self.name));
+        }
+        Ok(())
+    }
+}
+
+/// What a pair has done: when the current mismatch began, and past ones.
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct PairState {
+    pub mismatch_since: Option<DateTime<Utc>>,
+    /// Mismatches that lasted longer than the delay.
+    pub incidents: u64,
+    pub last_incident: Option<DateTime<Utc>>,
+    /// The values at the last incident.
+    pub last_detail: String,
+    #[serde(skip)]
+    counted: bool,
+}
+
+fn on(v: &Value) -> bool {
+    match v {
+        Value::Bool(b) => *b,
+        _ => as_f64(v).is_some_and(|x| x.abs() > 1e-9),
+    }
+}
+
+/// Check one pair with the latest values of both tags.
+pub fn check_pair(p: &Pair, st: &mut PairState, now: DateTime<Utc>, cmd: &Value, fb: &Value) {
+    let bad = match p.kind {
+        PairKind::Runs => on(cmd) && !on(fb),
+        PairKind::Follows => match (as_f64(cmd), as_f64(fb)) {
+            (Some(c), Some(f)) => (c - f).abs() > p.tolerance.max(1e-9),
+            _ => false,
+        },
+    };
+    if !bad {
+        st.mismatch_since = None;
+        st.counted = false;
+        return;
+    }
+    let since = *st.mismatch_since.get_or_insert(now);
+    if !st.counted && (now - since).num_seconds() >= p.delay_s as i64 {
+        st.counted = true;
+        st.incidents += 1;
+        st.last_incident = Some(now);
+        st.last_detail = format!("command {cmd}, feedback {fb}");
+    }
 }
 
 /// Run every analyzer.
@@ -278,6 +467,9 @@ pub fn analyze(s: &Snapshot, t: &Tuning) -> Vec<Insight> {
     let mut out = vec![];
     network(s, &mut out);
     comms(s, t, &mut out);
+    equipment(s, t, &mut out);
+    process(s, t, &mut out);
+    pairs(s, &mut out);
     historian(s, t, &mut out);
     alarms(s, t, &mut out);
     out.sort_by(|a, b| b.level.cmp(&a.level).then(a.area.cmp(&b.area)).then(a.id.cmp(&b.id)));
@@ -490,6 +682,207 @@ fn comms(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
     }
 }
 
+/// Linear fit y = a + b·x; returns (slope b, R²).
+fn fit(pts: &[(f64, f64)]) -> Option<(f64, f64)> {
+    let n = pts.len() as f64;
+    if pts.len() < 3 {
+        return None;
+    }
+    let (mx, my) = (pts.iter().map(|p| p.0).sum::<f64>() / n, pts.iter().map(|p| p.1).sum::<f64>() / n);
+    let (mut sxy, mut sxx, mut syy) = (0.0, 0.0, 0.0);
+    for (x, y) in pts {
+        sxy += (x - mx) * (y - my);
+        sxx += (x - mx).powi(2);
+        syy += (y - my).powi(2);
+    }
+    if sxx == 0.0 {
+        return None;
+    }
+    let b = sxy / sxx;
+    let r2 = if syy == 0.0 { 0.0 } else { (sxy * sxy) / (sxx * syy) };
+    Some((b, r2))
+}
+
+/// Tags read from real devices (client services), with their stats.
+fn device_tags<'a>(s: &'a Snapshot) -> impl Iterator<Item = (&'a ServiceDef, &'a crate::model::TagDef, &'a TagStats)> {
+    s.cfg.services.iter().filter(|d| d.mode == Mode::Client && d.kind != crate::model::Kind::Monitor).flat_map(move |d| {
+        d.tags.iter().filter_map(move |t| s.tags.get(&(d.id.clone(), t.name.clone())).map(|st| (d, t, st)))
+    })
+}
+
+fn equipment(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
+    let now_hour = s.now.timestamp().div_euclid(3600);
+    for (def, tg, st) in device_tags(s) {
+        if st.span() < t.min_watch || st.n < t.min_updates {
+            continue;
+        }
+        let name = format!("{} · {}", def.name_or_id(), tg.name);
+        let mk = |kind: &str, level, title: String, detail: &str, evidence: Vec<String>, suggestion: &str| Insight {
+            id: id(&[kind, &def.id, &tg.name]),
+            area: Area::Equipment,
+            level,
+            title,
+            detail: detail.into(),
+            evidence,
+            suggestion: suggestion.into(),
+            service: Some(def.id.clone()),
+            tag: Some(tg.name.clone()),
+            fix: None,
+        };
+        // Pinned at an integer type's limit.
+        if st.rails >= 10 && st.rails as f64 / st.n as f64 >= 0.01 {
+            out.push(mk("rails", Level::Warn, format!("{name} reads at the end of its range"),
+                "Values like 32767 or 65535 are what an analog input reports for a broken wire, a shorted or overranged sensor.",
+                vec![format!("{} of {} readings at a range limit", st.rails, st.n)],
+                "Check the sensor and its wiring, and the input card's diagnostics."));
+        }
+        // Rare spikes.
+        if st.spikes >= 5 && (st.spikes as f64) < st.n as f64 * 0.01 {
+            out.push(mk("spikes", Level::Info, format!("{name} has occasional spikes"),
+                "Single readings far from the rest: electrical noise, a loose connection, or a sensor starting to fail.",
+                vec![format!("{} readings more than 6 standard deviations out, of {}", st.spikes, st.n)],
+                "Check shielding and grounding near drives, and the connector; consider filtering in the PLC."));
+        }
+        // Complete hours only.
+        let done: Vec<&Bucket> = st.hours.iter().filter(|b| b.hour < now_hour && b.n >= 30).collect();
+        // Noise rising: the last hour against the hours before.
+        if done.len() >= 7 {
+            let (last, before) = done.split_last().unwrap();
+            let base = median(&before.iter().map(|b| b.std()).collect::<Vec<_>>()).unwrap_or(0.0);
+            if base > 0.0 && last.std() >= 3.0 * base {
+                out.push(mk("noise", Level::Suggest, format!("{name} is getting noisier"),
+                    "Its readings scatter far more than they used to at the same time of measuring: a failing sensor, interference, or a mechanical problem (cavitation, vibration).",
+                    vec![format!("last hour std {:.4}, usual {:.4}", last.std(), base)],
+                    "Compare with a local gauge; check the sensor, its cable and what changed nearby."));
+            }
+        }
+        // Slow drift over a day.
+        let day: Vec<&&Bucket> = done.iter().filter(|b| b.hour >= now_hour - 24).collect();
+        if day.len() >= 12 {
+            let pts: Vec<(f64, f64)> = day.iter().map(|b| (b.hour as f64, b.mean)).collect();
+            if let Some((slope, r2)) = fit(&pts) {
+                let change = slope * (pts.last().unwrap().0 - pts[0].0);
+                let noise = median(&day.iter().map(|b| b.std()).collect::<Vec<_>>()).unwrap_or(0.0);
+                let range = st.max.zip(st.min).map(|(a, b)| a - b).unwrap_or(0.0);
+                if r2 >= 0.8 && change.abs() >= 4.0 * noise.max(1e-9) && change.abs() >= 0.05 * range {
+                    out.push(mk("drift", Level::Info, format!("{name} has drifted {}{:.3} in a day", if change > 0.0 { "+" } else { "" }, change),
+                        "A steady, one-way trend hour after hour. Normal for a level filling or a filter loading; otherwise a sign of sensor drift or wear.",
+                        vec![format!("{} hours, fit R² {r2:.2}", pts.len())],
+                        "If the process shouldn't trend, compare with a reference instrument and recalibrate."));
+                }
+            }
+        }
+        // Heading for an alarm limit.
+        if st.recent.len() >= 20 {
+            let t0 = st.recent[0].0;
+            let pts: Vec<(f64, f64)> = st.recent.iter().map(|(ms, v)| ((ms - t0) as f64 / 1000.0, *v)).collect();
+            let span = pts.last().unwrap().0;
+            if let (Some((slope, r2)), true) = (fit(&pts), span >= 300.0) {
+                let last = pts.last().unwrap().1;
+                for a in s.alarm_defs.iter().filter(|a| a.enabled && a.service == def.id && a.tag == tg.name) {
+                    let (Some(limit), true) = (a.limit, r2 >= 0.7) else { continue };
+                    let eta = match a.kind {
+                        crate::alarms::AlarmKind::High if slope > 0.0 && last < limit => (limit - last) / slope,
+                        crate::alarms::AlarmKind::Low if slope < 0.0 && last > limit => (limit - last) / slope,
+                        _ => continue,
+                    };
+                    if eta <= 7200.0 {
+                        let an = s.alarm_names.get(&a.id).cloned().unwrap_or_else(|| a.id.clone());
+                        out.push(Insight {
+                            id: id(&["forecast", &a.id]),
+                            area: Area::Equipment,
+                            level: Level::Warn,
+                            title: format!("{name} will reach alarm “{an}” in about {}", secs(eta)),
+                            detail: format!("At its current rate ({slope:+.4} per second) it crosses {limit} soon."),
+                            evidence: vec![format!("now {last:.3}, trend over the last {}", secs(span))],
+                            suggestion: "Act before the alarm: check why it's moving and whether to intervene.".into(),
+                            service: Some(def.id.clone()),
+                            tag: Some(tg.name.clone()),
+                            fix: None,
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// On/off tags as process steps: stuck in a state, cycles getting slower.
+fn process(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
+    for (def, tg, st) in device_tags(s) {
+        if tg.datatype != DataType::Bool {
+            continue;
+        }
+        let name = format!("{} · {}", def.name_or_id(), tg.name);
+        if let (Some(state), Some(since)) = (st.state, st.state_since) {
+            let runs = if state { &st.on_runs } else { &st.off_runs };
+            let longest = runs.iter().cloned().fold(0.0, f64::max);
+            let held = (s.now - since).num_milliseconds() as f64 / 1000.0;
+            if runs.len() >= 10 && held >= (1.5 * longest).max(60.0) {
+                out.push(Insight {
+                    id: id(&["stuck", &def.id, &tg.name]),
+                    area: Area::Process,
+                    level: Level::Warn,
+                    title: format!("{name} has been {} for {}", if state { "on" } else { "off" }, secs(held)),
+                    detail: format!("It has switched {} times while watched and never stayed this way longer than {}. A step may be waiting on an interlock or a device.", runs.len(), secs(longest)),
+                    evidence: vec![format!("{} since {}", if state { "on" } else { "off" }, since.format("%H:%M:%S"))],
+                    suggestion: "Check what this step waits for: interlocks, a sensor that didn't come on, a stopped device.".into(),
+                    service: Some(def.id.clone()),
+                    tag: Some(tg.name.clone()),
+                    fix: None,
+                });
+            }
+        }
+        if st.periods.len() >= 30 {
+            let (old, new) = st.periods.split_at(st.periods.len() - 10);
+            let (a, b) = (median(old).unwrap_or(0.0), median(new).unwrap_or(0.0));
+            if a > 0.0 && b >= 1.25 * a && st.span() >= t.min_watch {
+                out.push(Insight {
+                    id: id(&["slower", &def.id, &tg.name]),
+                    area: Area::Process,
+                    level: Level::Suggest,
+                    title: format!("{name} cycles {:.0}% slower", (b / a - 1.0) * 100.0),
+                    detail: "The time between switch-ons has grown: a cycle or step is taking longer than it used to.".into(),
+                    evidence: vec![format!("last 10 cycles {} (median), before {}", secs(b), secs(a))],
+                    suggestion: "Look for what got slower: a valve, a heater, a conveyor, or a changed setpoint.".into(),
+                    service: Some(def.id.clone()),
+                    tag: Some(tg.name.clone()),
+                    fix: None,
+                });
+            }
+        }
+    }
+}
+
+fn pairs(s: &Snapshot, out: &mut Vec<Insight>) {
+    for (p, st) in s.pairs {
+        let current = st.mismatch_since.filter(|m| (s.now - *m).num_seconds() >= p.delay_s as i64);
+        let recent = st.last_incident.is_some_and(|t| s.now - t <= TimeDelta::hours(24));
+        if current.is_none() && !recent {
+            continue;
+        }
+        let what = match p.kind {
+            PairKind::Runs => "is commanded on but its feedback stays off",
+            PairKind::Follows => "doesn't follow its command",
+        };
+        out.push(Insight {
+            id: id(&["pair", &p.name]),
+            area: Area::Equipment,
+            level: Level::Warn,
+            title: match current {
+                Some(m) => format!("{} {what} (for {})", p.name, secs((s.now - m).num_seconds() as f64)),
+                None => format!("{} {what} at times", p.name),
+            },
+            detail: format!("{} → {}: a stuck valve, a tripped motor, a failed feedback sensor or a wiring fault.", p.command, p.feedback),
+            evidence: vec![format!("{} time(s), last {}", st.incidents, st.last_incident.map(|t| t.format("%b %d %H:%M").to_string()).unwrap_or("-".into())), st.last_detail.clone()],
+            suggestion: "Check the actuator and its feedback device on site; look at the drive or starter for a trip.".into(),
+            service: Pair::split(&p.command).map(|x| x.0),
+            tag: Pair::split(&p.command).map(|x| x.1),
+            fix: None,
+        });
+    }
+}
+
 fn historian(s: &Snapshot, t: &Tuning, out: &mut Vec<Insight>) {
     for def in &s.cfg.services {
         for tg in &def.tags {
@@ -662,6 +1055,8 @@ struct Saved {
     tags: Vec<((String, String), TagStats)>,
     services: HashMap<String, ServiceStats>,
     dismissed: HashSet<String>,
+    #[serde(default)]
+    pairs: HashMap<String, PairState>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -675,6 +1070,12 @@ pub struct Report {
 
 pub struct Insights {
     path: PathBuf,
+    config_path: PathBuf,
+    config: Mutex<InsightsConfig>,
+    /// Pair name → state.
+    pair_states: Mutex<HashMap<String, PairState>>,
+    /// Latest value per (service, tag), for pair checks.
+    latest: Mutex<HashMap<(String, String), Value>>,
     tags: Mutex<HashMap<(String, String), TagStats>>,
     services: Mutex<HashMap<String, ServiceStats>>,
     dismissed: Mutex<HashSet<String>>,
@@ -685,8 +1086,20 @@ pub struct Insights {
 impl Insights {
     pub fn open(path: PathBuf) -> Arc<Self> {
         let saved: Saved = std::fs::read(&path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+        let config_path = path.with_file_name("insights.yaml");
+        let config = match std::fs::read_to_string(&config_path) {
+            Ok(text) => serde_yaml::from_str(&text).unwrap_or_else(|e| {
+                tracing::warn!("{}: {e}; ignoring it", config_path.display());
+                InsightsConfig::default()
+            }),
+            Err(_) => InsightsConfig::default(),
+        };
         Arc::new(Self {
             path,
+            config_path,
+            config: Mutex::new(config),
+            pair_states: Mutex::new(saved.pairs),
+            latest: Mutex::new(HashMap::new()),
             tags: Mutex::new(saved.tags.into_iter().collect()),
             services: Mutex::new(saved.services),
             dismissed: Mutex::new(saved.dismissed),
@@ -701,6 +1114,59 @@ impl Insights {
             .entry((e.service.clone(), e.tag.clone()))
             .or_default()
             .observe(e.state.ts, &e.state.value, e.state.quality);
+        if e.state.quality != Quality::Good {
+            return;
+        }
+        let key = format!("{}/{}", e.service, e.tag);
+        let cfg = self.config.lock();
+        let involved: Vec<&Pair> = cfg.pairs.iter().filter(|p| p.command == key || p.feedback == key).collect();
+        if involved.is_empty() {
+            return;
+        }
+        let mut latest = self.latest.lock();
+        latest.insert((e.service.clone(), e.tag.clone()), e.state.value.clone());
+        let mut states = self.pair_states.lock();
+        for p in involved {
+            let (Some(c), Some(f)) = (Pair::split(&p.command), Pair::split(&p.feedback)) else { continue };
+            if let (Some(cv), Some(fv)) = (latest.get(&c), latest.get(&f)) {
+                check_pair(p, states.entry(p.name.clone()).or_default(), e.state.ts, cv, fv);
+            }
+        }
+    }
+
+    /// Re-check pairs whose values haven't changed (a mismatch outlasting the delay).
+    pub fn tick_pairs(&self, now: DateTime<Utc>) {
+        let cfg = self.config.lock();
+        let latest = self.latest.lock();
+        let mut states = self.pair_states.lock();
+        for p in &cfg.pairs {
+            let (Some(c), Some(f)) = (Pair::split(&p.command), Pair::split(&p.feedback)) else { continue };
+            if let (Some(cv), Some(fv)) = (latest.get(&c), latest.get(&f)) {
+                check_pair(p, states.entry(p.name.clone()).or_default(), now, cv, fv);
+            }
+        }
+    }
+
+    pub fn config_yaml(&self) -> String {
+        serde_yaml::to_string(&*self.config.lock()).unwrap_or_default()
+    }
+
+    /// Replace `insights.yaml`.
+    pub fn set_config(&self, text: &str) -> Result<(), String> {
+        let c: InsightsConfig = serde_yaml::from_str(text).map_err(|e| e.to_string())?;
+        for p in &c.pairs {
+            p.validate()?;
+        }
+        let mut names = HashSet::new();
+        for p in &c.pairs {
+            if !names.insert(&p.name) {
+                return Err(format!("pair `{}` appears twice", p.name));
+            }
+        }
+        std::fs::write(&self.config_path, serde_yaml::to_string(&c).unwrap_or_default()).map_err(|e| e.to_string())?;
+        self.pair_states.lock().retain(|k, _| c.pairs.iter().any(|p| &p.name == k));
+        *self.config.lock() = c;
+        Ok(())
     }
 
     pub fn sample_status(&self, id: &str, state: State, detail: &str) {
@@ -747,11 +1213,23 @@ impl Insights {
         self.save();
     }
 
-    pub fn recompute(&self, cfg: &Config, alarm_log: &[AlarmEvent], alarm_states: &HashMap<String, AlarmState>, alarm_names: &HashMap<String, String>) {
+    pub fn recompute(&self, cfg: &Config, alarm_log: &[AlarmEvent], alarm_states: &HashMap<String, AlarmState>, alarm_names: &HashMap<String, String>, alarm_defs: &[crate::alarms::AlarmDef]) {
+        self.tick_pairs(Utc::now());
         let tags = self.tags.lock().clone();
         let services = self.services.lock().clone();
         let monitors = crate::monitor::health();
-        let snap = Snapshot { now: Utc::now(), cfg, tags: &tags, services: &services, alarm_log, alarm_states, alarm_names, monitors: &monitors };
+        let states = self.pair_states.lock().clone();
+        let pairs: Vec<(Pair, PairState)> = self
+            .config
+            .lock()
+            .pairs
+            .iter()
+            .map(|p| (p.clone(), states.get(&p.name).cloned().unwrap_or_default()))
+            .collect();
+        let snap = Snapshot {
+            now: Utc::now(), cfg, tags: &tags, services: &services, alarm_log, alarm_states, alarm_names,
+            monitors: &monitors, alarm_defs, pairs: &pairs,
+        };
         let all = analyze(&snap, &self.tuning);
         let dismissed = self.dismissed.lock().clone();
         let mut r = self.report.lock();
@@ -781,6 +1259,7 @@ impl Insights {
             tags: self.tags.lock().iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
             services: self.services.lock().clone(),
             dismissed: self.dismissed.lock().clone(),
+            pairs: self.pair_states.lock().clone(),
         };
         if let Ok(b) = serde_json::to_vec(&saved) {
             let tmp = self.path.with_extension("tmp");
@@ -807,6 +1286,7 @@ pub async fn run(ins: Arc<Insights>, app: crate::web::App, engine: Arc<crate::al
                 for (id, st) in app.mgr.all_statuses() {
                     ins.sample_status(&id, st.state, &st.detail);
                 }
+                ins.tick_pairs(Utc::now());
             }
             _ = compute.tick() => recompute_now(&ins, &app, &engine),
             _ = save.tick() => ins.save(),
@@ -817,20 +1297,19 @@ pub async fn run(ins: Arc<Insights>, app: crate::web::App, engine: Arc<crate::al
 pub fn recompute_now(ins: &Insights, app: &crate::web::App, engine: &crate::alarms::Engine) {
     let cfg = app.cfg.get();
     let log = engine.log_tail(20_000);
-    let names: HashMap<String, String> = engine
-        .store
-        .get()
-        .alarms
+    let defs = engine.store.get().alarms;
+    let names: HashMap<String, String> = defs
         .iter()
         .map(|a| (a.id.clone(), if a.name.is_empty() { a.id.clone() } else { a.name.clone() }))
         .collect();
-    ins.recompute(&cfg, &log, &engine.states(), &names);
+    ins.recompute(&cfg, &log, &engine.states(), &names, &defs);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::model::{HistoryCfg, TagDef};
+    use chrono::DurationRound;
     use serde_json::json;
 
     fn svc(yaml: &str) -> ServiceDef {
@@ -847,7 +1326,7 @@ mod tests {
         let services = HashMap::new();
         let states = HashMap::new();
         let names = HashMap::new();
-        let s = Snapshot { now: Utc::now(), cfg, tags, services: &services, alarm_log: log, alarm_states: &states, alarm_names: &names, monitors: &[] };
+        let s = Snapshot { now: Utc::now(), cfg, tags, services: &services, alarm_log: log, alarm_states: &states, alarm_names: &names, monitors: &[], alarm_defs: &[], pairs: &[] };
         analyze(&s, &Tuning::default())
     }
 
@@ -934,6 +1413,110 @@ mod tests {
         let out = snap(&cfg, &HashMap::new(), &log);
         assert!(out.iter().any(|i| i.id == "chatter:hi-level"), "{out:#?}");
         assert!(out.iter().any(|i| i.id.starts_with("flood:")), "{out:#?}");
+    }
+
+    fn snap_with(cfg: &Config, tags: &HashMap<(String, String), TagStats>, defs: &[crate::alarms::AlarmDef], pairs: &[(Pair, PairState)]) -> Vec<Insight> {
+        let (services, states, names) = (HashMap::new(), HashMap::new(), HashMap::new());
+        let s = Snapshot { now: Utc::now(), cfg, tags, services: &services, alarm_log: &[], alarm_states: &states, alarm_names: &names, monitors: &[], alarm_defs: defs, pairs };
+        analyze(&s, &Tuning::default())
+    }
+
+    fn plc(tags: &str) -> Config {
+        Config { services: vec![svc(&format!("id: plc\nkind: modbus\nmode: client\nsettings: {{ host: x, poll_ms: 1000 }}\ntags:\n{tags}"))] }
+    }
+
+    #[test]
+    fn equipment_rails_noise_drift() {
+        let cfg = plc("  - { name: pressure, datatype: int16, register: 0 }\n  - { name: temp, datatype: float32, register: 2 }\n  - { name: level, datatype: float32, register: 4 }\n");
+        let start = (Utc::now() - TimeDelta::hours(10)).duration_trunc(TimeDelta::hours(1)).unwrap();
+        let mut tags = HashMap::new();
+        // pressure: a broken wire part of the time.
+        let mut p = TagStats::default();
+        feed(&mut p, start, 30, 1200, |i| json!(if i % 40 == 0 { 32767 } else { 500 + i % 7 }));
+        tags.insert(("plc".to_string(), "pressure".to_string()), p);
+        // temp: quiet for 9 hours, noisy in the last complete hour.
+        let mut t = TagStats::default();
+        feed(&mut t, start, 10, 3600, |i| {
+            let hour = i / 360;
+            let amp = if hour == 9 { 3.0 } else { 0.1 };
+            json!(50.0 + if i % 2 == 0 { amp } else { -amp })
+        });
+        tags.insert(("plc".to_string(), "temp".to_string()), t);
+        let out = snap_with(&cfg, &tags, &[], &[]);
+        let ids: Vec<&str> = out.iter().map(|i| i.id.as_str()).collect();
+        assert!(ids.contains(&"rails:plc:pressure"), "{ids:?}");
+        assert!(ids.contains(&"noise:plc:temp"), "{ids:?}");
+
+        // level: a steady climb over 20 hours.
+        let start = (Utc::now() - TimeDelta::hours(20)).duration_trunc(TimeDelta::hours(1)).unwrap();
+        let mut l = TagStats::default();
+        feed(&mut l, start, 60, 1200, |i| json!(10.0 + i as f64 * 0.05 + if i % 2 == 0 { 0.01 } else { -0.01 }));
+        let mut tags = HashMap::new();
+        tags.insert(("plc".to_string(), "level".to_string()), l);
+        let out = snap_with(&cfg, &tags, &[], &[]);
+        assert!(out.iter().any(|i| i.id == "drift:plc:level"), "{out:#?}");
+    }
+
+    #[test]
+    fn forecast_reaches_alarm() {
+        let cfg = plc("  - { name: level, datatype: float32, register: 0 }\n");
+        let start = Utc::now() - TimeDelta::minutes(40);
+        let mut l = TagStats::default();
+        // Rising 0.01 per second from 60: 90 is 50 min away from the last reading.
+        feed(&mut l, start, 20, 120, |i| json!(60.0 + i as f64 * 0.2));
+        let mut tags = HashMap::new();
+        tags.insert(("plc".to_string(), "level".to_string()), l);
+        let hi: crate::alarms::AlarmDef = serde_yaml::from_str("id: hi-level\nname: High level\nservice: plc\ntag: level\nkind: high\nlimit: 90").unwrap();
+        let out = snap_with(&cfg, &tags, &[hi], &[]);
+        let f = out.iter().find(|i| i.id == "forecast:hi-level").expect("forecast");
+        assert!(f.title.contains("min"), "{}", f.title);
+    }
+
+    #[test]
+    fn stuck_step_and_slower_cycle() {
+        let cfg = plc("  - { name: filling, datatype: bool, table: coil, register: 0 }\n");
+        let start = Utc::now() - TimeDelta::hours(3);
+        let mut st = TagStats::default();
+        let mut ts = start;
+        // 30 cycles of 60 s on / 60 s off, then 10 cycles of 90 s on / 60 s off, then on and stuck.
+        for i in 0..40 {
+            st.observe(ts, &json!(true), Quality::Good);
+            ts += TimeDelta::seconds(if i < 30 { 60 } else { 90 });
+            st.observe(ts, &json!(false), Quality::Good);
+            ts += TimeDelta::seconds(60);
+        }
+        st.observe(ts, &json!(true), Quality::Good);
+        let mut tags = HashMap::new();
+        tags.insert(("plc".to_string(), "filling".to_string()), st);
+        let out = snap_with(&cfg, &tags, &[], &[]);
+        let ids: Vec<&str> = out.iter().map(|i| i.id.as_str()).collect();
+        assert!(ids.contains(&"stuck:plc:filling"), "{ids:?}");
+        assert!(ids.contains(&"slower:plc:filling"), "{ids:?}");
+    }
+
+    #[test]
+    fn command_without_feedback() {
+        let p = Pair { name: "Feed pump".into(), command: "plc/run".into(), feedback: "plc/running".into(), kind: PairKind::Runs, tolerance: 0.0, delay_s: 10 };
+        let mut st = PairState::default();
+        let t0 = Utc::now() - TimeDelta::minutes(5);
+        check_pair(&p, &mut st, t0, &json!(true), &json!(false));
+        assert_eq!(st.incidents, 0);
+        check_pair(&p, &mut st, t0 + TimeDelta::seconds(5), &json!(true), &json!(false));
+        assert_eq!(st.incidents, 0, "within the delay");
+        check_pair(&p, &mut st, t0 + TimeDelta::seconds(12), &json!(true), &json!(false));
+        check_pair(&p, &mut st, t0 + TimeDelta::seconds(20), &json!(true), &json!(false));
+        assert_eq!(st.incidents, 1, "one incident per mismatch");
+        check_pair(&p, &mut st, t0 + TimeDelta::seconds(25), &json!(true), &json!(true));
+        assert!(st.mismatch_since.is_none());
+        let f = Pair { kind: PairKind::Follows, tolerance: 2.0, ..p.clone() };
+        let mut fs = PairState::default();
+        check_pair(&f, &mut fs, t0, &json!(50), &json!(49));
+        check_pair(&f, &mut fs, t0 + TimeDelta::seconds(30), &json!(80), &json!(49));
+        check_pair(&f, &mut fs, t0 + TimeDelta::seconds(45), &json!(80), &json!(49));
+        assert_eq!(fs.incidents, 1);
+        let cfg = Config::default();
+        let out = snap_with(&cfg, &HashMap::new(), &[], &[(p, st)]);
+        assert!(out.iter().any(|i| i.id == "pair:Feed pump" && i.title.contains("at times")), "{out:#?}");
     }
 
     #[test]

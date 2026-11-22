@@ -380,6 +380,16 @@ async fn run_insights(State(p): State<Panels>, me: Me) -> R<Json<Value>> {
     Ok(Json(p.insights.report()))
 }
 
+async fn insights_config(State(p): State<Panels>, _me: Me) -> String {
+    p.insights.config_yaml()
+}
+
+async fn put_insights_config(State(p): State<Panels>, me: Me, body: Bytes) -> R<String> {
+    me.need(Role::Admin)?;
+    p.insights.set_config(&String::from_utf8_lossy(&body)).map_err(bad)?;
+    Ok(p.insights.config_yaml())
+}
+
 async fn dismiss_insight(State(p): State<Panels>, me: Me, Path(id): Path<String>) -> R<StatusCode> {
     me.need(Role::Operator)?;
     p.insights.dismiss(&id, true);
@@ -413,6 +423,7 @@ pub fn router(p: Panels) -> Router {
         .route("/api/hooks/{id}/test", post(test_hook))
         .route("/api/insights", get(list_insights))
         .route("/api/insights/run", post(run_insights))
+        .route("/api/insights/config", get(insights_config).put(put_insights_config))
         .route("/api/insights/{id}/dismiss", post(dismiss_insight).delete(restore_insight))
         .route("/api/dashboards", get(list_dashboards).post(create_dashboard))
         .route("/api/dashboards/{id}", get(get_dashboard).put(update_dashboard).delete(delete_dashboard))

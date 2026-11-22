@@ -314,10 +314,31 @@ Cowpoke watches every tag update and samples every service's status, building a 
 
 - **Network** (from traffic monitors): two devices sharing an IP address, requests going unanswered, slow answers, retransmitted packets (a bad cable or port), clients reconnecting constantly, devices with many connections open, heavy talkers.
 - **Communications:** a client polling far faster than any of its tags change (with a poll interval to use), connections that keep dropping, tags that read bad intermittently, live measurements that never change.
+- **Equipment** (tags read from real devices): readings pinned at a range limit (32767, 65535: a broken wire or overranged sensor), rare spikes, noise rising against the tag's own history, a steady one-way drift over a day, a tag heading for a high or low alarm limit (with an estimate of when), and command/feedback pairs that don't agree.
+- **Process** (on/off tags as steps): a step stuck on or off far longer than ever before, and cycles taking longer than they used to.
 - **Historian:** deadbands smaller than a tag's noise, and interval recording of tags that rarely change.
 - **Alarms:** chattering, floods (with the alarms behind them), standing alarms and alarms nobody acknowledges.
 
-A service's page lists its open insights under its status and marks the tags they concern. Insights that name an exact setting (a poll interval, a history deadband) have **Apply…**: it opens the service's Settings with the change filled in, and nothing changes until someone saves. Insights are suggestions with evidence; nothing changes until someone changes it. Dismiss one and it stays dismissed. Values typed in the UI and simulator generators don't count toward the baseline. The baseline is saved in `baselines.json` in the data folder. Most insights need 30 minutes of watching, some need hours; `COWPOKE_INSIGHTS_QUICK=1` shortens that to minutes for demos. `GET /api/insights`, `POST /api/insights/run`, and `POST`/`DELETE /api/insights/<id>/dismiss`.
+A service's page lists its open insights under its status and marks the tags they concern. Insights that name an exact setting (a poll interval, a history deadband) have **Apply…**: it opens the service's Settings with the change filled in, and nothing changes until someone saves. Insights are suggestions with evidence; nothing changes until someone changes it.
+
+Some things Cowpoke can't work out alone. Admins describe them on the Insights page's **Setup** tab, saved as `insights.yaml` in the data folder:
+
+```yaml
+pairs:
+  - name: Feed pump
+    command: line1/pump_run        # service/tag
+    feedback: line1/pump_running
+    kind: runs                     # feedback on while commanded on
+    delay_s: 10
+  - name: Inlet valve
+    command: line1/valve_sp
+    feedback: line1/valve_pos
+    kind: follows                  # feedback within tolerance of the command
+    tolerance: 2
+    delay_s: 30
+```
+
+Pairs are checked on every update; a mismatch lasting longer than `delay_s` becomes an Equipment insight. `GET`/`PUT /api/insights/config`. Dismiss one and it stays dismissed. Values typed in the UI and simulator generators don't count toward the baseline. The baseline is saved in `baselines.json` in the data folder. Most insights need 30 minutes of watching, some need hours; `COWPOKE_INSIGHTS_QUICK=1` shortens that to minutes for demos. `GET /api/insights`, `POST /api/insights/run`, and `POST`/`DELETE /api/insights/<id>/dismiss`.
 
 ## Not yet
 

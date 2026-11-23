@@ -1,6 +1,6 @@
 # Cowpoke
 
-**One container, many industrial communication services.** Cowpoke is an Ohmstead product.
+**One container, many industrial communication services.** Cowpoke is an [Ohmstead](https://ohmstead.io) product. Overview and quick start: [ohmstead.io/cowpoke](https://ohmstead.io/cowpoke/).
 
 Create *services* in a web UI, a REST API or a YAML file. Each service speaks one protocol, in the mode you pick:
 

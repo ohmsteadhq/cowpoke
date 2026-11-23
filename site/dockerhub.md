@@ -40,4 +40,4 @@ Live capture for the traffic monitor needs root and the capture capabilities: `-
 
 Tags: `latest`, `<version>`.
 
-Docs: [DOCS URL] · Source: [SOURCE URL]
+Docs: https://ohmstead.io/cowpoke/ · Source: https://github.com/ohmsteadhq/cowpoke

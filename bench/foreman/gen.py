@@ -46,7 +46,7 @@ PROTOCOL_FAULTS = {
     "sparkplug": ["sparkplug_ids", "metric_name", "none"],
     "api": ["json_pointer", "port_or_host", "url_path", "none"],
     "iolink": ["bit_offset", "address_offset", "port_or_host", "other", "none"],
-    "opcua": ["node_id", "security_policy", "credentials", "port_or_host", "device_offline", "none"],
+    "opcua": ["node_id", "datatype", "security_policy", "credentials", "port_or_host", "device_offline", "none"],
     "s7": ["address_offset", "datatype", "string_length", "device_offline", "port_or_host", "protocol_mismatch", "none"],
 }
 
@@ -68,6 +68,24 @@ def typo(s, rng):
     return s + "1"
 
 
+def recase(s, rng):
+    """A case-only mistake (Line5 vs line5), the kind rule checks catch but people miss."""
+    t = rng.choice([s.lower(), s.upper(), s.capitalize(), s.swapcase()])
+    return t if t != s else (s[:1].swapcase() + s[1:] if s[:1].isalpha() else s + "x")
+
+
+def slip(s, rng):
+    """A typo, a case-only change or a dash/underscore change, at random (v6)."""
+    r = rng.random()
+    if r < 0.25:
+        return recase(s, rng)
+    if r < 0.4 and any(c.isdigit() for c in s) and "-" not in s:
+        i = next(j for j, c in enumerate(s) if c.isdigit())
+        if i:
+            return s[:i] + rng.choice(["-", "_"]) + s[i:]
+    return typo(s, rng)
+
+
 def value_for(dt, rng):
     if dt == "bool":
         return rng.random() < 0.5
@@ -80,7 +98,25 @@ def value_for(dt, rng):
     return rng.randrange(1, 5000)
 
 
+DECOYS = 0.3  # v6: share of scenarios with 1-2 healthy devices of other protocols beside the faulty one
+
+
 def make_scenario(n, port, rng, kind=None, fault=None):
+    """A scenario, sometimes with healthy decoy devices so the model must find the faulty one."""
+    svcs, ans = make_one(n, port, rng, kind, fault)
+    if kind is None and rng.random() < DECOYS:
+        used = {svcs[0]["id"].split("-")[1]}
+        for j in range(rng.randint(1, 2)):
+            dk = rng.choice([k for k in ("modbus", "eip", "mqtt", "api", "iolink", "s7") if k != svcs[0]["kind"]])
+            d, _ = make_one(n, port + 100 + 40 * j, rng, dk, "none")
+            area = rng.choice([a for a in AREAS if a not in used])
+            used.add(area)
+            d[0]["id"], d[1]["id"] = f"g{n}-{area}-sim", f"g{n}-{area}-cli"
+            svcs += d
+    return svcs, ans
+
+
+def make_one(n, port, rng, kind=None, fault=None):
     """Return (services, answer). Ports: port (device) and port + 50 (a wrong port)."""
     if kind is None:
         # Pick the cause first so causes are balanced (port faults fit every protocol),
@@ -89,9 +125,9 @@ def make_scenario(n, port, rng, kind=None, fault=None):
         kind = rng.choice([k for k, cs in PROTOCOL_FAULTS.items() if fault in cs])
     fault = fault or rng.choice(PROTOCOL_FAULTS[kind])
     if fault == "protocol_mismatch":
-        svcs, ans = make_scenario(n, port, rng, kind=kind, fault="none")
+        svcs, ans = make_one(n, port, rng, kind=kind, fault="none")
         other = rng.choice([k for k in ("modbus", "eip", "s7", "mqtt") if k != kind])
-        osvcs, _ = make_scenario(n, port, rng, kind=other, fault="none")
+        osvcs, _ = make_one(n, port, rng, kind=other, fault="none")
         osvcs[0]["id"] = svcs[0]["id"]
         svcs[0] = osvcs[0]
         ans.update(service=svcs[1]["id"], cause="protocol_mismatch", why=explain("protocol_mismatch", svcs, None, rng))
@@ -116,7 +152,7 @@ def make_scenario(n, port, rng, kind=None, fault=None):
         coil = fault == "register_table" and rng.random() < 0.35  # coil read as a discrete input
         for nm in names:
             dt = rng.choice(["float32", "int32", "uint16", "int16"]) if nm != victim or fault != "word_order" \
-                else rng.choice(["float32", "int32"])
+                else rng.choice(["float32", "int32", "float64", "float64"])
             if fault == "scaling" and nm == victim:
                 dt = "float32" if double else "int16"
             if fault == "datatype" and nm == victim:
@@ -139,11 +175,14 @@ def make_scenario(n, port, rng, kind=None, fault=None):
             else:
                 st["initial"] = value_for(dt, rng)
             ct = {kk: v for kk, v in st.items() if kk != "initial"}
-            reg += 6 if dt == "string" else 2 if dt in ("float32", "int32") else 1
+            reg += 6 if dt == "string" else 4 if dt == "float64" else 2 if dt in ("float32", "int32") else 1
             srv_tags.append(st)
             cli_tags.append(ct)
         vt = cli_tags[0]
-        if fault == "address_offset":
+        same = [t for t in cli_tags[1:] if t["datatype"] == vt["datatype"]]
+        if fault == "address_offset" and same and rng.random() < 0.5:
+            vt["register"], same[0]["register"] = same[0]["register"], vt["register"]  # two tags swapped
+        elif fault == "address_offset":
             vt["register"] = vt["register"] + rng.choice([1, 2, 1, -1 if vt["register"] > 0 else 3])
         elif fault == "word_order":
             cs["word_order"] = "big" if order == "little" else "little"
@@ -168,13 +207,20 @@ def make_scenario(n, port, rng, kind=None, fault=None):
         prog = rng.choice(["", "Program:Main.", "Program:Line1.", f"{area.capitalize()}."])
         for nm in names:
             dt = rng.choice(["float32", "int32", "int16", "bool", "string"])
-            cip = prog + nm.capitalize() + rng.choice(["", "_PV", "_Act"])
+            cip = prog + nm.capitalize() + rng.choice(["", "_PV", "_Act", f"[{rng.randrange(1, 9)}]", ".Value"])
             srv_tags.append({"name": nm, "datatype": dt, "cip_tag": cip, "initial": value_for(dt, rng)})
             cli_tags.append({"name": nm, "datatype": dt, "cip_tag": cip})
         if fault == "tag_name":
             cip = cli_tags[0]["cip_tag"]
             base = cip.rsplit(".", 1)[-1]
-            cli_tags[0]["cip_tag"] = cip[: len(cip) - len(base)] + typo(base, rng)
+            r = rng.random()
+            if r < 0.25 and "[" in cip:
+                i = int(cip.split("[")[1].split("]")[0])
+                cli_tags[0]["cip_tag"] = cip.replace(f"[{i}]", f"[{rng.choice([j for j in range(0, 10) if j != i])}]")
+            elif r < 0.45 and cip.startswith("Program:"):
+                cli_tags[0]["cip_tag"] = cip.split(".", 1)[1]  # program scope dropped
+            else:
+                cli_tags[0]["cip_tag"] = cip[: len(cip) - len(base)] + typo(base, rng)
     elif kind in ("mqtt", "sparkplug"):
         cs = {"host": "127.0.0.1", "port": port}
         if kind == "mqtt":
@@ -195,11 +241,25 @@ def make_scenario(n, port, rng, kind=None, fault=None):
                     "the client applies a JSON pointer to a payload that isn't JSON",
                 ])
             if fault == "credentials":
-                cs["password"] = typo(cs["password"], rng)
+                r = rng.random()
+                if r < 0.25:
+                    cs.pop("password")  # username without a password
+                elif r < 0.4:
+                    cs.pop("username"); cs.pop("password")  # no login at all
+                elif r < 0.55:
+                    cs["username"] = slip(cs["username"], rng)
+                else:
+                    cs["password"] = typo(cs["password"], rng)
             elif fault == "topic":
                 parts = cli_tags[0]["topic"].split("/")
-                j = rng.randrange(len(parts))
-                parts[j] = typo(parts[j], rng)
+                r = rng.random()
+                if r < 0.2 and len(parts) > 2:
+                    parts[1] = "#"  # multi-level wildcard not last: matches nothing
+                elif r < 0.35:
+                    parts = parts[:1] + parts[2:]  # a level dropped
+                else:
+                    j = rng.randrange(len(parts))
+                    parts[j] = slip(parts[j], rng)
                 cli_tags[0]["topic"] = "/".join(parts)
         else:
             sp = {"group_id": rng.choice(["Plant", "SiteA", "Line"]), "edge_node": f"{area.capitalize()}{rng.randrange(1, 9)}"}
@@ -218,7 +278,7 @@ def make_scenario(n, port, rng, kind=None, fault=None):
                 cli_tags[0]["metric"] = rng.choice([f"{head}/{typo(tail, rng)}", m.replace("/", "_"), tail])
             if fault == "sparkplug_ids":
                 key = rng.choice([x for x in ("group_id", "edge_node", "device") if x in sp])
-                cs["sparkplug"][key] = typo(sp[key], rng)
+                cs["sparkplug"][key] = slip(sp[key], rng)
     elif kind == "api":
         ss["port"] = port
         cs = {"url": f"http://127.0.0.1:{port}/tags", "interval_ms": 500}
@@ -227,7 +287,7 @@ def make_scenario(n, port, rng, kind=None, fault=None):
             srv_tags.append({"name": nm, "datatype": dt, "initial": value_for(dt, rng)})
             cli_tags.append({"name": nm, "datatype": dt, "pointer": f"/{nm}"})
         if fault == "json_pointer":
-            cli_tags[0]["pointer"] = "/" + typo(victim, rng)
+            cli_tags[0]["pointer"] = "/" + (slip(victim, rng) if rng.random() < 0.8 else f"data/{victim}")
         elif fault == "port_or_host":
             cs["url"] = f"http://127.0.0.1:{wrong_port}/tags"
         elif fault == "url_path":
@@ -254,7 +314,7 @@ def make_scenario(n, port, rng, kind=None, fault=None):
                 "the client looks at the output direction of the IO-Link port; the measured value is in the input data",
             ])
         if fault == "bit_offset":
-            cli_tags[0]["bit_offset"] += rng.choice([1, 4, 8, -1 if cli_tags[0]["bit_offset"] else 2])
+            cli_tags[0]["bit_offset"] += rng.choice([1, 4, 8, 16, -1 if cli_tags[0]["bit_offset"] else 2])
 
     elif kind == "opcua":
         ss = {"port": port, "hostname": "localhost", "security_policies": ["none"], "allow_anonymous": True}
@@ -268,7 +328,12 @@ def make_scenario(n, port, rng, kind=None, fault=None):
             srv_tags.append({"name": nm, "datatype": dt, "initial": value_for(dt, rng)})
             cli_tags.append({"name": nm, "datatype": dt, "node_id": f"ns=2;s={nm}"})
         if fault == "node_id":
-            cli_tags[0]["node_id"] = f"ns=2;s={typo(victim, rng)}" if rng.random() < 0.7 else f"ns=3;s={victim}"
+            r = rng.random()
+            cli_tags[0]["node_id"] = (f"ns=2;s={slip(victim, rng)}" if r < 0.6 else
+                                      f"ns={rng.choice([0, 1, 3])};s={victim}" if r < 0.85 else f"ns=2;i={rng.randrange(1000, 6000)}")
+        elif fault == "datatype":
+            srv_tags[0].update(datatype="float64", initial=round(rng.uniform(1, 500), 2) + 0.25)
+            cli_tags[0]["datatype"] = rng.choice(["int32", "bool"])
         elif fault == "security_policy":
             cs.update(security_policy=rng.choice(["basic256sha256", "aes256_sha256_rsa_pss"]),
                       security_mode=rng.choice(["sign", "sign_and_encrypt"]), trust_server_certs=True)
@@ -308,7 +373,9 @@ def make_scenario(n, port, rng, kind=None, fault=None):
             off += size
         vt, (vdt, voff, vsize) = cli_tags[0], layout[0]
         if fault == "address_offset":
-            if rng.random() < 0.3:
+            if rng.random() < 0.25 and vdt != "string":
+                vt["s7_address"] = vt["s7_address"].replace(f"DB{db}.DB", "M", 1)  # merker instead of the DB
+            elif rng.random() < 0.3:
                 vt["s7_address"] = vt["s7_address"].replace(f"DB{db}.DB", f"DB{db + 1}.DB", 1)
             else:
                 shifted = voff + rng.choice([2, 4, 8])

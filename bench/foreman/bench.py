@@ -139,6 +139,10 @@ def rule_checks(defs):
             cp_, sp_ = _port_of(cs), _port_of(ss)
             if cp_ and sp_ and cp_ != sp_:
                 out.append(f"{c['id']} connects to port {cp_}, but {sv['id']} listens on port {sp_}.")
+            ch, sb = cs.get("host"), ss.get("bind")
+            if ch and sb and sb not in ("0.0.0.0", "::") and ch != sb \
+                    and not (ch == "localhost" and sb in ("127.0.0.1", "::1")):
+                out.append(f"{c['id']} connects to host {ch}, but {sv['id']} listens on {sb}.")
             for k in SETTING_FIELDS:
                 a, b = cs.get(k, "big"), ss.get(k, "big")
                 if a != b:

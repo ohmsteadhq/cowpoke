@@ -1,0 +1,308 @@
+{
+ "summary": {
+  "model": "qwen3:4b",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 5,
+  "service_ok": 9,
+  "cause_ok": 7,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 8.6,
+  "avg_tok_s": 16.8
+ },
+ "results": [
+  {
+   "id": "x1",
+   "expected": {
+    "service": "x1-cli",
+    "cause": [
+     "tag_name",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "x1-cli",
+    "cause": "tag_name",
+    "explanation": "The client is configured to read 'Pump[1].Speed' as 'p4', but the server has 'Pump[4].Speed' as 'p4'. This mismatch causes the client to read the wrong pump's speed.",
+    "fix": "Change the client's tag configuration to match the server's tag name: 'Pump[4].Speed' should be mapped to 'p4' in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 7.0,
+   "tok_s": 16.9,
+   "trace": []
+  },
+  {
+   "id": "x2",
+   "expected": {
+    "service": "x2-cli",
+    "cause": [
+     "topic"
+    ]
+   },
+   "report": {
+    "service": "x2-cli",
+    "cause": "protocol_mismatch",
+    "explanation": "The client (x2-cli) is trying to connect to the MQTT broker on 127.0.0.1:30602, but the server (x2-srv) is configured to use a different topic structure. The server's topic is 'plant/area2/oven/temp', while the client is subscribing to 'plant/#/temp'. This mismatch causes the client to not receive the temperature data.",
+    "fix": "Change the client's topic subscription to match the server's topic: 'plant/area2/oven/temp' instead of 'plant/#/temp'."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 10.7,
+   "tok_s": 17.5,
+   "trace": []
+  },
+  {
+   "id": "x3",
+   "expected": {
+    "service": "x3-cli",
+    "cause": [
+     "word_order"
+    ]
+   },
+   "report": {
+    "service": "x3-cli",
+    "cause": "unit_id",
+    "explanation": "The client is using the wrong unit ID (1) for the server, but the server is configured for unit 1. However, the client's energy value is extremely small (1.9e-32), which suggests a protocol mismatch or incorrect register addressing. The server's energy tag is at register 0, but the client is likely reading a different register or there's a unit ID mismatch causing incorrect data interpretation.",
+    "fix": "Ensure the client uses the correct unit ID (1) and verify the register address for the energy tag. The client's value is likely being read from a different register or there's a protocol mismatch."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 11.4,
+   "tok_s": 17.5,
+   "trace": []
+  },
+  {
+   "id": "x4",
+   "expected": {
+    "service": "x4-cli",
+    "cause": [
+     "sparkplug_ids"
+    ]
+   },
+   "report": {
+    "service": "x4-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The client's Sparkplug edge node is set to 'Line4' but the server's Sparkplug edge node is set to 'Line4' (same value), but the client's group_id is 'plant' while the server's group_id is 'Plant'. The case sensitivity difference causes the client to not find the node.",
+    "fix": "Change the client's group_id from 'plant' to 'Plant' to match the server's group_id of 'Plant'."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 9.3,
+   "tok_s": 17.7,
+   "trace": []
+  },
+  {
+   "id": "x5",
+   "expected": {
+    "service": "x5-cli",
+    "cause": [
+     "json_pointer"
+    ]
+   },
+   "report": {
+    "service": "x5-cli",
+    "cause": "other",
+    "explanation": "The client (x5-cli) is trying to read the 'level' tag from the server (x5-srv) using a JSON pointer '/Level' but the server's tag name is 'level' (lowercase). The client expects a tag named 'Level' (capital L) but the server has a lowercase 'level'. This mismatch in tag naming causes the client to receive a 'bad' quality response.",
+    "fix": "Change the client's JSON pointer from '/Level' to '/level' to match the server's tag name 'level'."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 10.0,
+   "tok_s": 17.6,
+   "trace": []
+  },
+  {
+   "id": "x6",
+   "expected": {
+    "service": "x6-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "x6-cli",
+    "cause": "datatype",
+    "explanation": "The client is configured to read the flow tag as an int32 (integer), but the server is configured as a float64 (double precision float). This causes the client to interpret the value 12.75 as 13 when cast to an integer.",
+    "fix": "Change the client's tag configuration to use float32 or float64 for the flow tag to match the server's float64 type."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 7.4,
+   "tok_s": 16.1,
+   "trace": []
+  },
+  {
+   "id": "x7",
+   "expected": {
+    "service": "x7-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "x7-cli",
+    "cause": "address_offset",
+    "explanation": "The client is using 'MW10' (memory word 10) while the server uses 'DB1.DBW10' (database 1, word 10). In S7, DBW10 refers to the 10th word in database 1, which is offset 40 (since each word is 2 bytes). The client's address 'MW10' is interpreted as offset 10 (word 10 in memory, not database). This mismatch causes the client to read the wrong location.",
+    "fix": "Change the client's address from 'MW10' to 'DB1.MW10' to match the server's 'DB1.DBW10' address."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 11.0,
+   "tok_s": 16.6,
+   "trace": []
+  },
+  {
+   "id": "x8",
+   "expected": {
+    "service": "x8-press-srv",
+    "cause": [
+     "device_offline"
+    ]
+   },
+   "report": {
+    "service": "x8-press-cli",
+    "cause": "device_offline",
+    "explanation": "The press force panel is empty because the EIP server (x8-press-srv) is stopped and the client (x8-press-cli) is in degraded state with connection refused error (os error 61).",
+    "fix": "Start the EIP server service (x8-press-srv) to resolve the device offline issue."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.5,
+   "tok_s": 16.3,
+   "trace": []
+  },
+  {
+   "id": "x9",
+   "expected": {
+    "service": "x9-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "x9-srv",
+    "cause": "bit_offset",
+    "explanation": "The server's left sensor tag is configured for port 1 (bit_offset 0) with initial value 420 mm, but the client is reading it as port 2 (bit_offset 0) with value 615 mm. This indicates a mismatch in how the client and server map the sensor ports.",
+    "fix": "Swap the port assignments in the client's tags_config: set left to port 1 and right to port 2."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 7.8,
+   "tok_s": 16.2,
+   "trace": []
+  },
+  {
+   "id": "x10",
+   "expected": {
+    "service": "x10-a-cli",
+    "cause": [
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "x10-a-cli",
+    "cause": "address_offset",
+    "explanation": "The client (x10-a-cli) is configured to read from the server at port 30613 (x10-b-srv), but Tank A should be connected to x10-a-srv (port 30612). The client is using the wrong server (x10-b-srv) for Tank A.",
+    "fix": "Change the client's host/port to 127.0.0.1:30612 for Tank A."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 8.5,
+   "tok_s": 16.1,
+   "trace": []
+  },
+  {
+   "id": "x11",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "x11-srv",
+    "cause": "none",
+    "explanation": "The server service (x11-srv) is running and shows flow value 12.5 as expected. The server's tag configuration matches the live tag value.",
+    "fix": "No action needed"
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.6,
+   "tok_s": 16.3,
+   "trace": []
+  },
+  {
+   "id": "x12",
+   "expected": {
+    "service": "x12-cli",
+    "cause": [
+     "credentials"
+    ]
+   },
+   "report": {
+    "service": "x12-cli",
+    "cause": "credentials",
+    "explanation": "The client (x12-cli) is trying to connect to the MQTT broker (x12-srv) but is being rejected with a 'BadUserNamePassword' error. This indicates that the client's credentials (username and password) do not match what the server expects.",
+    "fix": "Ensure the client's username and password match the server's settings. The server requires username 'hmi' and password 's3cret'. The client is using the correct username but the password might be incorrect or the client's settings need to be updated."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 8.6,
+   "tok_s": 16.4,
+   "trace": []
+  }
+ ]
+}

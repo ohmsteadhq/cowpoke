@@ -1,0 +1,308 @@
+{
+ "summary": {
+  "model": "qwen3:4b",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 9,
+  "service_ok": 10,
+  "cause_ok": 11,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 10.2,
+  "avg_tok_s": 17.6
+ },
+ "results": [
+  {
+   "id": "x1",
+   "expected": {
+    "service": "x1-cli",
+    "cause": [
+     "tag_name",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "x1-cli",
+    "cause": "tag_name",
+    "explanation": "The client (x1-cli) is configured to read Pump[1].Speed from the server (x1-srv), but the server has Pump[4].Speed as the tag for the pump speed. This mismatch causes the client to read the wrong tag (Pump[1].Speed) instead of Pump[4].Speed.",
+    "fix": "Update the client's tag configuration to match the server's tag name: change 'Pump[1].Speed' to 'Pump[4].Speed' in the client's tags_config."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 13.4,
+   "tok_s": 18.4,
+   "trace": []
+  },
+  {
+   "id": "x2",
+   "expected": {
+    "service": "x2-cli",
+    "cause": [
+     "topic"
+    ]
+   },
+   "report": {
+    "service": "x2-cli",
+    "cause": "topic",
+    "explanation": "The client (x2-cli) is subscribing to the topic 'plant/#/temp' but the server (x2-srv) is publishing the temperature tag on 'plant/area2/oven/temp'. This mismatch in topic paths causes the client to not receive the temperature value over MQTT.",
+    "fix": "Change the client's subscription topic from 'plant/#/temp' to 'plant/area2/oven/temp' to match the server's publication topic."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 9.1,
+   "tok_s": 17.5,
+   "trace": []
+  },
+  {
+   "id": "x3",
+   "expected": {
+    "service": "x3-cli",
+    "cause": [
+     "word_order"
+    ]
+   },
+   "report": {
+    "service": "x3-cli",
+    "cause": "word_order",
+    "explanation": "The client (x3-cli) is configured with big-endian word order, but the server (x3-srv) uses little-endian. This mismatch causes the client to interpret the 4-byte float value incorrectly, resulting in an extremely small number (1.909e-32) instead of the expected 12345.7 kWh.",
+    "fix": "Change the client's word_order to 'little' to match the server's configuration."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 9.6,
+   "tok_s": 17.8,
+   "trace": []
+  },
+  {
+   "id": "x4",
+   "expected": {
+    "service": "x4-cli",
+    "cause": [
+     "sparkplug_ids"
+    ]
+   },
+   "report": {
+    "service": "x4-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The client's Sparkplug group_id is set to 'plant' (lowercase) while the server publishes 'Plant' (uppercase). Sparkplug B requires exact case sensitivity for group IDs.",
+    "fix": "Change the client's sparkplug.group_id from 'plant' to 'Plant' to match the server's 'Plant' group_id."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 8.0,
+   "tok_s": 17.8,
+   "trace": []
+  },
+  {
+   "id": "x5",
+   "expected": {
+    "service": "x5-cli",
+    "cause": [
+     "json_pointer"
+    ]
+   },
+   "report": {
+    "service": "x5-cli",
+    "cause": "json_pointer",
+    "explanation": "The client (x5-cli) is configured to read the JSON pointer '/Level' from the server (x5-srv), but the server serves the tag at '/level' (lowercase 'l'). This mismatch causes the client to receive a 'bad' quality response.",
+    "fix": "Change the client's JSON pointer from '/Level' to '/level' to match the server's path."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 8.4,
+   "tok_s": 17.7,
+   "trace": []
+  },
+  {
+   "id": "x6",
+   "expected": {
+    "service": "x6-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "x6-cli",
+    "cause": "datatype",
+    "explanation": "The client (x6-cli) is configured to read the flow tag as an int32, but the server (x6-srv) is configured as a float64. This mismatch causes the client to interpret the value 12.75 as an integer (13) when it's actually a float.",
+    "fix": "Change the client's tag configuration to use float32 or float64 for the flow tag to match the server's float64 type."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 10.0,
+   "tok_s": 16.7,
+   "trace": []
+  },
+  {
+   "id": "x7",
+   "expected": {
+    "service": "x7-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "x7-cli",
+    "cause": "address_offset",
+    "explanation": "The client (x7-cli) is using the address 'MW10' (which is a word address in S7) but the server (x7-srv) is using 'DB1.DBW10' (which is a double-word address in S7). In S7, 'DB' refers to a data block, and 'DBW' refers to a word within that block. The client is likely offset by 1 word (since DBW10 is the 10th word, but MW10 is the 10th word in the memory).",
+    "fix": "Change the client's s7_address from 'MW10' to 'DB1.DBW10' to match the server's address."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 14.3,
+   "tok_s": 15.5,
+   "trace": []
+  },
+  {
+   "id": "x8",
+   "expected": {
+    "service": "x8-press-srv",
+    "cause": [
+     "device_offline"
+    ]
+   },
+   "report": {
+    "service": "x8-press-cli",
+    "cause": "device_offline",
+    "explanation": "The press force panel is empty because the EIP server for x8-press-srv is stopped (state: 'stopped'), so the client (x8-press-cli) cannot connect to it. The client is in 'degraded' state with a connection error (os error 61).",
+    "fix": "Start the EIP server service x8-press-srv to resolve the connection issue."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 12.4,
+   "tok_s": 17.9,
+   "trace": []
+  },
+  {
+   "id": "x9",
+   "expected": {
+    "service": "x9-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "x9-cli",
+    "cause": "port_or_host",
+    "explanation": "The client (x9-cli) is configured to read the left sensor from port 2 and right sensor from port 1, but the server (x9-srv) has left sensor on port 1 and right sensor on port 2. This mismatch causes the client to read the wrong sensor values.",
+    "fix": "Swap the port assignments in the client configuration: set left to port 1 and right to port 2."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 10.3,
+   "tok_s": 17.9,
+   "trace": []
+  },
+  {
+   "id": "x10",
+   "expected": {
+    "service": "x10-a-cli",
+    "cause": [
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "x10-a-cli",
+    "cause": "port_or_host",
+    "explanation": "The client x10-a-cli is configured to connect to port 30613, but the server x10-a-srv is listening on port 30612. This mismatch causes the client to read the wrong server's data (x10-b-srv's level tag) instead of x10-a-srv's.",
+    "fix": "Change the client x10-a-cli's port setting from 30613 to 30612 to connect to the correct server."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 11.4,
+   "tok_s": 17.5,
+   "trace": []
+  },
+  {
+   "id": "x11",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "x11-srv",
+    "cause": "none",
+    "explanation": "The server (X11 HMI) and SCADA clients both show flow 12.5, matching the meter. The server's flow tag is set to 12.5 and the clients are reading it correctly. No differences in settings between clients and server.",
+    "fix": "No fix needed"
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 8.4,
+   "tok_s": 18.4,
+   "trace": []
+  },
+  {
+   "id": "x12",
+   "expected": {
+    "service": "x12-cli",
+    "cause": [
+     "credentials"
+    ]
+   },
+   "report": {
+    "service": "x12-cli",
+    "cause": "credentials",
+    "explanation": "The client (x12-cli) is using the wrong password for the MQTT broker. The server (x12-srv) requires a password 's3cret', but the client is not providing it.",
+    "fix": "Set the client's password to 's3cret' in the client's settings."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 7.4,
+   "tok_s": 18.5,
+   "trace": []
+  }
+ ]
+}

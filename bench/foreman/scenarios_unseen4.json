@@ -1,0 +1,14 @@
+[
+  {"id": "x1", "symptom": "Pump 4 on X1 shows 0 rpm; it is running at about 1450.", "service": "x1-cli", "causes": ["tag_name", "address_offset"], "truth": "Logix array index 1 instead of 4"},
+  {"id": "x2", "symptom": "The X2 oven temperature never arrives over MQTT.", "service": "x2-cli", "causes": ["topic"], "truth": "'#' is only valid as the last level; the subscription matches nothing"},
+  {"id": "x3", "symptom": "X3 energy reads a crazy number; the meter shows 12345.7 kWh.", "service": "x3-cli", "causes": ["word_order"], "truth": "word order on a 64-bit float"},
+  {"id": "x4", "symptom": "The Sparkplug host shows nothing for X4 though the node is up.", "service": "x4-cli", "causes": ["sparkplug_ids"], "truth": "group id differs only in case"},
+  {"id": "x5", "symptom": "The X5 level from the API is bad quality.", "service": "x5-cli", "causes": ["json_pointer"], "truth": "JSON pointer differs only in case"},
+  {"id": "x6", "symptom": "X6 flow shows 13; the meter says 12.75.", "service": "x6-cli", "causes": ["datatype"], "truth": "OPC UA float read as an integer"},
+  {"id": "x7", "symptom": "The X7 setpoint reads 0; the PLC shows 75.", "service": "x7-cli", "causes": ["address_offset"], "truth": "memory word MW10 instead of DB1.DBW10"},
+  {"id": "x8", "symptom": "Something on line X8 is off; the press force panel is empty.", "service": "x8-press-srv", "causes": ["device_offline"], "truth": "the press controller is switched off; boiler and silo are healthy decoys"},
+  {"id": "x9", "symptom": "On X9 the left and right distances look odd: left shows 615 mm, the left sensor says 420.", "service": "x9-cli", "causes": ["address_offset"], "truth": "IO-Link ports swapped in the client"},
+  {"id": "x10", "symptom": "Tank A on X10 reads 77; the tank A gauge shows 42.5.", "service": "x10-a-cli", "causes": ["port_or_host"], "truth": "client A polls device B's port"},
+  {"id": "x11", "symptom": "The X11 HMI and SCADA both show flow 12.5; is that right? The meter says 12.5.", "service": "none", "causes": ["none"], "truth": "healthy, two clients"},
+  {"id": "x12", "symptom": "X12 counter data stopped arriving over MQTT.", "service": "x12-cli", "causes": ["credentials"], "truth": "username without a password"}
+]

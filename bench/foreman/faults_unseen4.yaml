@@ -1,0 +1,45 @@
+# A fresh unseen set for v4: variants and combinations the v4 generator doesn't make.
+# Answer key in scenarios_unseen4.json. Ports 30600-30699.
+services:
+  # x1: Logix array index (Pump[1] instead of Pump[4])
+  - { id: x1-srv, kind: eip, mode: server, settings: { bind: 127.0.0.1, port: 30601 }, tags: [ { name: p4, datatype: float32, cip_tag: "Pump[4].Speed", initial: 1450.0 }, { name: p1, datatype: float32, cip_tag: "Pump[1].Speed", initial: 0.0 } ] }
+  - { id: x1-cli, kind: eip, mode: client, settings: { host: 127.0.0.1, port: 30601, poll_ms: 500 }, tags: [ { name: p4, datatype: float32, cip_tag: "Pump[1].Speed" } ] }
+  # x2: MQTT multi-level wildcard placed wrong
+  - { id: x2-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30602 }, tags: [ { name: temp, datatype: float64, topic: plant/area2/oven/temp, initial: 180.0 } ] }
+  - { id: x2-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30602 }, tags: [ { name: temp, datatype: float64, topic: "plant/#/temp" } ] }
+  # x3: word order on a 64-bit float
+  - { id: x3-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30603, word_order: little }, tags: [ { name: energy, datatype: float64, register: 0, initial: 12345.678 } ] }
+  - { id: x3-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30603, poll_ms: 500 }, tags: [ { name: energy, datatype: float64, register: 0 } ] }
+  # x4: Sparkplug group id differs only in case
+  - { id: x4-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30604, sparkplug: { group_id: Plant, edge_node: Line4 } }, tags: [ { name: level, datatype: float64, initial: 42.5 } ] }
+  - { id: x4-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30604, sparkplug: { group_id: plant, edge_node: Line4 } }, tags: [ { name: level, datatype: float64 } ] }
+  # x5: JSON pointer differs only in case
+  - { id: x5-srv, kind: api, mode: server, settings: { bind: 127.0.0.1, port: 30605 }, tags: [ { name: level, datatype: float64, initial: 42.5 } ] }
+  - { id: x5-cli, kind: api, mode: client, settings: { url: "http://127.0.0.1:30605/tags", interval_ms: 1000 }, tags: [ { name: level, datatype: float64, pointer: /Level } ] }
+  # x6: OPC UA float read as an integer
+  - { id: x6-srv, kind: opcua, mode: server, settings: { port: 30606, hostname: localhost, security_policies: [none], allow_anonymous: true }, tags: [ { name: flow, datatype: float64, initial: 12.75 } ] }
+  - { id: x6-cli, kind: opcua, mode: client, settings: { url: "opc.tcp://localhost:30606/", security_policy: none, security_mode: none, poll_ms: 500 }, tags: [ { name: flow, datatype: int32, node_id: "ns=2;s=flow" } ] }
+  # x7: S7 memory word instead of a data block word
+  - { id: x7-srv, kind: s7, mode: server, settings: { bind: 127.0.0.1, port: 30607 }, tags: [ { name: setpoint, datatype: int16, s7_address: DB1.DBW10, initial: 75 } ] }
+  - { id: x7-cli, kind: s7, mode: client, settings: { host: 127.0.0.1, port: 30607, poll_ms: 500 }, tags: [ { name: setpoint, datatype: int16, s7_address: MW10 } ] }
+  # x8: an offline Logix controller among healthy Modbus and MQTT decoys
+  - { id: x8-boiler-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30608 }, tags: [ { name: temp, datatype: float32, register: 0, initial: 85.0 } ] }
+  - { id: x8-boiler-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30608, poll_ms: 500 }, tags: [ { name: temp, datatype: float32, register: 0 } ] }
+  - { id: x8-silo-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30609, prefix: silo8 }, tags: [ { name: level, datatype: float64, initial: 61.0 } ] }
+  - { id: x8-silo-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30609 }, tags: [ { name: level, datatype: float64, topic: silo8/level } ] }
+  - { id: x8-press-srv, kind: eip, mode: server, enabled: false, settings: { bind: 127.0.0.1, port: 30610 }, tags: [ { name: force, datatype: float32, initial: 12.0 } ] }
+  - { id: x8-press-cli, kind: eip, mode: client, settings: { host: 127.0.0.1, port: 30610, poll_ms: 500, timeout_ms: 800 }, tags: [ { name: force, datatype: float32, cip_tag: force } ] }
+  # x9: two IO-Link sensors; the client has the ports swapped (values plausible but wrong)
+  - { id: x9-srv, kind: iolink, mode: server, settings: { bind: 127.0.0.1, port: 30611 }, tags: [ { name: left, datatype: uint16, port: 1, bit_offset: 0, bit_length: 16, initial: 420, units: mm }, { name: right, datatype: uint16, port: 2, bit_offset: 0, bit_length: 16, initial: 615, units: mm } ] }
+  - { id: x9-cli, kind: iolink, mode: client, settings: { host: 127.0.0.1, port: 30611, poll_ms: 500 }, tags: [ { name: left, datatype: uint16, port: 2, bit_offset: 0, bit_length: 16, units: mm }, { name: right, datatype: uint16, port: 1, bit_offset: 0, bit_length: 16, units: mm } ] }
+  # x10: two healthy Modbus devices; the client for device A polls device B's port
+  - { id: x10-a-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30612 }, tags: [ { name: level, datatype: float32, register: 0, initial: 42.5 } ] }
+  - { id: x10-b-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30613 }, tags: [ { name: level, datatype: float32, register: 0, initial: 77.0 } ] }
+  - { id: x10-a-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30613, poll_ms: 500 }, tags: [ { name: level, datatype: float32, register: 0 } ] }
+  # x11: two healthy clients reading one device
+  - { id: x11-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30614 }, tags: [ { name: flow, datatype: float32, register: 0, initial: 12.5 } ] }
+  - { id: x11-hmi-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30614, poll_ms: 500 }, tags: [ { name: flow, datatype: float32, register: 0 } ] }
+  - { id: x11-scada-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30614, poll_ms: 1000 }, tags: [ { name: flow, datatype: float32, register: 0 } ] }
+  # x12: MQTT client sends a username but no password
+  - { id: x12-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30615, prefix: line12, username: hmi, password: s3cret }, tags: [ { name: count, datatype: int32, initial: 1200 } ] }
+  - { id: x12-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30615, username: hmi }, tags: [ { name: count, datatype: int32, topic: line12/count } ] }

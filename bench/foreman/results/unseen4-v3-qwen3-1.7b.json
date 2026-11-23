@@ -1,0 +1,306 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 6,
+  "service_ok": 10,
+  "cause_ok": 6,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 2.6,
+  "avg_tok_s": 26.9
+ },
+ "results": [
+  {
+   "id": "x1",
+   "expected": {
+    "service": "x1-cli",
+    "cause": [
+     "tag_name",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "x1-cli",
+    "cause": "address_offset",
+    "explanation": "The device publishes a plain value on that register, but the client expects it to be good; the client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 31.2,
+   "trace": []
+  },
+  {
+   "id": "x2",
+   "expected": {
+    "service": "x2-cli",
+    "cause": [
+     "topic"
+    ]
+   },
+   "report": {
+    "service": "x2-cli",
+    "cause": "topic",
+    "explanation": "The X2 oven temperature never arrives over MQTT. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.0,
+   "tok_s": 30.5,
+   "trace": []
+  },
+  {
+   "id": "x3",
+   "expected": {
+    "service": "x3-cli",
+    "cause": [
+     "word_order"
+    ]
+   },
+   "report": {
+    "service": "x3-cli",
+    "cause": "address_offset",
+    "explanation": "The device publishes a plain value, but the client expects a register or address to offset it."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.9,
+   "tok_s": 23.7,
+   "trace": []
+  },
+  {
+   "id": "x4",
+   "expected": {
+    "service": "x4-cli",
+    "cause": [
+     "sparkplug_ids"
+    ]
+   },
+   "report": {
+    "service": "x4-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The Sparkplug group id is set to 'plant', but the device offline flag is true. The client's settings differ from the device's (sparkplug group id).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 32.3,
+   "trace": []
+  },
+  {
+   "id": "x5",
+   "expected": {
+    "service": "x5-cli",
+    "cause": [
+     "json_pointer"
+    ]
+   },
+   "report": {
+    "service": "x5-cli",
+    "cause": "json_pointer",
+    "explanation": "The X5 level from the API is bad quality. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.2,
+   "tok_s": 31.4,
+   "trace": []
+  },
+  {
+   "id": "x6",
+   "expected": {
+    "service": "x6-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "x6-cli",
+    "cause": "node_id",
+    "explanation": "The meter says 12.75, but the client's settings differ. The client's settings differ from the device's (node id).",
+    "fix": "Correct the OPC UA node id in the client."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 29.6,
+   "trace": []
+  },
+  {
+   "id": "x7",
+   "expected": {
+    "service": "x7-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "x7-cli",
+    "cause": "address_offset",
+    "explanation": "The X7 setpoint reads 0, but the PLC shows 75. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 29.2,
+   "trace": []
+  },
+  {
+   "id": "x8",
+   "expected": {
+    "service": "x8-press-srv",
+    "cause": [
+     "device_offline"
+    ]
+   },
+   "report": {
+    "service": "x8-press-cli",
+    "cause": "port_or_host",
+    "explanation": "The press force panel is empty. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.1,
+   "tok_s": 16.1,
+   "trace": []
+  },
+  {
+   "id": "x9",
+   "expected": {
+    "service": "x9-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "x9-cli",
+    "cause": "bit_offset",
+    "explanation": "On X9, the left sensor says 420, but the client's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.0,
+   "tok_s": 24.7,
+   "trace": []
+  },
+  {
+   "id": "x10",
+   "expected": {
+    "service": "x10-a-cli",
+    "cause": [
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "x10-a-cli",
+    "cause": "address_offset",
+    "explanation": "The tank A gauge shows 42.5, but the client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.9,
+   "tok_s": 24.1,
+   "trace": []
+  },
+  {
+   "id": "x11",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "x11-srv",
+    "cause": "address_offset",
+    "explanation": "The X11 device publishes a plain value on that register, but the client expects it to be in the device's address offset."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 21.2,
+   "trace": []
+  },
+  {
+   "id": "x12",
+   "expected": {
+    "service": "x12-cli",
+    "cause": [
+     "credentials"
+    ]
+   },
+   "report": {
+    "service": "x12-cli",
+    "cause": "credentials",
+    "explanation": "The X12 counter data stopped arriving over MQTT. The client's settings differ from the device's (credentials).",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 28.3,
+   "trace": []
+  }
+ ]
+}

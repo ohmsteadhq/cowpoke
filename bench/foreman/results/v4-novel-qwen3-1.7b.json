@@ -1,0 +1,297 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 7,
+  "service_ok": 7,
+  "cause_ok": 7,
+  "inspected_faulty": 12,
+  "invalid_calls": 5,
+  "no_report": 5,
+  "avg_seconds": 6.9,
+  "avg_tok_s": 28.1
+ },
+ "results": [
+  {
+   "id": "n1",
+   "expected": {
+    "service": "n1-cli",
+    "cause": [
+     "address_offset",
+     "register_table"
+    ]
+   },
+   "report": {
+    "service": "n1-cli",
+    "cause": "register_table",
+    "explanation": "The tank level reads 0, but the gauge shows 42. The client's settings differ from the device's (register table).",
+    "fix": "Set the client's table to the one the device uses."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 30.9,
+   "trace": []
+  },
+  {
+   "id": "n2",
+   "expected": {
+    "service": "n2-cli",
+    "cause": [
+     "scaling",
+     "word_order",
+     "datatype"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 11.2,
+   "tok_s": 35.7,
+   "trace": []
+  },
+  {
+   "id": "n3",
+   "expected": {
+    "service": "n3-cli",
+    "cause": [
+     "tag_name",
+     "node_id"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 14.2,
+   "tok_s": 28.2,
+   "trace": []
+  },
+  {
+   "id": "n4",
+   "expected": {
+    "service": "n4-cli",
+    "cause": [
+     "credentials",
+     "port_or_host",
+     "security_policy"
+    ]
+   },
+   "report": {
+    "service": "n4-cli",
+    "cause": "security_policy",
+    "explanation": "The problem is here: gRPC security policy is not set to the one gRPC server offers. That is why the reading is wrong.",
+    "fix": "Choose a security policy and mode the server offers."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.4,
+   "tok_s": 20.0,
+   "trace": []
+  },
+  {
+   "id": "n5",
+   "expected": {
+    "service": "n5-cli",
+    "cause": [
+     "sparkplug_ids",
+     "tag_name",
+     "topic",
+     "metric_name"
+    ]
+   },
+   "report": {
+    "service": "n5-cli",
+    "cause": "metric_name",
+    "explanation": "The Sparkplug host shows no tank level for N5, but the client's settings differ from the device's (metric name).",
+    "fix": "Correct the Sparkplug metric name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.1,
+   "tok_s": 21.6,
+   "trace": []
+  },
+  {
+   "id": "n6",
+   "expected": {
+    "service": "n6-cli",
+    "cause": [
+     "address_offset",
+     "bit_offset",
+     "port_or_host"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 13.5,
+   "tok_s": 29.6,
+   "trace": []
+  },
+  {
+   "id": "n7",
+   "expected": {
+    "service": "n7-cli",
+    "cause": [
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "n7-cli",
+    "cause": "scaling",
+    "explanation": "The problem is here: tag temp: g1 has scale 1, but g2 has 0.1. That is why the reading is wrong.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.7,
+   "tok_s": 26.3,
+   "trace": []
+  },
+  {
+   "id": "n8",
+   "expected": {
+    "service": "n8-srv",
+    "cause": [
+     "port_or_host",
+     "none",
+     "device_offline"
+    ]
+   },
+   "report": {
+    "service": "n8-srv",
+    "cause": "device_offline",
+    "explanation": "The problem is here: gRPC port 30308 is not listening. The client's settings match the device and its port, but the device is not running (device offline).",
+    "fix": "Start the device (server) or restore its power and network."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.9,
+   "tok_s": 29.3,
+   "trace": []
+  },
+  {
+   "id": "n9",
+   "expected": {
+    "service": "n9-mix-cli",
+    "cause": [
+     "tag_name"
+    ]
+   },
+   "report": {
+    "service": "n9-mix-cli",
+    "cause": "tag_name",
+    "explanation": "The mixer speed panel looks wrong. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.1,
+   "tok_s": 12.2,
+   "trace": []
+  },
+  {
+   "id": "n10",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 11.0,
+   "tok_s": 36.4,
+   "trace": []
+  },
+  {
+   "id": "n11",
+   "expected": {
+    "service": "n11-cli",
+    "cause": [
+     "address_offset",
+     "scaling",
+     "string_length"
+    ]
+   },
+   "report": {
+    "service": "n11-cli",
+    "cause": "string_length",
+    "explanation": "The problem is here: tag batch: givens length 2, but givens 3 (B-2026-0042). That is why the reading is wrong.",
+    "fix": "Set the string length to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.0,
+   "tok_s": 27.3,
+   "trace": []
+  },
+  {
+   "id": "n12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 10.0,
+   "tok_s": 40.0,
+   "trace": []
+  }
+ ]
+}

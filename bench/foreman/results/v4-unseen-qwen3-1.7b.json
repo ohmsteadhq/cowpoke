@@ -1,0 +1,287 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 5,
+  "service_ok": 5,
+  "cause_ok": 5,
+  "inspected_faulty": 12,
+  "invalid_calls": 6,
+  "no_report": 6,
+  "avg_seconds": 6.1,
+  "avg_tok_s": 35.0
+ },
+ "results": [
+  {
+   "id": "u1",
+   "expected": {
+    "service": "u1-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 10.2,
+   "tok_s": 39.2,
+   "trace": []
+  },
+  {
+   "id": "u2",
+   "expected": {
+    "service": "u2-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 9.8,
+   "tok_s": 40.8,
+   "trace": []
+  },
+  {
+   "id": "u3",
+   "expected": {
+    "service": "u3-cli",
+    "cause": [
+     "address_offset",
+     "other"
+    ]
+   },
+   "report": {
+    "service": "u3-cli",
+    "cause": "address_offset",
+    "explanation": "The problem is here: tag pressure: g1100 has address offset 100, but g1100 is missing from the device's register table. That is why the reading is wrong.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.8,
+   "tok_s": 30.7,
+   "trace": []
+  },
+  {
+   "id": "u4",
+   "expected": {
+    "service": "u4-cli",
+    "cause": [
+     "port_or_host",
+     "json_pointer",
+     "address_offset",
+     "url_path"
+    ]
+   },
+   "report": {
+    "service": "u4-cli",
+    "cause": "url_path",
+    "explanation": "The U4 level from the API is bad quality. The client's settings differ from the device's (url path).",
+    "fix": "Correct the URL path the client calls."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 27.4,
+   "trace": []
+  },
+  {
+   "id": "u5",
+   "expected": {
+    "service": "u5-cli",
+    "cause": [
+     "bit_offset",
+     "address_offset",
+     "other"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 9.8,
+   "tok_s": 40.8,
+   "trace": []
+  },
+  {
+   "id": "u6",
+   "expected": {
+    "service": "u6-cli",
+    "cause": [
+     "credentials",
+     "security_policy"
+    ]
+   },
+   "report": {
+    "security_policy": "none",
+    "credentials": "none",
+    "username": "op",
+    "password": "secret-pass"
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.4,
+   "tok_s": 34.7,
+   "trace": []
+  },
+  {
+   "id": "u7",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; nothing points to a fault.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.1,
+   "tok_s": 26.7,
+   "trace": []
+  },
+  {
+   "id": "u8",
+   "expected": {
+    "service": "u8-cli",
+    "cause": [
+     "string_length"
+    ]
+   },
+   "report": {
+    "service": "u8-cli",
+    "cause": "string_length",
+    "explanation": "The problem is here: tag batch: givens length 4, but givens 12. That is why the reading is wrong.",
+    "fix": "Set the string length to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 29.2,
+   "trace": []
+  },
+  {
+   "id": "u9",
+   "expected": {
+    "service": "u9-cli",
+    "cause": [
+     "register_table",
+     "datatype",
+     "other"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 8.9,
+   "tok_s": 44.9,
+   "trace": []
+  },
+  {
+   "id": "u10",
+   "expected": {
+    "service": "u10-oven-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u10-oven-cli",
+    "cause": "address_offset",
+    "explanation": "The oven temperature panel is bad, and the client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.3,
+   "tok_s": 20.3,
+   "trace": []
+  },
+  {
+   "id": "u11",
+   "expected": {
+    "service": "u11-cli",
+    "cause": [
+     "port_or_host",
+     "protocol_mismatch"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 9.1,
+   "tok_s": 44.0,
+   "trace": []
+  },
+  {
+   "id": "u12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 9.6,
+   "tok_s": 41.7,
+   "trace": []
+  }
+ ]
+}

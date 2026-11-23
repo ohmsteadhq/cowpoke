@@ -45,7 +45,7 @@ PROTOCOL_FAULTS = {
     "mqtt": ["credentials", "topic", "port_or_host", "device_offline", "other", "none"],
     "sparkplug": ["sparkplug_ids", "metric_name", "none"],
     "api": ["json_pointer", "port_or_host", "url_path", "none"],
-    "iolink": ["bit_offset", "address_offset", "port_or_host", "none"],
+    "iolink": ["bit_offset", "address_offset", "port_or_host", "other", "none"],
     "opcua": ["node_id", "security_policy", "credentials", "port_or_host", "device_offline", "none"],
     "s7": ["address_offset", "datatype", "string_length", "device_offline", "port_or_host", "protocol_mismatch", "none"],
 }
@@ -94,7 +94,7 @@ def make_scenario(n, port, rng, kind=None, fault=None):
         osvcs, _ = make_scenario(n, port, rng, kind=other, fault="none")
         osvcs[0]["id"] = svcs[0]["id"]
         svcs[0] = osvcs[0]
-        ans.update(service=svcs[1]["id"], cause="protocol_mismatch")
+        ans.update(service=svcs[1]["id"], cause="protocol_mismatch", why=explain("protocol_mismatch", svcs, None, rng))
         return svcs, ans
     area = rng.choice(AREAS)
     sid, cid = f"g{n}-{area}-sim", f"g{n}-{area}-cli"
@@ -113,6 +113,7 @@ def make_scenario(n, port, rng, kind=None, fault=None):
         reg = 0
         unit = rng.choice([1, 1, 1, 2, 5])
         double = fault == "scaling" and rng.random() < 0.5  # client scales a value already in units
+        coil = fault == "register_table" and rng.random() < 0.35  # coil read as a discrete input
         for nm in names:
             dt = rng.choice(["float32", "int32", "uint16", "int16"]) if nm != victim or fault != "word_order" \
                 else rng.choice(["float32", "int32"])
@@ -120,9 +121,13 @@ def make_scenario(n, port, rng, kind=None, fault=None):
                 dt = "float32" if double else "int16"
             if fault == "datatype" and nm == victim:
                 dt = "float32"
+            if coil and nm == victim:
+                dt = "bool"
             if fault == "string_length" and nm == victim:
                 dt = "string"
             st = {"name": nm, "datatype": dt, "register": reg, "unit": unit}
+            if coil and nm == victim:
+                st["table"] = "coil"
             if dt == "string":
                 st["length"] = 6
                 st["initial"] = f"B-{rng.randrange(2020, 2030)}-{rng.randrange(10000):04d}"
@@ -151,7 +156,9 @@ def make_scenario(n, port, rng, kind=None, fault=None):
         elif fault == "scaling":
             vt.pop("scale", None)
         elif fault == "register_table":
-            vt["table"] = "input_register"
+            vt["table"] = "discrete_input" if coil else "input_register"
+            if coil:
+                srv_tags[0]["initial"] = True
         elif fault == "datatype":
             vt["datatype"] = rng.choice(["int32", "uint32"])
         elif fault == "string_length":
@@ -182,7 +189,11 @@ def make_scenario(n, port, rng, kind=None, fault=None):
                 cli_tags.append({"name": nm, "datatype": dt, "topic": f"{prefix}/{nm}"})
             if fault == "other":
                 cli_tags[0]["pointer"] = rng.choice(["/value", "/data/" + victim, "/" + victim])
-                why = "the device publishes a plain value on that topic, but the client expects JSON and reads it with a JSON pointer"
+                why = rng.choice([
+                    "the device publishes a plain value on that topic, but the client expects JSON and reads it with a JSON pointer",
+                    "the payload is a bare number, not a JSON object, so the client's JSON pointer finds nothing",
+                    "the client applies a JSON pointer to a payload that isn't JSON",
+                ])
             if fault == "credentials":
                 cs["password"] = typo(cs["password"], rng)
             elif fault == "topic":
@@ -235,12 +246,23 @@ def make_scenario(n, port, rng, kind=None, fault=None):
         if fault == "address_offset":
             for t in cli_tags:
                 t["port"] = p % 4 + 1
+        if fault == "other":
+            cli_tags[0]["pd"] = "out"
+            why = rng.choice([
+                "the client reads process data out (master to device) instead of process data in, where the sensor value is",
+                "the tag is set to pd out, but the sensor's value travels in process data in",
+                "the client looks at the output direction of the IO-Link port; the measured value is in the input data",
+            ])
         if fault == "bit_offset":
             cli_tags[0]["bit_offset"] += rng.choice([1, 4, 8, -1 if cli_tags[0]["bit_offset"] else 2])
 
     elif kind == "opcua":
         ss = {"port": port, "hostname": "localhost", "security_policies": ["none"], "allow_anonymous": True}
         cs = {"url": f"opc.tcp://localhost:{port}/", "security_policy": "none", "security_mode": "none", "poll_ms": 500}
+        if fault != "credentials" and rng.random() < 0.4:
+            pw = f"pw{rng.randrange(10**6)}"
+            ss.update(allow_anonymous=False, users=[{"username": "operator", "password": pw}])
+            cs.update(username="operator", password=pw)
         for nm in names:
             dt = rng.choice(["float64", "int32", "bool", "string"])
             srv_tags.append({"name": nm, "datatype": dt, "initial": value_for(dt, rng)})
@@ -301,15 +323,79 @@ def make_scenario(n, port, rng, kind=None, fault=None):
             vt["length"] = rng.choice([2, 4, 6])
 
     if fault == "port_or_host" and kind not in ("api", "opcua"):
-        cs["port"] = wrong_port
+        if "host" in cs and rng.random() < 0.4:
+            cs["host"] = rng.choice(["127.0.0.2", "127.0.0.3", "127.0.1.1"])
+        else:
+            cs["port"] = wrong_port
     services = [
         {"id": sid, "kind": k, "mode": "server", "enabled": fault != "device_offline", "settings": ss, "tags": srv_tags},
         {"id": cid, "kind": k, "mode": "client", "settings": cs, "tags": cli_tags},
     ]
     who = {"none": "none", "device_offline": sid}.get(fault, cid)
-    answer = {"service": who, "cause": fault, "kind": kind, "why": locals().get("why"),
+    why = explain(fault, services, locals().get("why"), rng)
+    answer = {"service": who, "cause": fault, "kind": kind, "why": why,
               "victim": victim, "prefix": f"g{n}-"}
     return services, answer
+
+
+EFFECT = {
+    "address_offset": ["so it reads a different value than the device holds", "so the value comes from the wrong place",
+                       "which is why the reading is wrong"],
+    "word_order": ["so multi-register values come out scrambled", "which garbles every 32-bit value",
+                   "so the two halves of the value are swapped"],
+    "unit_id": ["so the device ignores the requests", "so nothing answers for that unit", "and no device answers as that unit"],
+    "scaling": ["so the value is off by the scale factor", "so the engineering value is wrong by a factor",
+                "which is why the number is too big or too small"],
+    "tag_name": ["so the controller doesn't know the tag", "and the controller has no tag by that name",
+                 "so the read fails"],
+    "port_or_host": ["so the client can't reach the device", "so it connects to nothing", "and the connection fails"],
+    "credentials": ["so the server refuses the connection", "and the login is rejected", "so it never gets data"],
+    "topic": ["so the client never receives the value", "and nothing is published there", "so the subscription stays empty"],
+    "sparkplug_ids": ["so the host never matches the node's births", "so the metrics never arrive",
+                      "and the host ignores the node"],
+    "json_pointer": ["so the pointer finds nothing in the response", "and the value isn't at that place in the JSON",
+                     "so the client reads nothing"],
+    "bit_offset": ["so the value is cut from the wrong bits", "which shifts the process data",
+                   "so the decoded value is wrong"],
+    "register_table": ["so it reads a different table than the one holding the value", "and that table holds nothing there",
+                       "so the value comes from the wrong table"],
+    "datatype": ["so the bytes are decoded as the wrong type", "which turns the value into garbage",
+                 "so the number is misread"],
+    "string_length": ["so the string is cut short", "and part of the text is missing", "so only part of the string arrives"],
+    "node_id": ["so the server has no such node", "and the read fails", "so the client gets no value"],
+    "security_policy": ["so no matching endpoint exists", "and the connection can't be secured that way",
+                        "so the client can't connect"],
+    "metric_name": ["so the host never matches the metric", "and the value never arrives", "so the metric is missing"],
+    "url_path": ["so the server answers 404", "and that path doesn't exist", "so the request fails"],
+    "protocol_mismatch": ["so the two never understand each other", "and the device can't answer it",
+                          "so the connection fails"],
+    "device_offline": ["so every client of it loses its data", "and nothing answers on its port",
+                       "so the client has nothing to talk to"],
+}
+
+
+def explain(fault, services, why, rng):
+    """A one- or two-sentence explanation in varied wording, citing the actual difference."""
+    if fault == "none":
+        return rng.choice([
+            "The client's settings match the device and its values are good, so nothing is misconfigured.",
+            "Nothing is wrong: the client reads the same values the device reports.",
+            "The reading is correct and the client matches the device; no change is needed.",
+        ])
+    if why:
+        return why[0].upper() + why[1:] + "."
+    defs = [dict(s, status={"state": "running" if s.get("enabled", True) else "stopped"}) for s in services]
+    found = bench.rule_checks(defs)
+    effect = rng.choice(EFFECT.get(fault, ["which explains the symptom"]))
+    if not found:
+        return f"The client's settings differ from the device's ({fault.replace('_', ' ')}), {effect}."
+    f = found[0].rstrip(".")
+    style = rng.randrange(3)
+    if style == 0:
+        return f"{f}, {effect}."
+    if style == 1:
+        return f"{effect[0].upper() + effect[1:]}: {f[0].lower() + f[1:]}."
+    return f"The problem is here: {f[0].lower() + f[1:]}. That is why the reading is wrong."
 
 
 def symptom(cp, ans, services, rng):

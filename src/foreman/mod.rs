@@ -262,6 +262,14 @@ pub fn rule_checks(seen: &[Seen]) -> Vec<String> {
                     out.push(format!("{} connects to port {a}, but {} listens on port {b}.", c.id, sv.id));
                 }
             }
+            let host = cs.get("host").and_then(|h| h.as_str()).filter(|h| !h.is_empty());
+            let bind = ss.get("bind").and_then(|b| b.as_str()).filter(|b| !b.is_empty());
+            if let (Some(h), Some(b)) = (host, bind) {
+                let local_alias = h == "localhost" && (b == "127.0.0.1" || b == "::1");
+                if b != "0.0.0.0" && b != "::" && h != b && !local_alias {
+                    out.push(format!("{} connects to host {h}, but {} listens on {b}.", c.id, sv.id));
+                }
+            }
             let order = |s: &Value| s.get("word_order").cloned().unwrap_or(json!("big"));
             let (a, b) = (order(cs), order(ss));
             if a != b {

@@ -1,0 +1,308 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 11,
+  "service_ok": 11,
+  "cause_ok": 12,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 2.3,
+  "avg_tok_s": 29.0
+ },
+ "results": [
+  {
+   "id": "x1",
+   "expected": {
+    "service": "x1-cli",
+    "cause": [
+     "tag_name",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "x1-cli",
+    "cause": "tag_name",
+    "explanation": "Tag p4: x1-cli reads Logix tag Pump[1].Speed, but x1-srv has Pump[4].Speed.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.8,
+   "tok_s": 24.3,
+   "trace": []
+  },
+  {
+   "id": "x2",
+   "expected": {
+    "service": "x2-cli",
+    "cause": [
+     "topic"
+    ]
+   },
+   "report": {
+    "service": "x2-cli",
+    "cause": "topic",
+    "explanation": "Tag temp: x2-cli subscribes to plant/#/temp, but x2-srv publishes it on plant/area2/oven/temp.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.0,
+   "tok_s": 34.0,
+   "trace": []
+  },
+  {
+   "id": "x3",
+   "expected": {
+    "service": "x3-cli",
+    "cause": [
+     "word_order"
+    ]
+   },
+   "report": {
+    "service": "x3-cli",
+    "cause": "word_order",
+    "explanation": "x3-cli uses word_order big, but x3-srv uses little.",
+    "fix": "Set the client's word order to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.9,
+   "tok_s": 30.0,
+   "trace": []
+  },
+  {
+   "id": "x4",
+   "expected": {
+    "service": "x4-cli",
+    "cause": [
+     "sparkplug_ids"
+    ]
+   },
+   "report": {
+    "service": "x4-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug group_id: x4-cli expects 'plant', x4-srv publishes 'Plant'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.1,
+   "tok_s": 33.3,
+   "trace": []
+  },
+  {
+   "id": "x5",
+   "expected": {
+    "service": "x5-cli",
+    "cause": [
+     "json_pointer"
+    ]
+   },
+   "report": {
+    "service": "x5-cli",
+    "cause": "json_pointer",
+    "explanation": "Tag level: x5-cli reads JSON pointer /Level, but x5-srv serves it at /level.",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.0,
+   "tok_s": 33.5,
+   "trace": []
+  },
+  {
+   "id": "x6",
+   "expected": {
+    "service": "x6-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "x6-cli",
+    "cause": "datatype",
+    "explanation": "Tag flow: x6-cli has datatype int32, but x6-srv has float64.",
+    "fix": "Set the client's data type to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.0,
+   "tok_s": 31.0,
+   "trace": []
+  },
+  {
+   "id": "x7",
+   "expected": {
+    "service": "x7-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "x7-cli",
+    "cause": "address_offset",
+    "explanation": "Tag setpoint: x7-cli has s7_address MW10, but x7-srv has DB1.DBW10.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.1,
+   "tok_s": 33.3,
+   "trace": []
+  },
+  {
+   "id": "x8",
+   "expected": {
+    "service": "x8-press-srv",
+    "cause": [
+     "device_offline"
+    ]
+   },
+   "report": {
+    "service": "x8-press-srv",
+    "cause": "device_offline",
+    "explanation": "x8-press-srv is not running (state stopped).",
+    "fix": "Start the device (server) or restore its power and network."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.2,
+   "tok_s": 19.1,
+   "trace": []
+  },
+  {
+   "id": "x9",
+   "expected": {
+    "service": "x9-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "x9-cli",
+    "cause": "address_offset",
+    "explanation": "Tag left: x9-cli has port 2, but x9-srv has 1. Tag right: x9-cli has port 1, but x9-srv has 2.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.9,
+   "tok_s": 28.3,
+   "trace": []
+  },
+  {
+   "id": "x10",
+   "expected": {
+    "service": "x10-a-cli",
+    "cause": [
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "x10-a-cli",
+    "cause": "port_or_host",
+    "explanation": "x10-a-cli connects to port 30613, but x10-a-srv listens on port 30612.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.7,
+   "tok_s": 28.1,
+   "trace": []
+  },
+  {
+   "id": "x11",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "x11-srv",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 25.4,
+   "trace": []
+  },
+  {
+   "id": "x12",
+   "expected": {
+    "service": "x12-cli",
+    "cause": [
+     "credentials"
+    ]
+   },
+   "report": {
+    "service": "x12-cli",
+    "cause": "credentials",
+    "explanation": "x12-cli's password does not match the one x12-srv requires.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.1,
+   "tok_s": 28.1,
+   "trace": []
+  }
+ ]
+}

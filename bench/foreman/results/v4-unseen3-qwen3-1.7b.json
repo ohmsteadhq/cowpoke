@@ -1,0 +1,287 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 7,
+  "service_ok": 7,
+  "cause_ok": 7,
+  "inspected_faulty": 12,
+  "invalid_calls": 5,
+  "no_report": 5,
+  "avg_seconds": 5.4,
+  "avg_tok_s": 34.5
+ },
+ "results": [
+  {
+   "id": "w1",
+   "expected": {
+    "service": "w1-cli",
+    "cause": [
+     "other",
+     "bit_offset",
+     "address_offset"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 9.6,
+   "tok_s": 41.7,
+   "trace": []
+  },
+  {
+   "id": "w2",
+   "expected": {
+    "service": "w2-cli",
+    "cause": [
+     "register_table"
+    ]
+   },
+   "report": {
+    "service": "w2-cli",
+    "cause": "register_table",
+    "explanation": "The problem is here: tag pump_on: g0 has table discrete_input, but g0 has coil. That is why the reading is wrong.",
+    "fix": "Set the client's table to the one the device uses."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 27.7,
+   "trace": []
+  },
+  {
+   "id": "w3",
+   "expected": {
+    "service": "w3-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "w3-cli",
+    "cause": "address_offset",
+    "explanation": "The problem is here: tag valve_open: g0:3:1, s7_address: g0:3:1, g0:3:1 is missing from the device's register or address offset is wrong.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.0,
+   "tok_s": 29.3,
+   "trace": []
+  },
+  {
+   "id": "w4",
+   "expected": {
+    "service": "w4-cli",
+    "cause": [
+     "tag_name",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "w4-cli",
+    "cause": "address_offset",
+    "explanation": "The problem is here: tag tank3: Logix simulator on 127.0.0.1:30504 reads 17; the gauge says about 42. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.1,
+   "tok_s": 31.6,
+   "trace": []
+  },
+  {
+   "id": "w5",
+   "expected": {
+    "service": "w5-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 9.0,
+   "tok_s": 44.4,
+   "trace": []
+  },
+  {
+   "id": "w6",
+   "expected": {
+    "service": "w6-cli",
+    "cause": [
+     "topic"
+    ]
+   },
+   "report": {
+    "service": "w6-cli",
+    "cause": "topic",
+    "explanation": "The W6 tank level never arrives: the client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.1,
+   "tok_s": 28.1,
+   "trace": []
+  },
+  {
+   "id": "w7",
+   "expected": {
+    "service": "w7-cli",
+    "cause": [
+     "port_or_host"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 9.2,
+   "tok_s": 43.5,
+   "trace": []
+  },
+  {
+   "id": "w8",
+   "expected": {
+    "service": "w8-cli",
+    "cause": [
+     "bit_offset"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 9.4,
+   "tok_s": 42.6,
+   "trace": []
+  },
+  {
+   "id": "w9",
+   "expected": {
+    "service": "w9-cli",
+    "cause": [
+     "sparkplug_ids"
+    ]
+   },
+   "report": {
+    "service": "w9-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The Sparkplug host shows no W9 tank level; the node is online. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.8,
+   "tok_s": 28.6,
+   "trace": []
+  },
+  {
+   "id": "w10",
+   "expected": {
+    "service": "w10-cli",
+    "cause": [
+     "address_offset",
+     "other"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 9.1,
+   "tok_s": 44.0,
+   "trace": []
+  },
+  {
+   "id": "w11",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; nothing points to a fault.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 24.3,
+   "trace": []
+  },
+  {
+   "id": "w12",
+   "expected": {
+    "service": "w12-cli",
+    "cause": [
+     "unit_id",
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "w12-cli",
+    "cause": "unit_id",
+    "explanation": "The W12 temperature never updates. The client's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 27.8,
+   "trace": []
+  }
+ ]
+}

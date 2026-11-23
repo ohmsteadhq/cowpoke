@@ -73,6 +73,7 @@ def main():
     a = ap.parse_args()
 
     # gen.py writes, per scenario and variant, the service question then the cause question.
+    rng = random.Random(a.seed)
     pending, convs = {}, []
     for line in open(a.src):
         e = json.loads(line)
@@ -82,14 +83,16 @@ def main():
         elif key in pending:
             service = pending.pop(key)
             d = diagnosis(e["state"], service, e["answer_key"])
-            if e["meta"].get("why"):
-                d["explanation"] = e["meta"]["why"][0].upper() + e["meta"]["why"][1:] + "."
+            # gen.py v4 writes a varied explanation per fault; keep the rule lines sometimes.
+            why = e["meta"].get("why")
+            has_lines = "Rule checks" in e["state"] and "- No differences" not in e["state"]
+            if why and not (has_lines and e["answer_key"] not in ("other", "none") and rng.random() < 0.3):
+                d["explanation"] = why if why.endswith(".") else why[0].upper() + why[1:] + "."
             convs.append({"messages": [
                 {"role": "system", "content": SYSTEM},
                 {"role": "user", "content": e["state"]},
                 {"role": "assistant", "content": json.dumps(d)},
             ], "meta": e["meta"]})
-    rng = random.Random(a.seed)
     rng.shuffle(convs)
     if a.limit:
         convs = convs[: a.limit]

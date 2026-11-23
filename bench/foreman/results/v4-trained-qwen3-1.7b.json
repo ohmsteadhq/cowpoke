@@ -1,0 +1,292 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 7,
+  "service_ok": 7,
+  "cause_ok": 8,
+  "inspected_faulty": 12,
+  "invalid_calls": 3,
+  "no_report": 3,
+  "avg_seconds": 4.3,
+  "avg_tok_s": 31.6
+ },
+ "results": [
+  {
+   "id": "f1",
+   "expected": {
+    "service": "f1-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "f1-cli",
+    "cause": "address_offset",
+    "explanation": "The tank level shows a nonsense number. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.2,
+   "tok_s": 29.1,
+   "trace": []
+  },
+  {
+   "id": "f2",
+   "expected": {
+    "service": "f2-cli",
+    "cause": [
+     "word_order"
+    ]
+   },
+   "report": {
+    "service": "f2-cli",
+    "cause": "word_order",
+    "explanation": "The tank level shows a wildly wrong number. The client's settings differ from the device's (word order).",
+    "fix": "Set the client's word order to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 26.7,
+   "trace": []
+  },
+  {
+   "id": "f3",
+   "expected": {
+    "service": "f3-cli",
+    "cause": [
+     "unit_id"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 9.8,
+   "tok_s": 40.8,
+   "trace": []
+  },
+  {
+   "id": "f4",
+   "expected": {
+    "service": "f4-cli",
+    "cause": [
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "f4-cli",
+    "cause": "scaling",
+    "explanation": "The problem is here: tag temp: g1 has scale 1, but g2 has 0.1. That is why the reading is wrong.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 27.3,
+   "trace": []
+  },
+  {
+   "id": "f5",
+   "expected": {
+    "service": "f5-cli",
+    "cause": [
+     "tag_name"
+    ]
+   },
+   "report": {
+    "service": "f5-cli",
+    "cause": "tag_name",
+    "explanation": "The Logix tank level shows bad quality. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 27.0,
+   "trace": []
+  },
+  {
+   "id": "f6",
+   "expected": {
+    "service": "f6-cli",
+    "cause": [
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "f6-cli",
+    "cause": "port_or_host",
+    "explanation": "The problem is here: gRPC port 30116 is not listening. The client's settings match the device and its port, but gRPC is not running (server not listening).",
+    "fix": "Start the device (server) or listen on the port the client connects to."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.8,
+   "tok_s": 31.4,
+   "trace": []
+  },
+  {
+   "id": "f7",
+   "expected": {
+    "service": "f7-cli",
+    "cause": [
+     "credentials"
+    ]
+   },
+   "report": {
+    "service": "f7-srv",
+    "cause": "credentials",
+    "explanation": "The problem is here: givensettings for the MQTT broker. The client's password does not match the one givensettings for the device, so the connection is refused.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 30.0,
+   "trace": []
+  },
+  {
+   "id": "f8",
+   "expected": {
+    "service": "f8-cli",
+    "cause": [
+     "topic"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 9.7,
+   "tok_s": 41.2,
+   "trace": []
+  },
+  {
+   "id": "f9",
+   "expected": {
+    "service": "f9-cli",
+    "cause": [
+     "sparkplug_ids"
+    ]
+   },
+   "report": {
+    "service": "f9-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The Sparkplug group_id: g09 is missing, so the client never receives data.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 27.2,
+   "trace": []
+  },
+  {
+   "id": "f10",
+   "expected": {
+    "service": "f10-cli",
+    "cause": [
+     "json_pointer"
+    ]
+   },
+   "report": {
+    "service": "f10-cli",
+    "cause": "json_pointer",
+    "explanation": "The line 10 level read is bad quality. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 29.2,
+   "trace": []
+  },
+  {
+   "id": "f11",
+   "expected": {
+    "service": "f11-cli",
+    "cause": [
+     "bit_offset"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 9.5,
+   "tok_s": 42.1,
+   "trace": []
+  },
+  {
+   "id": "f12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "f12-cli",
+    "cause": "unit_id",
+    "explanation": "The problem is here: tag flow: g12-srv has unit 1, but g12-cli has 2. That is why the reading is wrong.",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.8,
+   "tok_s": 27.5,
+   "trace": []
+  }
+ ]
+}

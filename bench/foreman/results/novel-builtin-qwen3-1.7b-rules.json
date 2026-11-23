@@ -1,0 +1,315 @@
+{
+ "summary": {
+  "model": "builtin",
+  "mode": "foreman",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 6,
+  "service_ok": 9,
+  "cause_ok": 7,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 49.7,
+  "avg_tok_s": 0.0
+ },
+ "results": [
+  {
+   "id": "n1",
+   "expected": {
+    "service": "n1-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "n1-cli",
+    "cause": "table",
+    "explanation": "Tag level: n1-cli has table input_register, but n1-srv has holding_register.",
+    "fix": "Set the client's table to match the device."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 38.6,
+   "tok_s": null,
+   "trace": []
+  },
+  {
+   "id": "n2",
+   "expected": {
+    "service": "n2-cli",
+    "cause": [
+     "scaling",
+     "word_order"
+    ]
+   },
+   "report": {
+    "service": "n2-cli",
+    "cause": "datatype",
+    "explanation": "Tag flow: n2-cli has datatype int32, but n2-srv has float32.",
+    "fix": "Set the client's Tag flow to match the device."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 25.3,
+   "tok_s": null,
+   "trace": []
+  },
+  {
+   "id": "n3",
+   "expected": {
+    "service": "n3-cli",
+    "cause": [
+     "tag_name"
+    ]
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are bad quality. The rule checks found no differences between the client and the device.",
+    "fix": "Set the client's settings to match the device and improve the quality."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 35.9,
+   "tok_s": null,
+   "trace": []
+  },
+  {
+   "id": "n4",
+   "expected": {
+    "service": "n4-cli",
+    "cause": [
+     "credentials",
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 36.6,
+   "tok_s": null,
+   "trace": []
+  },
+  {
+   "id": "n5",
+   "expected": {
+    "service": "n5-cli",
+    "cause": [
+     "sparkplug_ids",
+     "tag_name",
+     "topic"
+    ]
+   },
+   "report": {
+    "service": "n5-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Tag level: n5-cli reads metric Tank_Level, but n5-srv publishes Tank/Level.",
+    "fix": "Correct the client's metric to match the device's publishing format."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 43.2,
+   "tok_s": null,
+   "trace": []
+  },
+  {
+   "id": "n6",
+   "expected": {
+    "service": "n6-cli",
+    "cause": [
+     "address_offset",
+     "bit_offset",
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "n6-cli",
+    "cause": "port_or_host",
+    "explanation": "Tag distance: n6-cli has port 2, but n6-srv has 3.",
+    "fix": "Set the client's port or host to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 57.9,
+   "tok_s": null,
+   "trace": []
+  },
+  {
+   "id": "n7",
+   "expected": {
+    "service": "n7-cli",
+    "cause": [
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "n7-cli",
+    "cause": "scaling",
+    "explanation": "Tag temp: n7-cli has scale 0.1, but n7-srv has 1.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 33.6,
+   "tok_s": null,
+   "trace": []
+  },
+  {
+   "id": "n8",
+   "expected": {
+    "service": "n8-srv",
+    "cause": [
+     "port_or_host",
+     "none"
+    ]
+   },
+   "report": {
+    "service": "n8-cli",
+    "cause": "port_or_host",
+    "explanation": "No differences between the client and the device settings. The client's port or host is not specified, and the device's simulator requires port or host to be open and reachable.",
+    "fix": "Open the device's host and port in the client."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 32.6,
+   "tok_s": null,
+   "trace": []
+  },
+  {
+   "id": "n9",
+   "expected": {
+    "service": "n9-mix-cli",
+    "cause": [
+     "tag_name"
+    ]
+   },
+   "report": {
+    "service": "n9-mix-cli",
+    "cause": "tag_name",
+    "explanation": "Tag speed: n9-mix-cli reads Logix tag Mixer.Sped, but n9-mix-srv has Mixer.Speed.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 102.6,
+   "tok_s": null,
+   "trace": []
+  },
+  {
+   "id": "n10",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 69.5,
+   "tok_s": null,
+   "trace": []
+  },
+  {
+   "id": "n11",
+   "expected": {
+    "service": "n11-cli",
+    "cause": [
+     "address_offset",
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "n11-cli",
+    "cause": "length",
+    "explanation": "Tag batch: n11-cli has length 2, but n11-srv has 6.",
+    "fix": "Set the client's batch number length to the device's."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 72.6,
+   "tok_s": null,
+   "trace": []
+  },
+  {
+   "id": "n12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 48.4,
+   "tok_s": null,
+   "trace": []
+  }
+ ]
+}

@@ -195,6 +195,8 @@ fn port_of(settings: &Value) -> Option<i64> {
     host_port.rsplit_once(':')?.1.parse().ok()
 }
 
+const OPCUA_POLICIES: &[&str] = &["none", "basic256sha256", "aes128_sha256_rsa_oaep", "aes256_sha256_rsa_pss"];
+
 const TAG_FIELDS: &[&str] = &[
     "register", "table", "unit", "length", "scale", "offset", "port", "pd", "bit_offset", "bit_length", "node_id",
     "datatype",
@@ -216,6 +218,13 @@ fn tag_default(k: &str) -> Option<Value> {
 /// Secrets are compared, never shown.
 pub fn rule_checks(seen: &[Seen]) -> Vec<String> {
     let mut out = vec![];
+    for sv in seen.iter().filter(|s| s.mode == Mode::Server) {
+        if let Some(state) = sv.state.as_str() {
+            if state != "running" {
+                out.push(format!("{} is not running (state {state}).", sv.id));
+            }
+        }
+    }
     for c in seen.iter().filter(|s| s.mode == Mode::Client) {
         for sv in seen.iter().filter(|s| s.mode == Mode::Server && s.kind == c.kind) {
             let (cs, ss) = (&c.settings, &sv.settings);
@@ -233,6 +242,19 @@ pub fn rule_checks(seen: &[Seen]) -> Vec<String> {
                 let want = ss.get(k).filter(|v| !v.is_null());
                 if want.is_some() && !same(cs.get(k), want) {
                     out.push(format!("{}'s {k} does not match the one {} requires.", c.id, sv.id));
+                }
+            }
+            if c.kind == "opcua" {
+                let pol = cs.get("security_policy").and_then(|p| p.as_str()).unwrap_or("none").to_string();
+                let offered: Vec<String> = match ss.get("security_policies").and_then(|p| p.as_array()) {
+                    Some(a) if !a.is_empty() => a.iter().filter_map(|x| x.as_str().map(String::from)).collect(),
+                    _ => OPCUA_POLICIES.iter().map(|s| s.to_string()).collect(),
+                };
+                if !offered.contains(&pol) {
+                    out.push(format!(
+                        "{} asks for security policy {pol}, but {} offers {}.",
+                        c.id, sv.id, offered.join(", ")
+                    ));
                 }
             }
             let csp = cs.get("sparkplug").filter(|v| v.is_object());
@@ -255,6 +277,9 @@ pub fn rule_checks(seen: &[Seen]) -> Vec<String> {
                     continue;
                 };
                 for k in TAG_FIELDS {
+                    if *k == "node_id" && c.kind == "opcua" {
+                        continue; // compared below, with the server's implicit node id
+                    }
                     let a = t.get(*k).cloned().or_else(|| tag_default(k));
                     let b = st.get(*k).cloned().or_else(|| tag_default(k));
                     if !same(a.as_ref(), b.as_ref()) {
@@ -266,6 +291,16 @@ pub fn rule_checks(seen: &[Seen]) -> Vec<String> {
                 }
                 let s = |v: &Value, k: &str| v.get(k).and_then(|x| x.as_str()).map(String::from);
                 match c.kind.as_str() {
+                    "opcua" => {
+                        let a = t.get("node_id").cloned();
+                        let b = st.get("node_id").filter(|v| !v.is_null()).cloned().unwrap_or_else(|| json!(format!("ns=2;s={name}")));
+                        if !same(a.as_ref(), Some(&b)) {
+                            out.push(format!(
+                                "Tag {name}: {} reads node {}, but {} serves it as {}.",
+                                c.id, py_str(a.as_ref()), sv.id, py_str(Some(&b))
+                            ));
+                        }
+                    }
                     "eip" => {
                         let a = s(t, "cip_tag").unwrap_or_else(|| name.to_string());
                         let b = s(st, "cip_tag").unwrap_or_else(|| name.to_string());
@@ -395,6 +430,14 @@ impl Diagnosis {
     }
 }
 
+/// JSON schema for a diagnosis (servers that support constrained output use it).
+fn diagnosis_schema() -> Value {
+    json!({"type": "object", "properties": {
+        "service": {"type": "string"}, "cause": {"type": "string"},
+        "explanation": {"type": "string"}, "fix": {"type": "string"}},
+        "required": ["service", "cause", "explanation", "fix"]})
+}
+
 /// Where the model runs.
 pub enum Engine {
     /// Any OpenAI-compatible chat endpoint (llama.cpp's server, mlx_lm.server, Ollama, the hub).
@@ -425,7 +468,12 @@ impl Engine {
         let p = std::path::Path::new(path);
         let dir = p.parent().map(|d| d.to_string_lossy().into_owned()).unwrap_or_else(|| ".".into());
         let file = p.file_name().ok_or_else(|| anyhow!("{path}: not a file"))?.to_string_lossy().into_owned();
-        let model = mistralrs::GgufModelBuilder::new(dir, vec![file]).build().await?;
+        // Skip automatic device mapping: on macOS it can read the CPU's free memory as 0 MB
+        // and refuse to load. One small model on one device needs no mapping.
+        let model = mistralrs::GgufModelBuilder::new(dir, vec![file])
+            .with_device_mapping(mistralrs::DeviceMapSetting::Map(mistralrs_core::DeviceMapMetadata::dummy()))
+            .build()
+            .await?;
         Ok(Self::Builtin(model))
     }
 
@@ -447,7 +495,7 @@ impl Engine {
         match self {
             Self::Http { url, model, http, ollama: true } => {
                 let body = json!({
-                    "model": model, "stream": false, "think": false,
+                    "model": model, "stream": false, "think": false, "format": diagnosis_schema(),
                     "options": {"temperature": 0, "num_predict": 400},
                     "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}],
                 });

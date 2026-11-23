@@ -1,0 +1,312 @@
+{
+ "summary": {
+  "model": "qwen3:4b",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 6,
+  "service_ok": 10,
+  "cause_ok": 8,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 10.6,
+  "avg_tok_s": 19.6
+ },
+ "results": [
+  {
+   "id": "u1",
+   "expected": {
+    "service": "u1-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u1-cli",
+    "cause": "address_offset",
+    "explanation": "The client is reading from DB1.DBD4 (offset 4) while the server expects DB1.DBD0 (offset 0). This mismatch causes the client to read a different memory location than the server's level tag.",
+    "fix": "Change the client's s7_address for 'level' from 'DB1.DBD4' to 'DB1.DBD0' to match the server's tag configuration."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 11.7,
+   "tok_s": 20.1,
+   "trace": []
+  },
+  {
+   "id": "u2",
+   "expected": {
+    "service": "u2-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "u2-cli",
+    "cause": "datatype",
+    "explanation": "The client (u2-cli) is configured to read the flow tag as an int32, but the server (u2-srv) is configured as a float32. This mismatch causes the client to interpret the 32-bit value as an integer, resulting in a huge number (1095237632) instead of the expected float (12.5).",
+    "fix": "Change the client's tag configuration to use float32 for the flow tag to match the server's datatype."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 9.1,
+   "tok_s": 20.2,
+   "trace": []
+  },
+  {
+   "id": "u3",
+   "expected": {
+    "service": "u3-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u3-cli",
+    "cause": "register_table",
+    "explanation": "The client (u3-cli) is configured to read from register 1100, but the server (u3-srv) is configured to use register 100 for the pressure tag. This mismatch in register addresses causes the client to not receive valid data from the server.",
+    "fix": "Change the client's register address from 1100 to 100 to match the server's configuration."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 7.7,
+   "tok_s": 20.6,
+   "trace": []
+  },
+  {
+   "id": "u4",
+   "expected": {
+    "service": "u4-cli",
+    "cause": [
+     "port_or_host",
+     "json_pointer",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u4-cli",
+    "cause": "port_or_host",
+    "explanation": "The client is trying to access the API server at http://127.0.0.1:30404/tag, but the server is only listening on 127.0.0.1:30404. The client's request fails with HTTP 404 because the path '/tag' is not a valid endpoint for the server. The server's API endpoint is likely set up to handle requests differently, such as using a different path or method.",
+    "fix": "Ensure the client uses the correct API endpoint path. The server's API is configured to listen on 127.0.0.1:30404, but the client is requesting '/tag' which may not be a valid endpoint. Check the server's API documentation to confirm the correct path for the 'level' tag."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 12.2,
+   "tok_s": 19.9,
+   "trace": []
+  },
+  {
+   "id": "u5",
+   "expected": {
+    "service": "u5-cli",
+    "cause": [
+     "bit_offset",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u5-cli",
+    "cause": "bit_offset",
+    "explanation": "The client (u5-cli) is configured to read from bit_offset 0, but the server (u5-srv) expects a different bit offset. The server's tag 'distance' is defined with bit_offset 0, but the client's configuration shows a mismatch in the direction (pd: out vs in). This indicates the client is trying to write to the device instead of reading from it, causing the distance to read as 0.",
+    "fix": "Change the client's 'pd' from 'out' to 'in' to match the server's 'in' direction."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 9.8,
+   "tok_s": 20.0,
+   "trace": []
+  },
+  {
+   "id": "u6",
+   "expected": {
+    "service": "u6-cli",
+    "cause": [
+     "credentials",
+     "security_policy"
+    ]
+   },
+   "report": {
+    "service": "u6-cli",
+    "cause": "device_offline",
+    "explanation": "The client is configured to poll the OPC UA server at opc.tcp://localhost:30406/, but the server's state shows it's running. However, the client's live_tags indicate 'value': null and 'quality': 'bad', which suggests the client cannot connect to the server. The server's detail shows it's running with one endpoint, but the client's security settings might be misconfigured. The client uses 'security_mode': 'none' and 'security_policy': 'none', which matches the server's 'security_policies': ['none'], so security isn't the issue. The most likely cause is that the client is not able to connect to the server due to a network issue or the server being offline. However, the server's state is 'running', so it's possible the client is timing out or the server is not responding. The rule checks show no differences between client and device settings, so the issue is likely with the client's connection to the server.",
+    "fix": "Check the server's network connectivity and ensure the client is using the correct URL. The client should be configured to use the server's endpoint URL: opc.tcp://localhost:30406/ with the correct namespace (ns=2)."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 16.7,
+   "tok_s": 19.6,
+   "trace": []
+  },
+  {
+   "id": "u7",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "u7-srv",
+    "cause": "none",
+    "explanation": "The client and server settings for the speed tag are identical (both use MW10 in S7 PLC format). The live tag value is 1450 for both, and the quality is good. The drive shows 1450, so the speed is correct.",
+    "fix": "No fix needed"
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.7,
+   "tok_s": 20.4,
+   "trace": []
+  },
+  {
+   "id": "u8",
+   "expected": {
+    "service": "u8-cli",
+    "cause": [
+     "string_length"
+    ]
+   },
+   "report": {
+    "service": "u8-cli",
+    "cause": "tag_name",
+    "explanation": "The client's batch tag is configured with a length of 4 characters, but the server's batch tag is configured with a length of 12 characters. This mismatch causes the client to read only 4 characters from the 12-character string, resulting in the batch number being cut short.",
+    "fix": "Adjust the client's batch tag length to match the server's length of 12 characters."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 7.8,
+   "tok_s": 20.2,
+   "trace": []
+  },
+  {
+   "id": "u9",
+   "expected": {
+    "service": "u9-cli",
+    "cause": [
+     "register_table",
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "u9-cli",
+    "cause": "register_table",
+    "explanation": "The client (u9-cli) is configured to read from holding registers (table: holding_register) but the server (u9-srv) uses coils (table: coil) for the run indicator. This mismatch causes the client to read the wrong type of register.",
+    "fix": "Change the client's register_table setting from 'holding_register' to 'coil' to match the server's coil configuration."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 7.6,
+   "tok_s": 20.2,
+   "trace": []
+  },
+  {
+   "id": "u10",
+   "expected": {
+    "service": "u10-oven-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u10-oven-cli",
+    "cause": "device_offline",
+    "explanation": "The oven temperature panel (u10-oven-cli) is reporting a quality of 'bad' with value null. The client is connected to the S7 PLC simulator (u10-oven-srv) but the error message indicates 'object doesn't exist (0x0A)' which means the client is trying to read a non-existent address (DB6.DBD0) while the server expects DB5.DBD0. This causes the device to be offline.",
+    "fix": "Change the client's s7_address from 'DB6.DBD0' to 'DB5.DBD0' to match the server's configuration."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 12.0,
+   "tok_s": 19.9,
+   "trace": []
+  },
+  {
+   "id": "u11",
+   "expected": {
+    "service": "u11-cli",
+    "cause": [
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "u11-cli",
+    "cause": "port_or_host",
+    "explanation": "The client is trying to connect to 127.0.0.1:30412, but the server is listening on 127.0.0.1:30412. However, the client's connection is being reset by the peer (os error 54), which typically indicates a network issue. The error 'Connection reset by peer' (os error 54) suggests that the server closed the connection unexpectedly. This could be due to the server not being ready or the client's connection parameters not matching the server's expectations.",
+    "fix": "Ensure the client is configured to use the correct host and port. The client's settings show it's trying to connect to 127.0.0.0.1:30412, which is correct. However, the error indicates a network-level issue. Check if the server is actually running and listening on the specified port. The server's state is 'running', so it's likely the client's connection parameters are correct but the server might be closing the connection due to a timeout or other network conditions."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 15.9,
+   "tok_s": 19.1,
+   "trace": []
+  },
+  {
+   "id": "u12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "u12-srv",
+    "cause": "none",
+    "explanation": "The server service u12-srv is running and shows a count of 1200 with good quality. The client u12-cli is connected and also shows 1200 with good quality. The rule checks confirm no differences between client and device settings. The counter shows 1200 as reported, so there is no issue.",
+    "fix": "No fix needed"
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 10.2,
+   "tok_s": 15.1,
+   "trace": []
+  }
+ ]
+}

@@ -32,6 +32,13 @@ FIX = {
     "sparkplug_ids": "Make the client's Sparkplug group, edge node and device ids match the publisher's.",
     "json_pointer": "Correct the client's JSON pointer to where the device serves the value.",
     "bit_offset": "Set the client's bit offset and length to match the device's process data.",
+    "register_table": "Set the client's table to the one the device uses.",
+    "datatype": "Set the client's data type to the device's.",
+    "string_length": "Set the string length to the device's.",
+    "node_id": "Correct the OPC UA node id in the client.",
+    "security_policy": "Choose a security policy and mode the server offers.",
+    "device_offline": "Start the device (server) or restore its power and network.",
+    "metric_name": "Correct the Sparkplug metric name in the client.",
     "none": "No change needed; the client matches the device.",
 }
 

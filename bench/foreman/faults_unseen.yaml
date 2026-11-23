@@ -1,0 +1,42 @@
+# Truly unseen faults: nothing here is produced by gen.py v2 (S7 never appears in training;
+# the other faults are new mistakes on known protocols). Answer key in scenarios_unseen.json.
+# Ports 30400-30499 on 127.0.0.1.
+services:
+  # u1: S7 client reads DB1.DBD4; the level is at DB1.DBD0
+  - { id: u1-srv, kind: s7, mode: server, settings: { bind: 127.0.0.1, port: 30401 }, tags: [ { name: level, datatype: float32, s7_address: DB1.DBD0, initial: 42.5 }, { name: setpoint, datatype: float32, s7_address: DB1.DBD8, initial: 50.0 } ] }
+  - { id: u1-cli, kind: s7, mode: client, settings: { host: 127.0.0.1, port: 30401, poll_ms: 500 }, tags: [ { name: level, datatype: float32, s7_address: DB1.DBD4 }, { name: setpoint, datatype: float32, s7_address: DB1.DBD8 } ] }
+  # u2: S7 REAL read as a DINT
+  - { id: u2-srv, kind: s7, mode: server, settings: { bind: 127.0.0.1, port: 30402 }, tags: [ { name: flow, datatype: float32, s7_address: DB2.DBD0, initial: 12.5 } ] }
+  - { id: u2-cli, kind: s7, mode: client, settings: { host: 127.0.0.1, port: 30402, poll_ms: 500 }, tags: [ { name: flow, datatype: int32, s7_address: DB2.DBD0 } ] }
+  # u3: a strict Modbus device rejects a register no tag covers
+  - { id: u3-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30403, strict: true }, tags: [ { name: pressure, datatype: float32, register: 100, initial: 3.2 } ] }
+  - { id: u3-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30403, poll_ms: 500 }, tags: [ { name: pressure, datatype: float32, register: 1100 } ] }
+  # u4: API client calls the wrong path
+  - { id: u4-srv, kind: api, mode: server, settings: { bind: 127.0.0.1, port: 30404 }, tags: [ { name: level, datatype: float64, initial: 42.5 } ] }
+  - { id: u4-cli, kind: api, mode: client, settings: { url: "http://127.0.0.1:30404/tag", interval_ms: 1000 }, tags: [ { name: level, datatype: float64, pointer: /level } ] }
+  # u5: IO-Link client reads process data out instead of in
+  - { id: u5-srv, kind: iolink, mode: server, settings: { bind: 127.0.0.1, port: 30405 }, tags: [ { name: distance, datatype: uint16, port: 1, bit_offset: 0, bit_length: 16, initial: 300, units: mm } ] }
+  - { id: u5-cli, kind: iolink, mode: client, settings: { host: 127.0.0.1, port: 30405, poll_ms: 500 }, tags: [ { name: distance, datatype: uint16, port: 1, pd: out, bit_offset: 0, bit_length: 16, units: mm } ] }
+  # u6: OPC UA server requires a login; the client connects anonymously
+  - { id: u6-srv, kind: opcua, mode: server, settings: { port: 30406, hostname: localhost, security_policies: [none], allow_anonymous: false, users: [ { username: op, password: secret-pass } ] }, tags: [ { name: temp, datatype: float64, initial: 21.5 } ] }
+  - { id: u6-cli, kind: opcua, mode: client, settings: { url: "opc.tcp://localhost:30406/", security_policy: none, security_mode: none, poll_ms: 500 }, tags: [ { name: temp, datatype: float64, node_id: "ns=2;s=temp" } ] }
+  # u7: healthy S7 pair; operator suspects it
+  - { id: u7-srv, kind: s7, mode: server, settings: { bind: 127.0.0.1, port: 30407 }, tags: [ { name: speed, datatype: int16, s7_address: MW10, initial: 1450 } ] }
+  - { id: u7-cli, kind: s7, mode: client, settings: { host: 127.0.0.1, port: 30407, poll_ms: 500 }, tags: [ { name: speed, datatype: int16, s7_address: MW10 } ] }
+  # u8: S7 string read too short
+  - { id: u8-srv, kind: s7, mode: server, settings: { bind: 127.0.0.1, port: 30408 }, tags: [ { name: batch, datatype: string, s7_address: DB3.DBB0, length: 12, initial: "B-2026-0042" } ] }
+  - { id: u8-cli, kind: s7, mode: client, settings: { host: 127.0.0.1, port: 30408, poll_ms: 500 }, tags: [ { name: batch, datatype: string, s7_address: DB3.DBB0, length: 4 } ] }
+  # u9: a Modbus coil read as a holding register
+  - { id: u9-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30409 }, tags: [ { name: run, datatype: bool, table: coil, register: 5, initial: true } ] }
+  - { id: u9-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30409, poll_ms: 500 }, tags: [ { name: run, datatype: uint16, register: 5 } ] }
+  # u10: one S7 fault among healthy Modbus decoys
+  - { id: u10-pump-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30410 }, tags: [ { name: speed, datatype: uint16, register: 0, initial: 1450 } ] }
+  - { id: u10-pump-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30410, poll_ms: 500 }, tags: [ { name: speed, datatype: uint16, register: 0 } ] }
+  - { id: u10-oven-srv, kind: s7, mode: server, settings: { bind: 127.0.0.1, port: 30411 }, tags: [ { name: temp, datatype: float32, s7_address: DB5.DBD0, initial: 180.0 } ] }
+  - { id: u10-oven-cli, kind: s7, mode: client, settings: { host: 127.0.0.1, port: 30411, poll_ms: 500 }, tags: [ { name: temp, datatype: float32, s7_address: DB6.DBD0 } ] }
+  # u11: an EtherNet/IP client pointed at an S7 PLC's port
+  - { id: u11-srv, kind: s7, mode: server, settings: { bind: 127.0.0.1, port: 30412 }, tags: [ { name: level, datatype: float32, s7_address: DB1.DBD0, initial: 42.5 } ] }
+  - { id: u11-cli, kind: eip, mode: client, settings: { host: 127.0.0.1, port: 30412, poll_ms: 500, timeout_ms: 800 }, tags: [ { name: level, datatype: float32, cip_tag: Level } ] }
+  # u12: healthy Sparkplug device under a node, metric names with folders
+  - { id: u12-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30413, sparkplug: { group_id: Site, edge_node: Line12, device: Filler } }, tags: [ { name: count, datatype: int32, metric: Filler/Count, initial: 1200 } ] }
+  - { id: u12-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30413, sparkplug: { group_id: Site, edge_node: Line12, device: Filler } }, tags: [ { name: count, datatype: int32, metric: Filler/Count } ] }

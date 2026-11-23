@@ -20,6 +20,7 @@ futures = "0.3.34"
 hex = "0.4.3"
 lettre = { version = "0.11.24", default-features = false, features = ["tokio1", "tokio1-rustls", "ring", "webpki-roots", "smtp-transport", "builder", "hostname"] }
 mistralrs = { version = "0.8.1", optional = true }
+mistralrs-core = { version = "0.8.1", optional = true }
 parking_lot = "0.12.5"
 pcap = { version = "2", optional = true }
 pcap-file = "3"
@@ -52,5 +53,5 @@ default = ["live-capture"]
 # Live packet capture for the monitor service (needs libpcap). Without it, monitors replay pcap files only.
 live-capture = ["dep:pcap"]
 # The foreman's built-in model engine (mistral.rs, GGUF files). Add `foreman-metal` on Apple Silicon.
-foreman = ["dep:mistralrs"]
+foreman = ["dep:mistralrs", "dep:mistralrs-core"]
 foreman-metal = ["foreman", "mistralrs/metal"]

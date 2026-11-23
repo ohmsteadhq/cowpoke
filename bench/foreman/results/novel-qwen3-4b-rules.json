@@ -1,0 +1,315 @@
+{
+ "summary": {
+  "model": "qwen3:4b",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 5,
+  "service_ok": 9,
+  "cause_ok": 8,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 24.1,
+  "avg_tok_s": 6.5
+ },
+ "results": [
+  {
+   "id": "n1",
+   "expected": {
+    "service": "n1-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "n1-cli",
+    "cause": "word_order",
+    "explanation": "The client is configured to read from input_register (which is for input registers) but the server is configured as holding_register (which is for holding registers). Modbus TCP uses different register types for input and holding registers. Input registers are read-only, while holding registers are writeable. The client should be configured to read from holding registers to match the server's configuration.",
+    "fix": "Change the client's 'table' setting from 'input_register' to 'holding_register' in the client configuration."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 29.7,
+   "tok_s": 6.4,
+   "trace": []
+  },
+  {
+   "id": "n2",
+   "expected": {
+    "service": "n2-cli",
+    "cause": [
+     "scaling",
+     "word_order"
+    ]
+   },
+   "report": {
+    "service": "n2-cli",
+    "cause": "tag_name",
+    "explanation": "The client (n2-cli) is configured to read the flow tag as an int32, but the server (n2-srv) is configured as a float32. This mismatch causes the client to interpret the value incorrectly. The client's value (1095237632) is a large integer that corresponds to 12.5 when converted from float32.",
+    "fix": "Change the client's tag configuration to use float32 for the flow tag to match the server's data type."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 22.2,
+   "tok_s": 7.2,
+   "trace": []
+  },
+  {
+   "id": "n3",
+   "expected": {
+    "service": "n3-cli",
+    "cause": [
+     "tag_name"
+    ]
+   },
+   "report": {
+    "service": "n3-cli",
+    "cause": "none",
+    "explanation": "The client's 'temp' tag matches the server's 'Temperature' tag (node_id: ns=2;s=Temprature vs. name: Temperature). Both have the same data type (float64), and the client is connected to the server. The client reports 'bad' quality, but the server shows 'good' quality for its own tag. This suggests the issue is not in the client-server communication but in the client's internal state or the client's quality handling.",
+    "fix": "Check the client's quality handling logic or ensure the client is polling frequently enough (poll_ms=500) to catch quality changes."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 25.2,
+   "tok_s": 8.0,
+   "trace": []
+  },
+  {
+   "id": "n4",
+   "expected": {
+    "service": "n4-cli",
+    "cause": [
+     "credentials",
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "n4-cli",
+    "cause": "port_or_host",
+    "explanation": "The client is trying to connect to opc.tcp://localhost:30304/ but the server is configured to listen on opc.tcp://localhost:30304/ with a namespace prefix. The client's URL is missing the namespace identifier and the server's endpoint URL is not matching the client's expected format.",
+    "fix": "Update the client's URL to include the namespace identifier: opc.tcp://localhost:30304/ (ns=2)"
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 21.3,
+   "tok_s": 7.1,
+   "trace": []
+  },
+  {
+   "id": "n5",
+   "expected": {
+    "service": "n5-cli",
+    "cause": [
+     "sparkplug_ids",
+     "tag_name",
+     "topic"
+    ]
+   },
+   "report": {
+    "service": "n5-cli",
+    "cause": "tag_name",
+    "explanation": "The client (n5-cli) is configured to read metric 'Tank_Level' but the server (n5-srv) publishes metric 'Tank/Level'. The Sparkplug B standard requires consistent metric naming conventions for both client and server to ensure proper data exchange.",
+    "fix": "Update the client's tag configuration to match the server's metric name: change 'Tank_Level' to 'Tank/Level' in the client's tags_config."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 22.2,
+   "tok_s": 6.1,
+   "trace": []
+  },
+  {
+   "id": "n6",
+   "expected": {
+    "service": "n6-cli",
+    "cause": [
+     "address_offset",
+     "bit_offset",
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "n6-cli",
+    "cause": "port_or_host",
+    "explanation": "The client (n6-cli) is configured to use port 2 for the distance tag, but the server (n6-srv) uses port 3. This mismatch causes the client to read the wrong tag or fail to read the tag correctly.",
+    "fix": "Change the client's port setting from 2 to 3 to match the server's port configuration."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 22.7,
+   "tok_s": 5.4,
+   "trace": []
+  },
+  {
+   "id": "n7",
+   "expected": {
+    "service": "n7-cli",
+    "cause": [
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "n7-cli",
+    "cause": "scaling",
+    "explanation": "The client (n7-cli) is configured with a scaling factor of 0.1, but the server (n7-srv) has a scaling factor of 1. This means the client is interpreting the raw value from the server as 21.5 * 0.1 = 2.15, which is why the temperature reads 2.15 instead of 21.5.",
+    "fix": "Adjust the client's scaling factor to match the server's scaling factor (1)."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 30.9,
+   "tok_s": 4.9,
+   "trace": []
+  },
+  {
+   "id": "n8",
+   "expected": {
+    "service": "n8-srv",
+    "cause": [
+     "port_or_host",
+     "none"
+    ]
+   },
+   "report": {
+    "service": "n8-cli",
+    "cause": "port_or_host",
+    "explanation": "The client is trying to connect to 127.0.0.1:30308, but the server is stopped and not listening on that port. The error message shows 'Connection refused (os error 61)', which indicates the server is not running or the port is not open.",
+    "fix": "Start the server service (n8-srv) to listen on port 30308."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 30.5,
+   "tok_s": 4.8,
+   "trace": []
+  },
+  {
+   "id": "n9",
+   "expected": {
+    "service": "n9-mix-cli",
+    "cause": [
+     "tag_name"
+    ]
+   },
+   "report": {
+    "service": "n9-mix-cli",
+    "cause": "tag_name",
+    "explanation": "The client n9-mix-cli is configured to read the Logix tag 'Mixer.Sped' (with a typo), but the server n9-mix-srv defines the tag as 'Mixer.Speed'. This mismatch causes the client to report a 'no such tag' error (status 0x05).",
+    "fix": "Correct the client's tag name from 'Mixer.Sped' to 'Mixer.Speed' in the client's tags_config."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 31.3,
+   "tok_s": 5.5,
+   "trace": []
+  },
+  {
+   "id": "n10",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "n10-cli",
+    "cause": "none",
+    "explanation": "The client and device settings match exactly. The client is correctly configured to read the 'Flow' tag from the server with the same units and value. The local meter shows 12.5 m3/h, which matches the server's live tag value.",
+    "fix": "No fix needed"
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 16.8,
+   "tok_s": 7.9,
+   "trace": []
+  },
+  {
+   "id": "n11",
+   "expected": {
+    "service": "n11-cli",
+    "cause": [
+     "address_offset",
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "n11-cli",
+    "cause": "tag_name",
+    "explanation": "The client (n11-cli) is configured to read a 2-character string for the batch tag, but the server (n11-srv) expects a 6-character string. This mismatch causes the client to only show the first 2 characters of the batch number.",
+    "fix": "Change the client's tag configuration to match the server's 6-character length for the batch tag."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 21.0,
+   "tok_s": 7.1,
+   "trace": []
+  },
+  {
+   "id": "n12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "n12-srv",
+    "cause": "none",
+    "explanation": "The client and server settings match exactly, and the live tags show consistent values (59.153) with good quality. The level is simulated as a sine wave with a period of 60 seconds, so the changing value is expected behavior.",
+    "fix": "None needed"
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 15.5,
+   "tok_s": 7.1,
+   "trace": []
+  }
+ ]
+}

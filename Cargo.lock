@@ -1242,6 +1242,7 @@ dependencies = [
  "hex",
  "lettre",
  "mistralrs",
+ "mistralrs-core",
  "parking_lot",
  "pcap",
  "pcap-file",

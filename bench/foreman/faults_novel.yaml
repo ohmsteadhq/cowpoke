@@ -1,0 +1,45 @@
+# Faults the foreman models never saw in training (gen.py makes none of these), set up
+# closer to a plant: decoy services that work, OPC UA (not in the training data at all),
+# rule checks that flag harmless differences, and causes outside the model's list.
+# Answer key in scenarios_novel.json. Ports 30300-30399 on 127.0.0.1.
+services:
+  # n1: client reads input registers; the device keeps the value in holding registers
+  - { id: n1-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30301 }, tags: [ { name: level, datatype: float32, register: 10, initial: 42.5 } ] }
+  - { id: n1-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30301, poll_ms: 500 }, tags: [ { name: level, datatype: float32, register: 10, table: input_register } ] }
+  # n2: client decodes a float32 as int32
+  - { id: n2-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30302 }, tags: [ { name: flow, datatype: float32, register: 0, initial: 12.5 } ] }
+  - { id: n2-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30302, poll_ms: 500 }, tags: [ { name: flow, datatype: int32, register: 0 } ] }
+  # n3: OPC UA node id typo (OPC UA never appears in training)
+  - { id: n3-srv, kind: opcua, mode: server, settings: { port: 30303, hostname: localhost, security_policies: [none], allow_anonymous: true }, tags: [ { name: Temperature, datatype: float64, initial: 21.5 } ] }
+  - { id: n3-cli, kind: opcua, mode: client, settings: { url: "opc.tcp://localhost:30303/", security_policy: none, security_mode: none, poll_ms: 500 }, tags: [ { name: temp, datatype: float64, node_id: "ns=2;s=Temprature" } ] }
+  # n4: OPC UA client asks for an encrypted policy the server doesn't offer
+  - { id: n4-srv, kind: opcua, mode: server, settings: { port: 30304, hostname: localhost, security_policies: [none], allow_anonymous: true }, tags: [ { name: Pressure, datatype: float64, initial: 3.2 } ] }
+  - { id: n4-cli, kind: opcua, mode: client, settings: { url: "opc.tcp://localhost:30304/", security_policy: basic256sha256, security_mode: sign_and_encrypt, poll_ms: 500, trust_server_certs: true }, tags: [ { name: pressure, datatype: float64, node_id: "ns=2;s=Pressure" } ] }
+  # n5: Sparkplug metric name differs (ids match)
+  - { id: n5-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30305, sparkplug: { group_id: Plant, edge_node: Line5 } }, tags: [ { name: level, datatype: float64, metric: Tank/Level, initial: 42.5 } ] }
+  - { id: n5-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30305, sparkplug: { group_id: Plant, edge_node: Line5 } }, tags: [ { name: level, datatype: float64, metric: Tank_Level } ] }
+  # n6: IO-Link sensor read on the wrong master port
+  - { id: n6-srv, kind: iolink, mode: server, settings: { bind: 127.0.0.1, port: 30306 }, tags: [ { name: distance, datatype: uint16, port: 3, bit_offset: 0, bit_length: 16, initial: 300, units: mm } ] }
+  - { id: n6-cli, kind: iolink, mode: client, settings: { host: 127.0.0.1, port: 30306, poll_ms: 500 }, tags: [ { name: distance, datatype: uint16, port: 2, bit_offset: 0, bit_length: 16, units: mm } ] }
+  # n7: double scaling: the device already sends engineering units, the client scales again
+  - { id: n7-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30307 }, tags: [ { name: temp, datatype: float32, register: 0, initial: 21.5, units: degC } ] }
+  - { id: n7-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30307, poll_ms: 500 }, tags: [ { name: temp, datatype: float32, register: 0, scale: 0.1, units: degC } ] }
+  # n8: the device is switched off (service stopped); the client can't connect
+  - { id: n8-srv, kind: eip, mode: server, enabled: false, settings: { bind: 127.0.0.1, port: 30308 }, tags: [ { name: level, datatype: float32, initial: 42.5 } ] }
+  - { id: n8-cli, kind: eip, mode: client, settings: { host: 127.0.0.1, port: 30308, poll_ms: 500, timeout_ms: 800 }, tags: [ { name: level, datatype: float32, cip_tag: level } ] }
+  # n9: one faulty pair among two healthy pairs (decoys), different protocols
+  - { id: n9-pump-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30309 }, tags: [ { name: speed, datatype: uint16, register: 0, initial: 1450 } ] }
+  - { id: n9-pump-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30309, poll_ms: 500 }, tags: [ { name: speed, datatype: uint16, register: 0 } ] }
+  - { id: n9-tank-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30310, prefix: plant/tank9 }, tags: [ { name: level, datatype: float64, initial: 42.5 } ] }
+  - { id: n9-tank-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30310 }, tags: [ { name: level, datatype: float64, topic: plant/tank9/level } ] }
+  - { id: n9-mix-srv, kind: eip, mode: server, settings: { bind: 127.0.0.1, port: 30311 }, tags: [ { name: speed, datatype: float32, cip_tag: Mixer.Speed, initial: 88.0 } ] }
+  - { id: n9-mix-cli, kind: eip, mode: client, settings: { host: 127.0.0.1, port: 30311, poll_ms: 500 }, tags: [ { name: speed, datatype: float32, cip_tag: Mixer.Sped } ] }
+  # n10: healthy OPC UA pair; the rule checks flag a harmless difference (the server's node id is implicit)
+  - { id: n10-srv, kind: opcua, mode: server, settings: { port: 30312, hostname: localhost, security_policies: [none], allow_anonymous: true }, tags: [ { name: Flow, datatype: float64, initial: 12.5, units: m3/h } ] }
+  - { id: n10-cli, kind: opcua, mode: client, settings: { url: "opc.tcp://localhost:30312/", security_policy: none, security_mode: none, poll_ms: 500 }, tags: [ { name: flow, datatype: float64, node_id: "ns=2;s=Flow", units: m3/h } ] }
+  # n11: Modbus string too short: the client reads 2 registers of a 6-register label
+  - { id: n11-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30313 }, tags: [ { name: batch, datatype: string, register: 0, length: 6, initial: "B-2026-0042" } ] }
+  - { id: n11-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30313, poll_ms: 500 }, tags: [ { name: batch, datatype: string, register: 0, length: 2 } ] }
+  # n12: healthy Modbus pair, value is moving (generator); operator suspects it
+  - { id: n12-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30314 }, tags: [ { name: level, datatype: float32, register: 0, initial: 50.0, simulate: { kind: sine, min: 40, max: 60, period_ms: 60000 } } ] }
+  - { id: n12-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30314, poll_ms: 500 }, tags: [ { name: level, datatype: float32, register: 0 } ] }

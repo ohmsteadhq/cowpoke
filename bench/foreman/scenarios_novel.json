@@ -1,0 +1,125 @@
+[
+ {
+  "id": "n1",
+  "symptom": "The tank level on line N1 reads 0 but the gauge shows about 42.",
+  "service": "n1-cli",
+  "causes": [
+   "address_offset",
+   "register_table"
+  ],
+  "truth": "client reads input registers; value is in holding registers"
+ },
+ {
+  "id": "n2",
+  "symptom": "Flow on N2 shows a huge integer; the meter says 12.5.",
+  "service": "n2-cli",
+  "causes": [
+   "scaling",
+   "word_order",
+   "datatype"
+  ],
+  "truth": "client decodes float32 as int32 (datatype)"
+ },
+ {
+  "id": "n3",
+  "symptom": "The N3 temperature from the OPC UA server is bad quality.",
+  "service": "n3-cli",
+  "causes": [
+   "tag_name",
+   "node_id"
+  ],
+  "truth": "OPC UA node id typo"
+ },
+ {
+  "id": "n4",
+  "symptom": "No data at all from the N4 OPC UA server.",
+  "service": "n4-cli",
+  "causes": [
+   "credentials",
+   "port_or_host",
+   "security_policy"
+  ],
+  "truth": "client requires an encrypted security policy the server doesn't offer"
+ },
+ {
+  "id": "n5",
+  "symptom": "The Sparkplug host shows no tank level for N5, though the node is online.",
+  "service": "n5-cli",
+  "causes": [
+   "sparkplug_ids",
+   "tag_name",
+   "topic",
+   "metric_name"
+  ],
+  "truth": "Sparkplug metric name differs"
+ },
+ {
+  "id": "n6",
+  "symptom": "The N6 IO-Link distance reads 0; the sensor shows 300 mm.",
+  "service": "n6-cli",
+  "causes": [
+   "address_offset",
+   "bit_offset",
+   "port_or_host"
+  ],
+  "truth": "wrong IO-Link master port"
+ },
+ {
+  "id": "n7",
+  "symptom": "N7 temperature reads 2.15 degrees; the sensor shows 21.5.",
+  "service": "n7-cli",
+  "causes": [
+   "scaling"
+  ],
+  "truth": "client scales a value that is already in engineering units"
+ },
+ {
+  "id": "n8",
+  "symptom": "We get no data from the N8 Logix controller.",
+  "service": "n8-srv",
+  "causes": [
+   "port_or_host",
+   "none",
+   "device_offline"
+  ],
+  "truth": "the device (server) is switched off; the client is fine"
+ },
+ {
+  "id": "n9",
+  "symptom": "Something on line N9 is off; the mixer speed panel looks wrong.",
+  "service": "n9-mix-cli",
+  "causes": [
+   "tag_name"
+  ],
+  "truth": "Logix tag typo on the mixer client; pump and tank are healthy decoys"
+ },
+ {
+  "id": "n10",
+  "symptom": "An operator thinks the N10 flow is off; the local meter says 12.5 m3/h.",
+  "service": "none",
+  "causes": [
+   "none"
+  ],
+  "truth": "healthy; the rule check flags an implicit server node id"
+ },
+ {
+  "id": "n11",
+  "symptom": "The N11 batch number on the HMI is cut off: it shows only part of it.",
+  "service": "n11-cli",
+  "causes": [
+   "address_offset",
+   "scaling",
+   "string_length"
+  ],
+  "truth": "client string length too short (2 vs 6 registers)"
+ },
+ {
+  "id": "n12",
+  "symptom": "The N12 level keeps changing; is the reading right?",
+  "service": "none",
+  "causes": [
+   "none"
+  ],
+  "truth": "healthy; the level is actually moving"
+ }
+]

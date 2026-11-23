@@ -31,18 +31,22 @@ import yaml  # PyYAML
 import bench
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-BIN = os.path.join(ROOT, "target", "debug", "cowpoke")
+BIN = os.path.join(ROOT, "target", "release", "cowpoke")
+if not os.path.exists(BIN):
+    BIN = os.path.join(ROOT, "target", "debug", "cowpoke")
 
 WORDS = ["level", "temp", "flow", "pressure", "speed", "count", "run", "valve", "setpoint", "current",
          "weight", "ph", "humidity", "torque", "position", "batch"]
 AREAS = ["tank", "pump", "mixer", "boiler", "conveyor", "press", "dryer", "filler", "chiller", "kiln"]
 PROTOCOL_FAULTS = {
-    "modbus": ["address_offset", "word_order", "unit_id", "scaling", "port_or_host", "none"],
-    "eip": ["tag_name", "port_or_host", "none"],
-    "mqtt": ["credentials", "topic", "port_or_host", "none"],
-    "sparkplug": ["sparkplug_ids", "none"],
+    "modbus": ["address_offset", "word_order", "unit_id", "scaling", "port_or_host", "register_table", "datatype",
+               "string_length", "device_offline", "none"],
+    "eip": ["tag_name", "port_or_host", "device_offline", "none"],
+    "mqtt": ["credentials", "topic", "port_or_host", "device_offline", "none"],
+    "sparkplug": ["sparkplug_ids", "metric_name", "none"],
     "api": ["json_pointer", "port_or_host", "none"],
-    "iolink": ["bit_offset", "port_or_host", "none"],
+    "iolink": ["bit_offset", "address_offset", "port_or_host", "none"],
+    "opcua": ["node_id", "security_policy", "port_or_host", "device_offline", "none"],
 }
 
 
@@ -95,19 +99,29 @@ def make_scenario(n, port, rng, kind=None, fault=None):
         cs["word_order"] = order
         reg = 0
         unit = rng.choice([1, 1, 1, 2, 5])
+        double = fault == "scaling" and rng.random() < 0.5  # client scales a value already in units
         for nm in names:
             dt = rng.choice(["float32", "int32", "uint16", "int16"]) if nm != victim or fault != "word_order" \
                 else rng.choice(["float32", "int32"])
             if fault == "scaling" and nm == victim:
-                dt = "int16"
+                dt = "float32" if double else "int16"
+            if fault == "datatype" and nm == victim:
+                dt = "float32"
+            if fault == "string_length" and nm == victim:
+                dt = "string"
             st = {"name": nm, "datatype": dt, "register": reg, "unit": unit}
-            if fault == "scaling" and nm == victim:
+            if dt == "string":
+                st["length"] = 6
+                st["initial"] = f"B-{rng.randrange(2020, 2030)}-{rng.randrange(10000):04d}"
+            elif double and nm == victim:
+                st["initial"] = round(rng.uniform(5, 300), 1)
+            elif fault == "scaling" and nm == victim:
                 st["scale"] = rng.choice([0.1, 0.01])
                 st["initial"] = round(rng.uniform(5, 300) * 1.0, 1) if st["scale"] == 0.1 else round(rng.uniform(1, 30), 2)
             else:
                 st["initial"] = value_for(dt, rng)
             ct = {kk: v for kk, v in st.items() if kk != "initial"}
-            reg += 2 if dt in ("float32", "int32") else 1
+            reg += 6 if dt == "string" else 2 if dt in ("float32", "int32") else 1
             srv_tags.append(st)
             cli_tags.append(ct)
         vt = cli_tags[0]
@@ -119,8 +133,16 @@ def make_scenario(n, port, rng, kind=None, fault=None):
             vt["unit"] = rng.choice([u for u in (1, 2, 3, 5, 10) if u != unit])
             for t in cli_tags:
                 t["unit"] = vt["unit"]
+        elif fault == "scaling" and double:
+            vt["scale"] = rng.choice([0.1, 0.01, 10])
         elif fault == "scaling":
             vt.pop("scale", None)
+        elif fault == "register_table":
+            vt["table"] = "input_register"
+        elif fault == "datatype":
+            vt["datatype"] = rng.choice(["int32", "uint32"])
+        elif fault == "string_length":
+            vt["length"] = rng.choice([2, 3, 4])
     elif kind == "eip":
         cs = {"host": "127.0.0.1", "port": port, "poll_ms": 300, "timeout_ms": 800}
         prog = rng.choice(["", "Program:Main.", "Program:Line1.", f"{area.capitalize()}."])
@@ -160,8 +182,13 @@ def make_scenario(n, port, rng, kind=None, fault=None):
             cs["sparkplug"] = dict(sp)
             for nm in names:
                 dt = rng.choice(["float64", "int32", "bool"])
-                srv_tags.append({"name": nm, "datatype": dt, "initial": value_for(dt, rng)})
-                cli_tags.append({"name": nm, "datatype": dt})
+                metric = f"{area.capitalize()}/{nm.capitalize()}"
+                srv_tags.append({"name": nm, "datatype": dt, "metric": metric, "initial": value_for(dt, rng)})
+                cli_tags.append({"name": nm, "datatype": dt, "metric": metric})
+            if fault == "metric_name":
+                m = cli_tags[0]["metric"]
+                head, tail = m.split("/", 1)
+                cli_tags[0]["metric"] = rng.choice([f"{head}/{typo(tail, rng)}", m.replace("/", "_"), tail])
             if fault == "sparkplug_ids":
                 key = rng.choice([x for x in ("group_id", "edge_node", "device") if x in sp])
                 cs["sparkplug"][key] = typo(sp[key], rng)
@@ -187,16 +214,35 @@ def make_scenario(n, port, rng, kind=None, fault=None):
                              "initial": value_for(dt, rng) if dt != "int16" else rng.randrange(-300, 300)})
             cli_tags.append({"name": nm, "datatype": dt, "port": p, "bit_offset": off, "bit_length": bits})
             off += bits
+        if fault == "address_offset":
+            for t in cli_tags:
+                t["port"] = p % 4 + 1
         if fault == "bit_offset":
             cli_tags[0]["bit_offset"] += rng.choice([1, 4, 8, -1 if cli_tags[0]["bit_offset"] else 2])
 
-    if fault == "port_or_host" and kind != "api":
+    elif kind == "opcua":
+        ss = {"port": port, "hostname": "localhost", "security_policies": ["none"], "allow_anonymous": True}
+        cs = {"url": f"opc.tcp://localhost:{port}/", "security_policy": "none", "security_mode": "none", "poll_ms": 500}
+        for nm in names:
+            dt = rng.choice(["float64", "int32", "bool", "string"])
+            srv_tags.append({"name": nm, "datatype": dt, "initial": value_for(dt, rng)})
+            cli_tags.append({"name": nm, "datatype": dt, "node_id": f"ns=2;s={nm}"})
+        if fault == "node_id":
+            cli_tags[0]["node_id"] = f"ns=2;s={typo(victim, rng)}" if rng.random() < 0.7 else f"ns=3;s={victim}"
+        elif fault == "security_policy":
+            cs.update(security_policy=rng.choice(["basic256sha256", "aes256_sha256_rsa_pss"]),
+                      security_mode=rng.choice(["sign", "sign_and_encrypt"]), trust_server_certs=True)
+        elif fault == "port_or_host":
+            cs["url"] = f"opc.tcp://localhost:{wrong_port}/"
+
+    if fault == "port_or_host" and kind not in ("api", "opcua"):
         cs["port"] = wrong_port
     services = [
-        {"id": sid, "kind": k, "mode": "server", "settings": ss, "tags": srv_tags},
+        {"id": sid, "kind": k, "mode": "server", "enabled": fault != "device_offline", "settings": ss, "tags": srv_tags},
         {"id": cid, "kind": k, "mode": "client", "settings": cs, "tags": cli_tags},
     ]
-    answer = {"service": cid if fault != "none" else "none", "cause": fault, "kind": kind,
+    who = {"none": "none", "device_offline": sid}.get(fault, cid)
+    answer = {"service": who, "cause": fault, "kind": kind,
               "victim": victim, "prefix": f"g{n}-"}
     return services, answer
 

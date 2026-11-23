@@ -26,7 +26,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 CAUSES = [
     "address_offset", "word_order", "unit_id", "scaling", "tag_name", "port_or_host",
-    "credentials", "topic", "sparkplug_ids", "json_pointer", "bit_offset", "none",
+    "credentials", "topic", "sparkplug_ids", "json_pointer", "bit_offset",
+    "register_table", "datatype", "string_length", "node_id", "security_policy", "device_offline", "metric_name",
+    "none",
 ]
 
 SYSTEM = """You are the foreman of a Cowpoke box, an industrial gateway that runs protocol services \
@@ -81,6 +83,13 @@ CAUSE_TEXT = {
     "sparkplug_ids": "Sparkplug group, edge node or device id mismatch",
     "json_pointer": "Wrong JSON pointer into the response",
     "bit_offset": "Wrong IO-Link bit offset or length",
+    "register_table": "The client reads the wrong Modbus table (holding vs input registers, coils)",
+    "datatype": "The client decodes the value as the wrong data type",
+    "string_length": "A string is read with the wrong length",
+    "node_id": "The OPC UA node id is wrong",
+    "security_policy": "The client asks for a security policy or mode the server doesn't offer",
+    "device_offline": "The device (server) is stopped or offline",
+    "metric_name": "The Sparkplug metric name is wrong",
     "none": "Nothing is wrong; the values match the device",
 }
 
@@ -90,12 +99,13 @@ TAG_DEFAULTS = {"unit": 1, "table": "holding_register", "scale": 1, "offset": 0,
 TAG_FIELDS = ["register", "table", "unit", "length", "scale", "offset", "port", "pd", "bit_offset", "bit_length",
               "node_id", "datatype"]
 SETTING_FIELDS = ["word_order"]
+OPCUA_POLICIES = ["none", "basic256sha256", "aes128_sha256_rsa_oaep", "aes256_sha256_rsa_pss"]
 
 
 def _port_of(settings):
     if settings.get("port"):
         return settings["port"]
-    m = re.match(r"https?://[^/:]+:(\d+)", settings.get("url") or "")
+    m = re.match(r"[a-z.+-]+://[^/:]+:(\d+)", settings.get("url") or "")
     return int(m.group(1)) if m else None
 
 
@@ -105,6 +115,10 @@ def rule_checks(defs):
     out = []
     clients = [d for d in defs if d["mode"] == "client"]
     servers = [d for d in defs if d["mode"] == "server"]
+    for sv in servers:
+        st = (sv.get("status") or {}).get("state")
+        if st and st != "running":
+            out.append(f"{sv['id']} is not running (state {st}).")
     for c in clients:
         for sv in [x for x in servers if x["kind"] == c["kind"]]:
             cs, ss = c.get("settings") or {}, sv.get("settings") or {}
@@ -118,6 +132,11 @@ def rule_checks(defs):
             for k in ("username", "password"):
                 if ss.get(k) is not None and cs.get(k) != ss.get(k):
                     out.append(f"{c['id']}'s {k} does not match the one {sv['id']} requires.")
+            if c["kind"] == "opcua":
+                pol = cs.get("security_policy") or "none"
+                offered = ss.get("security_policies") or OPCUA_POLICIES
+                if pol not in offered:
+                    out.append(f"{c['id']} asks for security policy {pol}, but {sv['id']} offers {', '.join(offered)}.")
             csp, ssp = cs.get("sparkplug") or {}, ss.get("sparkplug") or {}
             for k in ("group_id", "edge_node", "device"):
                 if (csp or ssp) and csp.get(k) != ssp.get(k):
@@ -128,9 +147,15 @@ def rule_checks(defs):
                 if not st:
                     continue
                 for k in TAG_FIELDS:
+                    if k == "node_id" and c["kind"] == "opcua":
+                        continue  # compared below, with the server's implicit node id
                     a, b = t.get(k, TAG_DEFAULTS.get(k)), st.get(k, TAG_DEFAULTS.get(k))
                     if a != b:
                         out.append(f"Tag {t['name']}: {c['id']} has {k} {a}, but {sv['id']} has {b}.")
+                if c["kind"] == "opcua":
+                    a, b = t.get("node_id"), st.get("node_id") or f"ns=2;s={st['name']}"
+                    if a != b:
+                        out.append(f"Tag {t['name']}: {c['id']} reads node {a}, but {sv['id']} serves it as {b}.")
                 if c["kind"] == "eip":
                     a, b = (t.get("cip_tag") or t["name"]), (st.get("cip_tag") or st["name"])
                     if a.lower() != b.lower():
@@ -371,6 +396,7 @@ def main():
     ap.add_argument("--think", choices=["on", "off", "default"], default="off",
                     help="thinking for models that have it (qwen3); default leaves it to the model")
     ap.add_argument("--only", help="comma-separated scenario ids")
+    ap.add_argument("--scenarios", default="scenarios.json", help="answer key (scenarios_novel.json for unseen faults)")
     ap.add_argument("--max-steps", type=int, default=8)
     ap.add_argument("--openai", help="evidence mode via an OpenAI-compatible server at this URL (e.g. mlx_lm.server)")
     ap.add_argument("--no-format", action="store_true",
@@ -385,7 +411,7 @@ def main():
     global FREE_FORM, OPENAI
     FREE_FORM = a.no_format
     OPENAI = a.openai
-    scenarios = json.load(open(os.path.join(HERE, "scenarios.json")))
+    scenarios = json.load(open(os.path.join(HERE, a.scenarios)))
     if a.only:
         keep = set(a.only.split(","))
         scenarios = [s for s in scenarios if s["id"] in keep]
@@ -405,8 +431,8 @@ def main():
             else:
                 report, secs, tok_s = run_evidence(sc, cp, a.ollama, a.model, think, a.rules)
             ok_s = bool(report) and report.get("service") == sc["service"]
-            ok_c = bool(report) and report.get("cause") == sc["cause"]
-            r = {"id": sc["id"], "expected": {"service": sc["service"], "cause": sc["cause"]}, "report": report,
+            ok_c = bool(report) and report.get("cause") in sc.get("causes", [sc.get("cause")])
+            r = {"id": sc["id"], "expected": {"service": sc["service"], "cause": sc.get("causes", [sc.get("cause")])}, "report": report,
                  "pass": ok_s and ok_c, "service_ok": ok_s, "cause_ok": ok_c, "inspected_faulty": True,
                  "steps": 0, "invalid": 0 if report else 1, "seconds": secs, "tok_s": tok_s, "trace": []}
             results.append(r)

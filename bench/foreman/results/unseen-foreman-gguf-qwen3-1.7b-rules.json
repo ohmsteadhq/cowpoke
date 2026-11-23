@@ -1,0 +1,312 @@
+{
+ "summary": {
+  "model": "foreman-gguf:qwen3-1.7b",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 7,
+  "service_ok": 7,
+  "cause_ok": 7,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 2.9,
+  "avg_tok_s": 44.9
+ },
+ "results": [
+  {
+   "id": "u1",
+   "expected": {
+    "service": "u1-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.4,
+   "tok_s": 62.8,
+   "trace": []
+  },
+  {
+   "id": "u2",
+   "expected": {
+    "service": "u2-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "u2-cli",
+    "cause": "datatype",
+    "explanation": "Tag flow: u2-cli has datatype int32, but u2-srv has float32.",
+    "fix": "Set the client's datatype to match the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.6,
+   "tok_s": 62.3,
+   "trace": []
+  },
+  {
+   "id": "u3",
+   "expected": {
+    "service": "u3-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u3-cli",
+    "cause": "address_offset",
+    "explanation": "Tag pressure: u3-cli has register 1100, but u3-srv has 100.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.7,
+   "tok_s": 59.3,
+   "trace": []
+  },
+  {
+   "id": "u4",
+   "expected": {
+    "service": "u4-cli",
+    "cause": [
+     "port_or_host",
+     "json_pointer",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are bad quality. The rule checks found no differences between the client and the device settings.",
+    "fix": "Make the client's settings match the device and ensure the quality is good."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.0,
+   "tok_s": 52.4,
+   "trace": []
+  },
+  {
+   "id": "u5",
+   "expected": {
+    "service": "u5-cli",
+    "cause": [
+     "bit_offset",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u5-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag distance: u5-cli has pd out, but u5-srv has in.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 45.2,
+   "trace": []
+  },
+  {
+   "id": "u6",
+   "expected": {
+    "service": "u6-cli",
+    "cause": [
+     "credentials",
+     "security_policy"
+    ]
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences. The client's settings match the device and its values are good; the rule checks found no differences. The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.4,
+   "tok_s": 40.2,
+   "trace": []
+  },
+  {
+   "id": "u7",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 37.1,
+   "trace": []
+  },
+  {
+   "id": "u8",
+   "expected": {
+    "service": "u8-cli",
+    "cause": [
+     "string_length"
+    ]
+   },
+   "report": {
+    "service": "u8-cli",
+    "cause": "string_length",
+    "explanation": "Tag batch: u8-cli has length 4, but u8-srv has 12.",
+    "fix": "Set the client's string length to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.9,
+   "tok_s": 35.4,
+   "trace": []
+  },
+  {
+   "id": "u9",
+   "expected": {
+    "service": "u9-cli",
+    "cause": [
+     "register_table",
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "u9-cli",
+    "cause": "datatype",
+    "explanation": "Tag run: u9-cli has datatype uint16, but u9-srv has bool. The client's settings differ from the device's (or its simulator's) (or the rule checks).",
+    "fix": "Set the client's datatype to the device's (or its simulator's) (or the rule checks)."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.0,
+   "tok_s": 33.4,
+   "trace": []
+  },
+  {
+   "id": "u10",
+   "expected": {
+    "service": "u10-oven-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences. The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.2,
+   "tok_s": 37.6,
+   "trace": []
+  },
+  {
+   "id": "u11",
+   "expected": {
+    "service": "u11-cli",
+    "cause": [
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences. The client's settings match the device and its values are good; the rule checks found no differences. The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.7,
+   "tok_s": 36.1,
+   "trace": []
+  },
+  {
+   "id": "u12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "none",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.8,
+   "tok_s": 37.4,
+   "trace": []
+  }
+ ]
+}

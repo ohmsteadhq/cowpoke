@@ -1,0 +1,312 @@
+{
+ "summary": {
+  "model": "foreman-gguf:qwen3-1.7b",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 3,
+  "service_ok": 10,
+  "cause_ok": 4,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 2.3,
+  "avg_tok_s": 36.4
+ },
+ "results": [
+  {
+   "id": "u1",
+   "expected": {
+    "service": "u1-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u1-cli",
+    "cause": "scaling",
+    "explanation": "The U1 tank level reads nonsense; the gauge shows about 42. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.9,
+   "tok_s": 37.8,
+   "trace": []
+  },
+  {
+   "id": "u2",
+   "expected": {
+    "service": "u2-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "u2-cli",
+    "cause": "json_pointer",
+    "explanation": "The meter shows a huge number; the client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.9,
+   "tok_s": 36.9,
+   "trace": []
+  },
+  {
+   "id": "u3",
+   "expected": {
+    "service": "u3-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u3-cli",
+    "cause": "json_pointer",
+    "explanation": "The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 37.2,
+   "trace": []
+  },
+  {
+   "id": "u4",
+   "expected": {
+    "service": "u4-cli",
+    "cause": [
+     "port_or_host",
+     "json_pointer",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u4-cli",
+    "cause": "json_pointer",
+    "explanation": "The U4 level from the client's settings is bad quality. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.7,
+   "tok_s": 38.8,
+   "trace": []
+  },
+  {
+   "id": "u5",
+   "expected": {
+    "service": "u5-cli",
+    "cause": [
+     "bit_offset",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u5-cli",
+    "cause": "port_or_host",
+    "explanation": "The U5 IO-Link distance reads 0; the sensor shows 300 mm. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.2,
+   "tok_s": 35.4,
+   "trace": []
+  },
+  {
+   "id": "u6",
+   "expected": {
+    "service": "u6-cli",
+    "cause": [
+     "credentials",
+     "security_policy"
+    ]
+   },
+   "report": {
+    "service": "u6-cli",
+    "cause": "port_or_host",
+    "explanation": "The U6 OPC UA server's host and port are set to localhost:30406, but the client's settings differ. The client's URL is opc.tcp://localhost:30406/ (which matches the server), but the client's settings differ in some way. The client's settings differ in some way. The client's settings differ in some way. The client's settings differ in some way.",
+    "fix": "Make the client's settings match the server's."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.8,
+   "tok_s": 34.0,
+   "trace": []
+  },
+  {
+   "id": "u7",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "u7-cli",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; nothing points to a fault.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.7,
+   "tok_s": 35.8,
+   "trace": []
+  },
+  {
+   "id": "u8",
+   "expected": {
+    "service": "u8-cli",
+    "cause": [
+     "string_length"
+    ]
+   },
+   "report": {
+    "service": "u8-cli",
+    "cause": "string_length",
+    "explanation": "The U8 batch number on the HMI is cut short. The client's settings differ from the device's (string length).",
+    "fix": "Set the client's string length to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.9,
+   "tok_s": 35.9,
+   "trace": []
+  },
+  {
+   "id": "u9",
+   "expected": {
+    "service": "u9-cli",
+    "cause": [
+     "register_table",
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "u9-cli",
+    "cause": "json_pointer",
+    "explanation": "The U9 run indicator never shows the right state. The client's settings differ from the device's (json pointer).",
+    "fix": "Correct the client's JSON pointer to where the device serves the value."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.9,
+   "tok_s": 36.2,
+   "trace": []
+  },
+  {
+   "id": "u10",
+   "expected": {
+    "service": "u10-oven-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u10-oven-cli",
+    "cause": "scaling",
+    "explanation": "The oven temperature panel is bad. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.8,
+   "tok_s": 35.9,
+   "trace": []
+  },
+  {
+   "id": "u11",
+   "expected": {
+    "service": "u11-cli",
+    "cause": [
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "u11-cli",
+    "cause": "port_or_host",
+    "explanation": "The U11 Logix level never connects. The client's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.9,
+   "tok_s": 36.9,
+   "trace": []
+  },
+  {
+   "id": "u12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "u12-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The filler count shows 1200, but the client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.1,
+   "tok_s": 36.6,
+   "trace": []
+  }
+ ]
+}

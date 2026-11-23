@@ -375,6 +375,49 @@ digest:
 
 **Send digest now** on the Setup tab (`POST /api/insights/digest`) sends one with every open insight. Dismiss one and it stays dismissed. Values typed in the UI and simulator generators don't count toward the baseline. The baseline is saved in `baselines.json` in the data folder. Most insights need 30 minutes of watching, some need hours; `COWPOKE_INSIGHTS_QUICK=1` shortens that to minutes for demos. `GET /api/insights`, `POST /api/insights/run`, and `POST`/`DELETE /api/insights/<id>/dismiss`.
 
+## Foreman
+
+Foreman diagnoses communication misconfigurations. You name the services and say what you noticed; Cowpoke gathers each service's status, settings, tag map and live values, runs its rule checks, and asks a small language model for the misconfigured service, the cause, an explanation and the fix. It only reads; nothing changes.
+
+```sh
+curl -X POST localhost:8080/api/foreman/diagnose \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"services": ["tank-plc", "scada"], "symptom": "The SCADA shows a tank level of zero"}'
+```
+
+| Field | |
+|---|---|
+| `services` | Service ids to look at |
+| `prefix` | Instead of `services`: every service whose id starts with this |
+| `symptom` | What the operator noticed, in their words |
+| `rules` | Include the rule checks in the evidence (default `true`) |
+| `dry_run` | Return the evidence and rule findings without asking a model |
+
+The rule checks compare each client with the simulator of the same protocol, field by field, and need no model:
+
+- **Connection:** a simulator that isn't running, a client on a different port than its device listens on, a client speaking one protocol to a port serving another.
+- **Logins:** a username or password that doesn't match the one the device requires (compared, never shown).
+- **Modbus:** word order, unit id, register table, register, datatype, string length, scale and offset.
+- **OPC UA:** a security policy the server doesn't offer, an anonymous client on a server that requires a login, node ids.
+- **Siemens S7:** the S7 address and datatype of each tag.
+- **EtherNet/IP:** the Logix tag name.
+- **MQTT and Sparkplug B:** the topic, the group, edge node and device ids, and metric names.
+- **API request:** a URL path the mock API doesn't serve, and JSON pointers.
+- **IO-Link:** port, process data in or out, bit offset and bit length.
+
+The model answers with one cause from a fixed list (address offset, word order, unit id, scaling, register table, datatype, string length, bit offset, tag name, node id, security policy, credentials, topic, Sparkplug ids, metric name, JSON pointer, URL path, wrong port or host, protocol mismatch, device offline, other, or nothing wrong). The reply holds that diagnosis, the rule findings behind it, the engine used and the seconds it took.
+
+**Where the model runs.** The Docker image has no model engine built in; point it at a model server:
+
+| Variable | |
+|---|---|
+| `COWPOKE_FOREMAN_URL` | An OpenAI-compatible chat endpoint (llama.cpp's server, for example), or Ollama's address |
+| `COWPOKE_FOREMAN_API` | `ollama` to use Ollama's native chat API |
+| `COWPOKE_FOREMAN_MODEL_NAME` | The model to ask for, for example `qwen3:4b` |
+| `COWPOKE_FOREMAN_MODEL` | Builds with `--features foreman` only: path to a GGUF file the built-in engine loads |
+
+**Not covered yet.** The rule checks need a reference to compare a client with, and today that is a simulator of the same protocol in the same Cowpoke; a client reading a real device has none. The traffic monitor isn't part of a diagnosis, and there's no Foreman page in the web UI. In `bench/foreman`, stock `qwen3:4b` through Ollama with the rule findings passed 11 of 12 scenarios on the first hand-staged set and 5, 6 and 9 of 12 on three later, harder sets. Twelve scenarios is a small test: treat an answer as a lead to check.
+
 ## Not yet
 
 These aren't built yet:

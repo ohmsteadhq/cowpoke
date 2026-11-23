@@ -1,0 +1,369 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 10,
+  "service_ok": 10,
+  "cause_ok": 10,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 2.8,
+  "avg_tok_s": 23.3,
+  "explained_ok": 12,
+  "avg_explanation_chars": 91
+ },
+ "results": [
+  {
+   "id": "y1",
+   "expected": {
+    "service": "y1-cli",
+    "cause": [
+     "register_table"
+    ]
+   },
+   "report": {
+    "service": "y1-cli",
+    "cause": "register_table",
+    "explanation": "The client's register table setting does not match the device, so the value comes from the wrong table.",
+    "fix": "Set the client's table to the one the device uses."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 25.2,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 103,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y2",
+   "expected": {
+    "service": "y2-cli",
+    "cause": [
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "y2-cli",
+    "cause": "scaling",
+    "explanation": "The client's scaling setting does not match the device, so the value is off by the scale factor.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 23.1,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 96,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y3",
+   "expected": {
+    "service": "y3-cli",
+    "cause": [
+     "topic"
+    ]
+   },
+   "report": {
+    "service": "y3-cli",
+    "cause": "topic",
+    "explanation": "The client's topic setting does not match the device, so the client never receives the value.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 22.8,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 93,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y4",
+   "expected": {
+    "service": "y4-cli",
+    "cause": [
+     "tag_name"
+    ]
+   },
+   "report": {
+    "service": "y4-cli",
+    "cause": "tag_name",
+    "explanation": "The client's tag name setting does not match the device, so the read fails.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 22.4,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 75,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y5",
+   "expected": {
+    "service": "y5-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "y5-cli",
+    "cause": "datatype",
+    "explanation": "The client's datatype setting does not match the device, so the number is misread.",
+    "fix": "Set the client's data type to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 22.3,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 82,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y6",
+   "expected": {
+    "service": "y6-cli",
+    "cause": [
+     "node_id"
+    ]
+   },
+   "report": {
+    "service": "y6-cli",
+    "cause": "node_id",
+    "explanation": "The client's node id setting does not match the device, so the client gets no value.",
+    "fix": "Correct the OPC UA node id in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 24.6,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 84,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y7",
+   "expected": {
+    "service": "y7-cli",
+    "cause": [
+     "url_path"
+    ]
+   },
+   "report": {
+    "service": "y7-cli",
+    "cause": "url_path",
+    "explanation": "The client's url path setting does not match the device, so the server answers 404.",
+    "fix": "Correct the URL path the client calls."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 25.7,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 83,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y8",
+   "expected": {
+    "service": "y8-cli",
+    "cause": [
+     "bit_offset"
+    ]
+   },
+   "report": {
+    "service": "y8-cli",
+    "cause": "bit_offset",
+    "explanation": "The client's bit offset setting does not match the device, so the value is cut from the wrong bits.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.7,
+   "tok_s": 25.2,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 99,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y9",
+   "expected": {
+    "service": "y9-cli",
+    "cause": [
+     "sparkplug_ids"
+    ]
+   },
+   "report": {
+    "service": "y9-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The client's sparkplug ids setting does not match the device, so the metrics never arrive.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 26.2,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 90,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y10",
+   "expected": {
+    "service": "y10-plc-srv",
+    "cause": [
+     "device_offline"
+    ]
+   },
+   "report": {
+    "service": "y10-plc-cli",
+    "cause": "port_or_host",
+    "explanation": "The client's port or host setting does not match the device, so the client can't reach the device.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.6,
+   "tok_s": 14.6,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 98,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y11",
+   "expected": {
+    "service": "y11-cli",
+    "cause": [
+     "protocol_mismatch"
+    ]
+   },
+   "report": {
+    "service": "y11-cli",
+    "cause": "protocol_mismatch",
+    "explanation": "The client speaks a different protocol than the device on that port, so the connection fails.",
+    "fix": "Point the client at the right device, or use a client of the device's protocol."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 29.6,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 93,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "y12-plc-cli",
+    "cause": "topic",
+    "explanation": "The client's topic setting does not match the device, so the client never receives the value.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.4,
+   "tok_s": 17.6,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 93,
+    "unsupported": []
+   }
+  }
+ ]
+}

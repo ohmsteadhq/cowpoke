@@ -1,0 +1,384 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 9,
+  "service_ok": 9,
+  "cause_ok": 10,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 3.6,
+  "avg_tok_s": 19.2,
+  "explained_ok": 12,
+  "avg_explanation_chars": 90
+ },
+ "results": [
+  {
+   "id": "n1",
+   "expected": {
+    "service": "n1-cli",
+    "cause": [
+     "address_offset",
+     "register_table"
+    ]
+   },
+   "report": {
+    "service": "n1-cli",
+    "cause": "register_table",
+    "explanation": "The client's register table setting does not match the device, so the value comes from the wrong table.",
+    "fix": "Set the client's table to the one the device uses."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 25.2,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 103,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n2",
+   "expected": {
+    "service": "n2-cli",
+    "cause": [
+     "scaling",
+     "word_order",
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "n2-cli",
+    "cause": "datatype",
+    "explanation": "The client's datatype setting does not match the device, so the number is misread.",
+    "fix": "Set the client's data type to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 22.3,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 82,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n3",
+   "expected": {
+    "service": "n3-cli",
+    "cause": [
+     "tag_name",
+     "node_id"
+    ]
+   },
+   "report": {
+    "service": "n3-cli",
+    "cause": "node_id",
+    "explanation": "The client's node id setting does not match the device, so the client gets no value.",
+    "fix": "Correct the OPC UA node id in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 23.6,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 84,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n4",
+   "expected": {
+    "service": "n4-cli",
+    "cause": [
+     "credentials",
+     "port_or_host",
+     "security_policy"
+    ]
+   },
+   "report": {
+    "service": "n4-cli",
+    "cause": "security_policy",
+    "explanation": "The client's security policy setting does not match the device, so the client can't connect.",
+    "fix": "Choose a security policy and mode the server offers."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 23.6,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 92,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n5",
+   "expected": {
+    "service": "n5-cli",
+    "cause": [
+     "sparkplug_ids",
+     "tag_name",
+     "topic",
+     "metric_name"
+    ]
+   },
+   "report": {
+    "service": "n5-cli",
+    "cause": "metric_name",
+    "explanation": "The client's metric name setting does not match the device, so the metric is missing.",
+    "fix": "Correct the Sparkplug metric name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 24.2,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 85,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n6",
+   "expected": {
+    "service": "n6-cli",
+    "cause": [
+     "address_offset",
+     "bit_offset",
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "n6-cli",
+    "cause": "port_or_host",
+    "explanation": "The client's port or host setting does not match the device, so the client can't reach the device.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 26.7,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 98,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n7",
+   "expected": {
+    "service": "n7-cli",
+    "cause": [
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "n7-cli",
+    "cause": "scaling",
+    "explanation": "The client's scaling setting does not match the device, so the value is off by the scale factor.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.0,
+   "tok_s": 20.0,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 96,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n8",
+   "expected": {
+    "service": "n8-srv",
+    "cause": [
+     "port_or_host",
+     "none",
+     "device_offline"
+    ]
+   },
+   "report": {
+    "service": "n8-cli",
+    "cause": "port_or_host",
+    "explanation": "The client's port or host setting does not match the device, so the client can't reach the device.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.1,
+   "tok_s": 12.5,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 98,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n9",
+   "expected": {
+    "service": "n9-mix-cli",
+    "cause": [
+     "tag_name"
+    ]
+   },
+   "report": {
+    "service": "n9-mix-cli",
+    "cause": "tag_name",
+    "explanation": "The client's tag name setting does not match the device, so the read fails.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 7.9,
+   "tok_s": 7.3,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 75,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n10",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "n10-cli",
+    "cause": "node_id",
+    "explanation": "The client's node id setting does not match the device, so the client gets no value.",
+    "fix": "Correct the OPC UA node id in the client."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.2,
+   "tok_s": 14.3,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 84,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n11",
+   "expected": {
+    "service": "n11-cli",
+    "cause": [
+     "address_offset",
+     "scaling",
+     "string_length"
+    ]
+   },
+   "report": {
+    "service": "n11-cli",
+    "cause": "string_length",
+    "explanation": "The client's string length setting does not match the device, so the string is cut short.",
+    "fix": "Set the string length to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.7,
+   "tok_s": 15.9,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 89,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "n12-cli",
+    "cause": "port_or_host",
+    "explanation": "The client's port or host setting does not match the device, so the client can't reach the device.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.4,
+   "tok_s": 14.8,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 98,
+    "unsupported": []
+   }
+  }
+ ]
+}

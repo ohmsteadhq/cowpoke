@@ -1,0 +1,379 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 8,
+  "service_ok": 10,
+  "cause_ok": 8,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 5.6,
+  "avg_tok_s": 11.0,
+  "explained_ok": 12,
+  "avg_explanation_chars": 90
+ },
+ "results": [
+  {
+   "id": "u1",
+   "expected": {
+    "service": "u1-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u1-cli",
+    "cause": "address_offset",
+    "explanation": "The client's address offset setting does not match the device, so the value comes from the wrong place.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.3,
+   "tok_s": 10.0,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 103,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "u2",
+   "expected": {
+    "service": "u2-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "u2-cli",
+    "cause": "datatype",
+    "explanation": "The client's datatype setting does not match the device, so the number is wrong.",
+    "fix": "Set the client's data type to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.4,
+   "tok_s": 10.6,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 80,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "u3",
+   "expected": {
+    "service": "u3-cli",
+    "cause": [
+     "address_offset",
+     "other"
+    ]
+   },
+   "report": {
+    "service": "u3-cli",
+    "cause": "address_offset",
+    "explanation": "The client's address offset setting does not match the device, so the value comes from the wrong place.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.9,
+   "tok_s": 12.9,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 103,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "u4",
+   "expected": {
+    "service": "u4-cli",
+    "cause": [
+     "port_or_host",
+     "json_pointer",
+     "address_offset",
+     "url_path"
+    ]
+   },
+   "report": {
+    "service": "u4-cli",
+    "cause": "url_path",
+    "explanation": "The client's url path setting does not match the device, so the server answers 404.",
+    "fix": "Correct the URL path the client calls."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.8,
+   "tok_s": 12.3,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 83,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "u5",
+   "expected": {
+    "service": "u5-cli",
+    "cause": [
+     "bit_offset",
+     "address_offset",
+     "other"
+    ]
+   },
+   "report": {
+    "service": "u5-cli",
+    "cause": "other",
+    "explanation": "The client's settings differ from the device's (other).",
+    "fix": "See the explanation."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.4,
+   "tok_s": 8.5,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 55,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "u6",
+   "expected": {
+    "service": "u6-cli",
+    "cause": [
+     "credentials",
+     "security_policy"
+    ]
+   },
+   "report": {
+    "service": "u6-cli",
+    "cause": "credentials",
+    "explanation": "The client's credentials setting does not match the device, so the server refuses the connection.",
+    "fix": "Give the client the username and password the device requires."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.8,
+   "tok_s": 10.0,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 97,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "u7",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "u7-cli",
+    "cause": "protocol_mismatch",
+    "explanation": "The client's protocol settings do not match the device, so the connection fails.",
+    "fix": "Point the client at the device, or use a client of the device's protocol."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.1,
+   "tok_s": 12.5,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 80,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "u8",
+   "expected": {
+    "service": "u8-cli",
+    "cause": [
+     "string_length"
+    ]
+   },
+   "report": {
+    "service": "u8-cli",
+    "cause": "string_length",
+    "explanation": "The client's string length setting does not match the device, so the string is cut short.",
+    "fix": "Set the string length to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.9,
+   "tok_s": 11.8,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 89,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "u9",
+   "expected": {
+    "service": "u9-cli",
+    "cause": [
+     "register_table",
+     "datatype",
+     "other"
+    ]
+   },
+   "report": {
+    "service": "u9-cli",
+    "cause": "address_offset",
+    "explanation": "The client's address offset setting does not match the device, so the value comes from the wrong place.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.0,
+   "tok_s": 12.6,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 103,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "u10",
+   "expected": {
+    "service": "u10-oven-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "u10-oven-cli",
+    "cause": "protocol_mismatch",
+    "explanation": "The client speaks a different protocol than the device on that port, so the device doesn't answer it.",
+    "fix": "Point the client at the right device, or use a client of the device's protocol."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 8.1,
+   "tok_s": 9.0,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 101,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "u11",
+   "expected": {
+    "service": "u11-cli",
+    "cause": [
+     "port_or_host",
+     "protocol_mismatch"
+    ]
+   },
+   "report": {
+    "service": "u11-cli",
+    "cause": "port_or_host",
+    "explanation": "The client's port or host setting does not match the device, so the client can't reach the device.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.4,
+   "tok_s": 12.0,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 98,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "u12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "u12-cli",
+    "cause": "metric_name",
+    "explanation": "The client's metric name setting does not match the device, so the metric is missing.",
+    "fix": "Correct the Sparkplug metric name in the client."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 6.1,
+   "tok_s": 9.7,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 85,
+    "unsupported": []
+   }
+  }
+ ]
+}

@@ -1,0 +1,374 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 10,
+  "service_ok": 11,
+  "cause_ok": 10,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 3.4,
+  "avg_tok_s": 21.5,
+  "explained_ok": 12,
+  "avg_explanation_chars": 97
+ },
+ "results": [
+  {
+   "id": "w1",
+   "expected": {
+    "service": "w1-cli",
+    "cause": [
+     "other",
+     "bit_offset",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "w1-cli",
+    "cause": "other",
+    "explanation": "Tag level: w1-cli has pd out, but w1-srv has in.",
+    "fix": "See the explanation."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.0,
+   "tok_s": 10.2,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 48,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "w2",
+   "expected": {
+    "service": "w2-cli",
+    "cause": [
+     "register_table"
+    ]
+   },
+   "report": {
+    "service": "w2-cli",
+    "cause": "register_table",
+    "explanation": "Tag pump_on: w2-cli has table discrete_input, but w2-srv has coil, so the value comes from the wrong table.",
+    "fix": "Set the client's table to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.4,
+   "tok_s": 20.3,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 107,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "w3",
+   "expected": {
+    "service": "w3-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "w3-cli",
+    "cause": "address_offset",
+    "explanation": "Tag valve_open: w3-cli has s7_address DB4.DBX4.2, but w3-srv has DB4.DBX4.3, so the value comes from the wrong place.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.6,
+   "tok_s": 18.3,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 117,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "w4",
+   "expected": {
+    "service": "w4-cli",
+    "cause": [
+     "tag_name",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "w4-cli",
+    "cause": "tag_name",
+    "explanation": "Tag tank3: w4-cli reads Logix tag Tank[2].Level, but w4-srv has Tank[3].Level, so the read fails.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.5,
+   "tok_s": 20.9,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 97,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "w5",
+   "expected": {
+    "service": "w5-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "w5-cli",
+    "cause": "datatype",
+    "explanation": "Tag running: w5-cli has datatype float64, but w5-srv has bool, so the number is misread as a boolean.",
+    "fix": "Set the client's data type to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.0,
+   "tok_s": 23.3,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 101,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "w6",
+   "expected": {
+    "service": "w6-cli",
+    "cause": [
+     "topic"
+    ]
+   },
+   "report": {
+    "service": "w6-cli",
+    "cause": "topic",
+    "explanation": "Tag level: w6-cli subscribes to site/+/level, but w6-srv publishes it on site/line6/tank/level, so the subscription stays empty.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.1,
+   "tok_s": 24.2,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 128,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "w7",
+   "expected": {
+    "service": "w7-cli",
+    "cause": [
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "w7-cli",
+    "cause": "port_or_host",
+    "explanation": "w7-cli connects to host 127.0.0.2, but w7-srv listens on 127.0.0.1, so the client can't reach the device.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.4,
+   "tok_s": 25.3,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 105,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "w8",
+   "expected": {
+    "service": "w8-cli",
+    "cause": [
+     "bit_offset"
+    ]
+   },
+   "report": {
+    "service": "w8-cli",
+    "cause": "bit_length",
+    "explanation": "Tag pressure: w8-cli has bit_length 8, but w8-srv has 16, so the value is cut from the wrong bits.",
+    "fix": "Set the client's bit length to the device's."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.1,
+   "tok_s": 23.5,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 98,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "w9",
+   "expected": {
+    "service": "w9-cli",
+    "cause": [
+     "sparkplug_ids"
+    ]
+   },
+   "report": {
+    "service": "w9-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug device: w9-cli expects 'Tank', w9-srv publishes None, so the metrics never arrive.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.1,
+   "tok_s": 23.5,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 92,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "w10",
+   "expected": {
+    "service": "w10-cli",
+    "cause": [
+     "address_offset",
+     "other"
+    ]
+   },
+   "report": {
+    "service": "w10-cli",
+    "cause": "address_offset",
+    "explanation": "Tag setpoint: w10-cli has register 2000, but w10-srv has 10, so the value comes from the wrong place.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.1,
+   "tok_s": 25.5,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 101,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "w11",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "w11-cli",
+    "cause": "node_id",
+    "explanation": "The client's node id setting does not match the device, so the client gets no value.",
+    "fix": "Correct the OPC UA node id in the client."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.8,
+   "tok_s": 21.4,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 84,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "w12",
+   "expected": {
+    "service": "w12-cli",
+    "cause": [
+     "unit_id",
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "w12-cli",
+    "cause": "unit_id",
+    "explanation": "Tag temp: w12-cli has unit 1, but w12-srv has 3, so nothing answers for that unit.",
+    "fix": "Set the client's device unit id to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.3,
+   "tok_s": 21.8,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 82,
+    "unsupported": []
+   }
+  }
+ ]
+}

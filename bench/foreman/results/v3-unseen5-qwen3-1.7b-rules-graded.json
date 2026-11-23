@@ -1,0 +1,369 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 10,
+  "service_ok": 11,
+  "cause_ok": 11,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 2.9,
+  "avg_tok_s": 23.0,
+  "explained_ok": 12,
+  "avg_explanation_chars": 68
+ },
+ "results": [
+  {
+   "id": "y1",
+   "expected": {
+    "service": "y1-cli",
+    "cause": [
+     "register_table"
+    ]
+   },
+   "report": {
+    "service": "y1-cli",
+    "cause": "register_table",
+    "explanation": "Tag drive_temp: y1-cli has table holding_register, but y1-srv has input_register.",
+    "fix": "Set the client's table to the one the device uses."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 27.4,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 81,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y2",
+   "expected": {
+    "service": "y2-cli",
+    "cause": [
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "y2-cli",
+    "cause": "scaling",
+    "explanation": "Tag pressure: y2-cli has scale 1, but y2-srv has 0.1.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 24.4,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 53,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y3",
+   "expected": {
+    "service": "y3-cli",
+    "cause": [
+     "topic"
+    ]
+   },
+   "report": {
+    "service": "y3-cli",
+    "cause": "topic",
+    "explanation": "Tag pressure: y3-cli subscribes to Line5/pressure, but y3-srv publishes it on line5/pressure.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 25.0,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 93,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y4",
+   "expected": {
+    "service": "y4-cli",
+    "cause": [
+     "tag_name"
+    ]
+   },
+   "report": {
+    "service": "y4-cli",
+    "cause": "tag_name",
+    "explanation": "Tag flow: y4-cli reads Logix tag Flow, but y4-srv has Program:MainProgram.Flow.",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.7,
+   "tok_s": 23.3,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 79,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y5",
+   "expected": {
+    "service": "y5-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "y5-cli",
+    "cause": "datatype",
+    "explanation": "Tag ratio: y5-cli has datatype int32, but y5-srv has float32.",
+    "fix": "Set the client's data type to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.9,
+   "tok_s": 21.4,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 61,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y6",
+   "expected": {
+    "service": "y6-cli",
+    "cause": [
+     "node_id"
+    ]
+   },
+   "report": {
+    "service": "y6-cli",
+    "cause": "node_id",
+    "explanation": "Tag temp: y6-cli reads node ns=1;s=temp, but y6-srv serves it as ns=2;s=temp.",
+    "fix": "Correct the OPC UA node id in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.8,
+   "tok_s": 24.3,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 77,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y7",
+   "expected": {
+    "service": "y7-cli",
+    "cause": [
+     "url_path"
+    ]
+   },
+   "report": {
+    "service": "y7-cli",
+    "cause": "url_path",
+    "explanation": "y7-cli calls /tag, but y7-srv serves /tags.",
+    "fix": "Correct the URL path the client calls."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 21.6,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 43,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y8",
+   "expected": {
+    "service": "y8-cli",
+    "cause": [
+     "bit_offset"
+    ]
+   },
+   "report": {
+    "service": "y8-cli",
+    "cause": "bit_offset",
+    "explanation": "Tag distance: y8-cli has bit_offset 0, but y8-srv has 16.",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.0,
+   "tok_s": 22.7,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 57,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y9",
+   "expected": {
+    "service": "y9-cli",
+    "cause": [
+     "sparkplug_ids"
+    ]
+   },
+   "report": {
+    "service": "y9-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "Sparkplug edge_node: y9-cli expects 'Line-9', y9-srv publishes 'Line9'.",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.9,
+   "tok_s": 25.2,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 71,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y10",
+   "expected": {
+    "service": "y10-plc-srv",
+    "cause": [
+     "device_offline"
+    ]
+   },
+   "report": {
+    "service": "y10-plc-srv",
+    "cause": "device_offline",
+    "explanation": "y10-plc-srv is not running (state stopped).",
+    "fix": "Start the device (server) or restore its power and network."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.6,
+   "tok_s": 13.7,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 43,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y11",
+   "expected": {
+    "service": "y11-cli",
+    "cause": [
+     "protocol_mismatch"
+    ]
+   },
+   "report": {
+    "service": "y11-cli",
+    "cause": "address_offset",
+    "explanation": "y11-cli speaks modbus to port 30713, where y11-srv speaks eip.",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 28.8,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 62,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "y12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "y12-plc-cli",
+    "cause": "none",
+    "explanation": "The client's settings match the device and its values are good; the rule checks found no differences.",
+    "fix": "No change needed; the client matches the device."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.4,
+   "tok_s": 18.2,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 101,
+    "unsupported": []
+   }
+  }
+ ]
+}

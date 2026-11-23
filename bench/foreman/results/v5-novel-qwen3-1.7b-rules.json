@@ -1,0 +1,384 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 9,
+  "service_ok": 10,
+  "cause_ok": 9,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 3.4,
+  "avg_tok_s": 21.0,
+  "explained_ok": 12,
+  "avg_explanation_chars": 93
+ },
+ "results": [
+  {
+   "id": "n1",
+   "expected": {
+    "service": "n1-cli",
+    "cause": [
+     "address_offset",
+     "register_table"
+    ]
+   },
+   "report": {
+    "service": "n1-cli",
+    "cause": "register_table",
+    "explanation": "Tag level: n1-cli has table input_register, but n1-srv has holding_register, so the value comes from the wrong table.",
+    "fix": "Set the client's table to the one the device uses."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 4.3,
+   "tok_s": 16.5,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 117,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n2",
+   "expected": {
+    "service": "n2-cli",
+    "cause": [
+     "scaling",
+     "word_order",
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "n2-cli",
+    "cause": "datatype",
+    "explanation": "Tag flow: n2-cli has datatype int32, but n2-srv has float32, so the number is misread.",
+    "fix": "Set the client's data type to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.8,
+   "tok_s": 24.6,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 86,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n3",
+   "expected": {
+    "service": "n3-cli",
+    "cause": [
+     "tag_name",
+     "node_id"
+    ]
+   },
+   "report": {
+    "service": "n3-cli",
+    "cause": "node_id",
+    "explanation": "The client's node id setting does not match the device, so the client gets no value.",
+    "fix": "Correct the OPC UA node id in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 22.7,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 84,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n4",
+   "expected": {
+    "service": "n4-cli",
+    "cause": [
+     "credentials",
+     "port_or_host",
+     "security_policy"
+    ]
+   },
+   "report": {
+    "service": "n4-cli",
+    "cause": "security_policy",
+    "explanation": "n4-cli asks for security policy basic256sha256, but n4-srv offers none, so the client can't connect.",
+    "fix": "Choose a security policy and mode the server offers."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.3,
+   "tok_s": 21.5,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 100,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n5",
+   "expected": {
+    "service": "n5-cli",
+    "cause": [
+     "sparkplug_ids",
+     "tag_name",
+     "topic",
+     "metric_name"
+    ]
+   },
+   "report": {
+    "service": "n5-cli",
+    "cause": "metric_name",
+    "explanation": "Tag level: n5-cli reads metric Tank_Level, but n5-srv publishes Tank/Level, so the metric is missing.",
+    "fix": "Correct the Sparkplug metric name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.0,
+   "tok_s": 22.3,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 101,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n6",
+   "expected": {
+    "service": "n6-cli",
+    "cause": [
+     "address_offset",
+     "bit_offset",
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "n6-cli",
+    "cause": "port_or_host",
+    "explanation": "Tag distance: n6-cli has port 2, but n6-srv has 3, so the client can't reach the device.",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.9,
+   "tok_s": 18.2,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 88,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n7",
+   "expected": {
+    "service": "n7-cli",
+    "cause": [
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "n7-cli",
+    "cause": "scaling",
+    "explanation": "Tag temp: n7-cli has scale 0.1, but n7-srv has 1, so the value is off by the scale factor.",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.0,
+   "tok_s": 14.2,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 90,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n8",
+   "expected": {
+    "service": "n8-srv",
+    "cause": [
+     "port_or_host",
+     "none",
+     "device_offline"
+    ]
+   },
+   "report": {
+    "service": "n8-srv",
+    "cause": "device_offline",
+    "explanation": "n8-srv is not running (state stopped), so every client of it loses its data.",
+    "fix": "Start the device (server) or restore its power and network."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 26.0,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 76,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n9",
+   "expected": {
+    "service": "n9-mix-cli",
+    "cause": [
+     "tag_name"
+    ]
+   },
+   "report": {
+    "service": "n9-mix-cli",
+    "cause": "topic",
+    "explanation": "Tag speed: n9-mix-cli reads Logix tag Mixer.Sped, but n9-mix-srv has Mixer.Speed, so the client has no tag.",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 5.1,
+   "tok_s": 14.5,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 107,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n10",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "n10-cli",
+    "cause": "node_id",
+    "explanation": "The client's node id setting does not match the device, so the client gets no value.",
+    "fix": "Correct the OPC UA node id in the client."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 23.1,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 84,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n11",
+   "expected": {
+    "service": "n11-cli",
+    "cause": [
+     "address_offset",
+     "scaling",
+     "string_length"
+    ]
+   },
+   "report": {
+    "service": "n11-cli",
+    "cause": "string_length",
+    "explanation": "Tag batch: n11-cli has length 2, but n11-srv has 6, so the string is cut short.",
+    "fix": "Set the string length to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.8,
+   "tok_s": 24.6,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 79,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "n12-cli",
+    "cause": "register_table",
+    "explanation": "The client's register table setting does not match the device, so the value comes from the wrong table.",
+    "fix": "Set the client's table to the one the device uses."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.7,
+   "tok_s": 23.7,
+   "trace": [],
+   "explanation": {
+    "grounded": true,
+    "chars": 103,
+    "unsupported": []
+   }
+  }
+ ]
+}

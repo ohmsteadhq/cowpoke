@@ -11,3 +11,7 @@ Docker Hub listing in `dockerhub.md` goes live under that name.
 | `neuron-alternative.md` | neuron open source alternative, modbus/opc ua to mqtt gateway |
 | `s7-plc-simulator.md` | simulate siemens s7 plc without hardware, plcsim alternative |
 | `dockerhub.md` | the Docker Hub overview for `ohmsteadhq/cowpoke` |
+
+The hub page, ohmstead.io/cowpoke/, has no draft here: it is written directly in
+`ohmstead-site/src/pages/cowpoke/index.astro`. The four pages above are converted into
+`ohmstead-site/src/pages/cowpoke/*.astro`; keep the pairs in step when editing.

@@ -40,14 +40,19 @@ WORDS = ["level", "temp", "flow", "pressure", "speed", "count", "run", "valve", 
 AREAS = ["tank", "pump", "mixer", "boiler", "conveyor", "press", "dryer", "filler", "chiller", "kiln"]
 PROTOCOL_FAULTS = {
     "modbus": ["address_offset", "word_order", "unit_id", "scaling", "port_or_host", "register_table", "datatype",
-               "string_length", "device_offline", "none"],
-    "eip": ["tag_name", "port_or_host", "device_offline", "none"],
-    "mqtt": ["credentials", "topic", "port_or_host", "device_offline", "none"],
+               "string_length", "device_offline", "protocol_mismatch", "none"],
+    "eip": ["tag_name", "port_or_host", "device_offline", "protocol_mismatch", "none"],
+    "mqtt": ["credentials", "topic", "port_or_host", "device_offline", "other", "none"],
     "sparkplug": ["sparkplug_ids", "metric_name", "none"],
-    "api": ["json_pointer", "port_or_host", "none"],
+    "api": ["json_pointer", "port_or_host", "url_path", "none"],
     "iolink": ["bit_offset", "address_offset", "port_or_host", "none"],
-    "opcua": ["node_id", "security_policy", "port_or_host", "device_offline", "none"],
+    "opcua": ["node_id", "security_policy", "credentials", "port_or_host", "device_offline", "none"],
+    "s7": ["address_offset", "datatype", "string_length", "device_offline", "port_or_host", "protocol_mismatch", "none"],
 }
+
+# Share of faulty scenarios whose rule findings are hidden in the "with rules" variant, so the
+# model learns that silent rule checks are not proof of health (real sites have gaps).
+HIDE_RULES = 0.35
 
 
 def typo(s, rng):
@@ -83,6 +88,14 @@ def make_scenario(n, port, rng, kind=None, fault=None):
         fault = fault or rng.choice(sorted({c for cs in PROTOCOL_FAULTS.values() for c in cs}))
         kind = rng.choice([k for k, cs in PROTOCOL_FAULTS.items() if fault in cs])
     fault = fault or rng.choice(PROTOCOL_FAULTS[kind])
+    if fault == "protocol_mismatch":
+        svcs, ans = make_scenario(n, port, rng, kind=kind, fault="none")
+        other = rng.choice([k for k in ("modbus", "eip", "s7", "mqtt") if k != kind])
+        osvcs, _ = make_scenario(n, port, rng, kind=other, fault="none")
+        osvcs[0]["id"] = svcs[0]["id"]
+        svcs[0] = osvcs[0]
+        ans.update(service=svcs[1]["id"], cause="protocol_mismatch")
+        return svcs, ans
     area = rng.choice(AREAS)
     sid, cid = f"g{n}-{area}-sim", f"g{n}-{area}-cli"
     names = rng.sample(WORDS, rng.randint(1, 3))
@@ -167,6 +180,9 @@ def make_scenario(n, port, rng, kind=None, fault=None):
                 dt = rng.choice(["float64", "int32", "bool", "string"])
                 srv_tags.append({"name": nm, "datatype": dt, "initial": value_for(dt, rng)})
                 cli_tags.append({"name": nm, "datatype": dt, "topic": f"{prefix}/{nm}"})
+            if fault == "other":
+                cli_tags[0]["pointer"] = rng.choice(["/value", "/data/" + victim, "/" + victim])
+                why = "the device publishes a plain value on that topic, but the client expects JSON and reads it with a JSON pointer"
             if fault == "credentials":
                 cs["password"] = typo(cs["password"], rng)
             elif fault == "topic":
@@ -203,6 +219,8 @@ def make_scenario(n, port, rng, kind=None, fault=None):
             cli_tags[0]["pointer"] = "/" + typo(victim, rng)
         elif fault == "port_or_host":
             cs["url"] = f"http://127.0.0.1:{wrong_port}/tags"
+        elif fault == "url_path":
+            cs["url"] = f"http://127.0.0.1:{port}" + rng.choice(["/tag", "/api/tags", "/Tags", "/values", "/tags.json"])
     elif kind == "iolink":
         cs = {"host": "127.0.0.1", "port": port, "poll_ms": 300, "timeout_ms": 800}
         off = 0
@@ -234,6 +252,53 @@ def make_scenario(n, port, rng, kind=None, fault=None):
                       security_mode=rng.choice(["sign", "sign_and_encrypt"]), trust_server_certs=True)
         elif fault == "port_or_host":
             cs["url"] = f"opc.tcp://localhost:{wrong_port}/"
+        elif fault == "credentials":
+            ss.update(allow_anonymous=False, users=[{"username": "operator", "password": f"pw{rng.randrange(10**6)}"}])
+
+    elif kind == "s7":
+        cs = {"host": "127.0.0.1", "port": port, "poll_ms": 300, "timeout_ms": 800}
+        db = rng.choice([1, 2, 3, 5, 10, 20])
+        off = 0
+        layout = []
+        for nm in names:
+            dt = rng.choice(["float32", "int32", "int16", "bool"])
+            if nm == victim and fault == "datatype":
+                dt = "float32"
+            if nm == victim and fault == "string_length":
+                dt = "string"
+            if dt in ("float32", "int32"):
+                addr, size = f"DB{db}.DBD{off}", 4
+            elif dt == "int16":
+                addr, size = f"DB{db}.DBW{off}", 2
+            elif dt == "bool":
+                addr, size = f"DB{db}.DBX{off}.{rng.randrange(8)}", 2
+            else:
+                addr, size = f"DB{db}.DBB{off}", 14
+            st = {"name": nm, "datatype": dt, "s7_address": addr}
+            if dt == "string":
+                st["length"] = 12
+                st["initial"] = f"B-{rng.randrange(2020, 2030)}-{rng.randrange(10000):04d}"
+            else:
+                st["initial"] = value_for(dt, rng)
+            srv_tags.append(st)
+            cli_tags.append({k2: v for k2, v in st.items() if k2 != "initial"})
+            layout.append((dt, off, size))
+            off += size
+        vt, (vdt, voff, vsize) = cli_tags[0], layout[0]
+        if fault == "address_offset":
+            if rng.random() < 0.3:
+                vt["s7_address"] = vt["s7_address"].replace(f"DB{db}.DB", f"DB{db + 1}.DB", 1)
+            else:
+                shifted = voff + rng.choice([2, 4, 8])
+                vt["s7_address"] = {
+                    "float32": f"DB{db}.DBD{shifted}", "int32": f"DB{db}.DBD{shifted}",
+                    "int16": f"DB{db}.DBW{shifted}", "string": f"DB{db}.DBB{shifted}",
+                    "bool": f"DB{db}.DBX{shifted}." + vt["s7_address"].rsplit(".", 1)[1],
+                }[vdt]
+        elif fault == "datatype":
+            vt["datatype"] = "int32"
+        elif fault == "string_length":
+            vt["length"] = rng.choice([2, 4, 6])
 
     if fault == "port_or_host" and kind not in ("api", "opcua"):
         cs["port"] = wrong_port
@@ -242,7 +307,7 @@ def make_scenario(n, port, rng, kind=None, fault=None):
         {"id": cid, "kind": k, "mode": "client", "settings": cs, "tags": cli_tags},
     ]
     who = {"none": "none", "device_offline": sid}.get(fault, cid)
-    answer = {"service": who, "cause": fault, "kind": kind,
+    answer = {"service": who, "cause": fault, "kind": kind, "why": locals().get("why"),
               "victim": victim, "prefix": f"g{n}-"}
     return services, answer
 
@@ -352,9 +417,16 @@ def main():
                     sym = symptom(cp, ans, svcs, rng)
                     ids = [s["id"] for s in svcs]
                     for rules in (True, False):
-                        state = f"Operator report: {sym}\n\nServices:\n" + bench.evidence(cp, ans["prefix"], rules)
+                        hide = rules and ans["cause"] != "none" and rng.random() < HIDE_RULES
+                        if hide:
+                            state = (f"Operator report: {sym}\n\nServices:\n" + bench.evidence(cp, ans["prefix"], False)
+                                     + "\n\nRule checks (client compared with the device's simulator):\n"
+                                     + "- No differences between the client and the device settings.")
+                        else:
+                            state = f"Operator report: {sym}\n\nServices:\n" + bench.evidence(cp, ans["prefix"], rules)
                         for ex in decisions(state, ans, ids, rng):
-                            ex["meta"] = {"kind": ans["kind"], "cause": ans["cause"], "rules": rules, "seed": a.seed}
+                            ex["meta"] = {"kind": ans["kind"], "cause": ans["cause"], "rules": rules, "seed": a.seed,
+                                          "rules_hidden": hide, "why": ans.get("why")}
                             out.write(json.dumps(ex) + "\n")
                             written += 1
                     counts[(ans["kind"], ans["cause"])] = counts.get((ans["kind"], ans["cause"]), 0) + 1

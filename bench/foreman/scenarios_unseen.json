@@ -1,14 +1,120 @@
 [
-  {"id": "u1", "symptom": "The U1 tank level from the Siemens PLC reads nonsense; the gauge shows about 42.", "service": "u1-cli", "causes": ["address_offset"], "truth": "S7 address offset (DBD4 vs DBD0)"},
-  {"id": "u2", "symptom": "U2 flow from the S7 shows a huge number; the meter says 12.5.", "service": "u2-cli", "causes": ["datatype"], "truth": "S7 REAL read as DINT"},
-  {"id": "u3", "symptom": "U3 pressure is bad quality.", "service": "u3-cli", "causes": ["address_offset"], "truth": "register 1100 instead of 100; the strict device answers illegal data address"},
-  {"id": "u4", "symptom": "The U4 level from the API is bad quality.", "service": "u4-cli", "causes": ["port_or_host", "json_pointer", "address_offset"], "truth": "wrong URL path (/tag instead of /tags)"},
-  {"id": "u5", "symptom": "U5 IO-Link distance reads 0; the sensor shows 300 mm.", "service": "u5-cli", "causes": ["bit_offset", "address_offset"], "truth": "reads process data out instead of in"},
-  {"id": "u6", "symptom": "No data from the U6 OPC UA server.", "service": "u6-cli", "causes": ["credentials", "security_policy"], "truth": "server requires a login; client is anonymous"},
-  {"id": "u7", "symptom": "Is the U7 motor speed right? Someone says it looks off; the drive shows 1450.", "service": "none", "causes": ["none"], "truth": "healthy S7 pair"},
-  {"id": "u8", "symptom": "The U8 batch number on the HMI is cut short.", "service": "u8-cli", "causes": ["string_length"], "truth": "S7 string length 4 instead of 12"},
-  {"id": "u9", "symptom": "The U9 run indicator never shows the right state.", "service": "u9-cli", "causes": ["register_table", "datatype"], "truth": "a coil read as a holding register"},
-  {"id": "u10", "symptom": "Something on line U10 reads wrong; the oven temperature panel is bad.", "service": "u10-oven-cli", "causes": ["address_offset"], "truth": "S7 client reads DB6 instead of DB5; the pump is a healthy decoy"},
-  {"id": "u11", "symptom": "U11 Logix level never connects.", "service": "u11-cli", "causes": ["port_or_host"], "truth": "EtherNet/IP client pointed at an S7 PLC's port"},
-  {"id": "u12", "symptom": "Check the U12 filler count please; the counter shows 1200.", "service": "none", "causes": ["none"], "truth": "healthy Sparkplug device"}
+ {
+  "id": "u1",
+  "symptom": "The U1 tank level from the Siemens PLC reads nonsense; the gauge shows about 42.",
+  "service": "u1-cli",
+  "causes": [
+   "address_offset"
+  ],
+  "truth": "S7 address offset (DBD4 vs DBD0)"
+ },
+ {
+  "id": "u2",
+  "symptom": "U2 flow from the S7 shows a huge number; the meter says 12.5.",
+  "service": "u2-cli",
+  "causes": [
+   "datatype"
+  ],
+  "truth": "S7 REAL read as DINT"
+ },
+ {
+  "id": "u3",
+  "symptom": "U3 pressure is bad quality.",
+  "service": "u3-cli",
+  "causes": [
+   "address_offset",
+   "other"
+  ],
+  "truth": "register 1100 instead of 100; the strict device answers illegal data address"
+ },
+ {
+  "id": "u4",
+  "symptom": "The U4 level from the API is bad quality.",
+  "service": "u4-cli",
+  "causes": [
+   "port_or_host",
+   "json_pointer",
+   "address_offset",
+   "url_path"
+  ],
+  "truth": "wrong URL path (/tag instead of /tags)"
+ },
+ {
+  "id": "u5",
+  "symptom": "U5 IO-Link distance reads 0; the sensor shows 300 mm.",
+  "service": "u5-cli",
+  "causes": [
+   "bit_offset",
+   "address_offset",
+   "other"
+  ],
+  "truth": "reads process data out instead of in"
+ },
+ {
+  "id": "u6",
+  "symptom": "No data from the U6 OPC UA server.",
+  "service": "u6-cli",
+  "causes": [
+   "credentials",
+   "security_policy"
+  ],
+  "truth": "server requires a login; client is anonymous"
+ },
+ {
+  "id": "u7",
+  "symptom": "Is the U7 motor speed right? Someone says it looks off; the drive shows 1450.",
+  "service": "none",
+  "causes": [
+   "none"
+  ],
+  "truth": "healthy S7 pair"
+ },
+ {
+  "id": "u8",
+  "symptom": "The U8 batch number on the HMI is cut short.",
+  "service": "u8-cli",
+  "causes": [
+   "string_length"
+  ],
+  "truth": "S7 string length 4 instead of 12"
+ },
+ {
+  "id": "u9",
+  "symptom": "The U9 run indicator never shows the right state.",
+  "service": "u9-cli",
+  "causes": [
+   "register_table",
+   "datatype",
+   "other"
+  ],
+  "truth": "a coil read as a holding register"
+ },
+ {
+  "id": "u10",
+  "symptom": "Something on line U10 reads wrong; the oven temperature panel is bad.",
+  "service": "u10-oven-cli",
+  "causes": [
+   "address_offset"
+  ],
+  "truth": "S7 client reads DB6 instead of DB5; the pump is a healthy decoy"
+ },
+ {
+  "id": "u11",
+  "symptom": "U11 Logix level never connects.",
+  "service": "u11-cli",
+  "causes": [
+   "port_or_host",
+   "protocol_mismatch"
+  ],
+  "truth": "EtherNet/IP client pointed at an S7 PLC's port"
+ },
+ {
+  "id": "u12",
+  "symptom": "Check the U12 filler count please; the counter shows 1200.",
+  "service": "none",
+  "causes": [
+   "none"
+  ],
+  "truth": "healthy Sparkplug device"
+ }
 ]

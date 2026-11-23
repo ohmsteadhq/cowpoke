@@ -1,0 +1,14 @@
+[
+  {"id": "w1", "symptom": "The W1 IO-Link level never shows a value; the sensor shows 640 mm.", "service": "w1-cli", "causes": ["other", "bit_offset", "address_offset"], "truth": "process data out instead of in"},
+  {"id": "w2", "symptom": "The W2 pump-on indicator is wrong: the pump is running.", "service": "w2-cli", "causes": ["register_table"], "truth": "coil read as a discrete input"},
+  {"id": "w3", "symptom": "W3 valve shows closed; it is open.", "service": "w3-cli", "causes": ["address_offset"], "truth": "S7 wrong bit (DBX4.2 vs DBX4.3)"},
+  {"id": "w4", "symptom": "Tank 3 on W4 reads 17; the gauge says about 42.", "service": "w4-cli", "causes": ["tag_name", "address_offset"], "truth": "Logix array index 2 instead of 3"},
+  {"id": "w5", "symptom": "The W5 running signal shows a number, not on/off.", "service": "w5-cli", "causes": ["datatype"], "truth": "OPC UA boolean read as a float"},
+  {"id": "w6", "symptom": "The W6 tank level from MQTT never arrives.", "service": "w6-cli", "causes": ["topic"], "truth": "MQTT wildcard at the wrong depth"},
+  {"id": "w7", "symptom": "No data from the W7 flow meter.", "service": "w7-cli", "causes": ["port_or_host"], "truth": "wrong host, right port"},
+  {"id": "w8", "symptom": "The W8 IO-Link pressure reads 245; the sensor shows 1013.", "service": "w8-cli", "causes": ["bit_offset"], "truth": "bit length 8 instead of 16"},
+  {"id": "w9", "symptom": "The Sparkplug host shows no W9 tank level; the node is online.", "service": "w9-cli", "causes": ["sparkplug_ids"], "truth": "client expects a device; the node publishes the metric itself"},
+  {"id": "w10", "symptom": "The W10 setpoint is bad quality.", "service": "w10-cli", "causes": ["address_offset", "other"], "truth": "register 2000 instead of 10; strict device answers illegal data address"},
+  {"id": "w11", "symptom": "Someone thinks the W11 speed is wrong; the drive shows 1450.", "service": "none", "causes": ["none"], "truth": "healthy OPC UA pair with a login"},
+  {"id": "w12", "symptom": "The W12 temperature never updates.", "service": "w12-cli", "causes": ["unit_id", "scaling"], "truth": "wrong unit id (and a missing scale behind it)"}
+]

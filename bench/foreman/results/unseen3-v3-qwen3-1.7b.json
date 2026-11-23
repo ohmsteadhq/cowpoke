@@ -1,0 +1,312 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 9,
+  "service_ok": 11,
+  "cause_ok": 9,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 2.0,
+  "avg_tok_s": 31.7
+ },
+ "results": [
+  {
+   "id": "w1",
+   "expected": {
+    "service": "w1-cli",
+    "cause": [
+     "other",
+     "bit_offset",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "w1-cli",
+    "cause": "address_offset",
+    "explanation": "The w1-cli's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.9,
+   "tok_s": 30.5,
+   "trace": []
+  },
+  {
+   "id": "w2",
+   "expected": {
+    "service": "w2-cli",
+    "cause": [
+     "register_table"
+    ]
+   },
+   "report": {
+    "service": "w2-cli",
+    "cause": "register_table",
+    "explanation": "The w2-cli's settings differ from the device's (register table).",
+    "fix": "Set the client's table to the one the device uses."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.8,
+   "tok_s": 32.2,
+   "trace": []
+  },
+  {
+   "id": "w3",
+   "expected": {
+    "service": "w3-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "w3-cli",
+    "cause": "address_offset",
+    "explanation": "The device publishes a plain value on that register, but the client expects it to be good; the client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 32.6,
+   "trace": []
+  },
+  {
+   "id": "w4",
+   "expected": {
+    "service": "w4-cli",
+    "cause": [
+     "tag_name",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "w4-cli",
+    "cause": "name",
+    "explanation": "The device publishes a plain value on that tag, but the client expects JSON and reads it with a JSON pointer.",
+    "fix": "See the explanation."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.9,
+   "tok_s": 29.5,
+   "trace": []
+  },
+  {
+   "id": "w5",
+   "expected": {
+    "service": "w5-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "w5-cli",
+    "cause": "node_id",
+    "explanation": "The W5 running signal shows a number, not on/off. The client's settings differ from the device's (node id).",
+    "fix": "Correct the OPC UA node id in the client."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.9,
+   "tok_s": 35.3,
+   "trace": []
+  },
+  {
+   "id": "w6",
+   "expected": {
+    "service": "w6-cli",
+    "cause": [
+     "topic"
+    ]
+   },
+   "report": {
+    "service": "w6-cli",
+    "cause": "topic",
+    "explanation": "The W6 tank level from MQTT never arrives. The client's settings differ from the device's (topic).",
+    "fix": "Correct the topic the client subscribes to."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.8,
+   "tok_s": 33.9,
+   "trace": []
+  },
+  {
+   "id": "w7",
+   "expected": {
+    "service": "w7-cli",
+    "cause": [
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "w7-cli",
+    "cause": "port_or_host",
+    "explanation": "The w7-cli's settings differ from the device's (port or host).",
+    "fix": "Point the client at the device's host and port."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.8,
+   "tok_s": 32.8,
+   "trace": []
+  },
+  {
+   "id": "w8",
+   "expected": {
+    "service": "w8-cli",
+    "cause": [
+     "bit_offset"
+    ]
+   },
+   "report": {
+    "service": "w8-cli",
+    "cause": "bit_offset",
+    "explanation": "The w8-cli's settings differ from the device's (bit offset).",
+    "fix": "Set the client's bit offset and length to match the device's process data."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.0,
+   "tok_s": 31.0,
+   "trace": []
+  },
+  {
+   "id": "w9",
+   "expected": {
+    "service": "w9-cli",
+    "cause": [
+     "sparkplug_ids"
+    ]
+   },
+   "report": {
+    "service": "w9-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The Sparkplug host shows no W9 tank level; the node is online. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 33.3,
+   "trace": []
+  },
+  {
+   "id": "w10",
+   "expected": {
+    "service": "w10-cli",
+    "cause": [
+     "address_offset",
+     "other"
+    ]
+   },
+   "report": {
+    "service": "w10-cli",
+    "cause": "address_offset",
+    "explanation": "The W10 setpoint is bad quality. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.1,
+   "tok_s": 31.9,
+   "trace": []
+  },
+  {
+   "id": "w11",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "w11-cli",
+    "cause": "node_id",
+    "explanation": "The drive shows 1450, but the client's settings differ from the device's (node id).",
+    "fix": "Correct the OPC UA node id in the client."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.2,
+   "tok_s": 29.5,
+   "trace": []
+  },
+  {
+   "id": "w12",
+   "expected": {
+    "service": "w12-cli",
+    "cause": [
+     "unit_id",
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "w12-cli",
+    "cause": "unit_id",
+    "explanation": "The w12-cli's settings differ from the device's (unit id).",
+    "fix": "Set the client's unit id to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.1,
+   "tok_s": 28.1,
+   "trace": []
+  }
+ ]
+}

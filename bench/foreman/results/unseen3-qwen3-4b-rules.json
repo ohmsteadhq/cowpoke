@@ -1,0 +1,312 @@
+{
+ "summary": {
+  "model": "qwen3:4b",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 9,
+  "service_ok": 11,
+  "cause_ok": 10,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 8.6,
+  "avg_tok_s": 19.8
+ },
+ "results": [
+  {
+   "id": "w1",
+   "expected": {
+    "service": "w1-cli",
+    "cause": [
+     "other",
+     "bit_offset",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "w1-cli",
+    "cause": "protocol_mismatch",
+    "explanation": "The client (w1-cli) is configured as a client with pd (profile descriptor) set to 'out', but the server (w1-srv) expects 'in' for the level tag. This mismatch causes the client to not receive the value from the server.",
+    "fix": "Change the client's pd setting from 'out' to 'in' to match the server's expectation for the level tag."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 10.8,
+   "tok_s": 21.2,
+   "trace": []
+  },
+  {
+   "id": "w2",
+   "expected": {
+    "service": "w2-cli",
+    "cause": [
+     "register_table"
+    ]
+   },
+   "report": {
+    "service": "w2-cli",
+    "cause": "register_table",
+    "explanation": "The client (w2-cli) is configured to read from discrete_input (input registers) but the server (w2-srv) uses coil (output registers) for the pump_on tag. This mismatch causes the client to see the pump as off when it's actually running.",
+    "fix": "Change the client's register_table from 'discrete_input' to 'coil' to match the server's configuration."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 7.5,
+   "tok_s": 20.4,
+   "trace": []
+  },
+  {
+   "id": "w3",
+   "expected": {
+    "service": "w3-cli",
+    "cause": [
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "w3-cli",
+    "cause": "address_offset",
+    "explanation": "The client (w3-cli) is reading from DB4.DBX4.2 (bit 2) while the server (w3-srv) has valve_open set to DB4.DBX4.3 (bit 3). This mismatch in the bit offset causes the client to see the valve as closed when it should be open.",
+    "fix": "Change the client's s7_address for valve_open from DB4.DBX4.2 to DB4.DBX4.3 to match the server's configuration."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 9.1,
+   "tok_s": 20.3,
+   "trace": []
+  },
+  {
+   "id": "w4",
+   "expected": {
+    "service": "w4-cli",
+    "cause": [
+     "tag_name",
+     "address_offset"
+    ]
+   },
+   "report": {
+    "service": "w4-cli",
+    "cause": "tag_name",
+    "explanation": "The client (w4-cli) is configured to read Tank[2].Level as 'tank3', but the server (w4-srv) has Tank[3].Level as 'tank3'. This mismatch causes the client to read the wrong tank's level.",
+    "fix": "Change the client's tag configuration to read Tank[3].Level instead of Tank[2].Level."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 7.9,
+   "tok_s": 20.4,
+   "trace": []
+  },
+  {
+   "id": "w5",
+   "expected": {
+    "service": "w5-cli",
+    "cause": [
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "w5-cli",
+    "cause": "datatype",
+    "explanation": "The client (w5-cli) is configured to read the 'running' tag as a float64, but the server (w5-srv) defines it as a bool. This mismatch causes the client to interpret the boolean value as a number (1.0 for true).",
+    "fix": "Change the client's 'running' tag configuration to use 'bool' datatype instead of 'float64' to match the server's definition."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 8.1,
+   "tok_s": 19.9,
+   "trace": []
+  },
+  {
+   "id": "w6",
+   "expected": {
+    "service": "w6-cli",
+    "cause": [
+     "topic"
+    ]
+   },
+   "report": {
+    "service": "w6-cli",
+    "cause": "topic",
+    "explanation": "The client (w6-cli) is subscribing to the topic 'site/+/level' but the server (w6-srv) is publishing the level tag on 'site/line6/tank/level'. The client's subscription pattern does not match the server's topic.",
+    "fix": "Change the client's topic subscription to match the server's topic: 'site/line6/tank/level' instead of 'site/+/level'."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 8.1,
+   "tok_s": 20.2,
+   "trace": []
+  },
+  {
+   "id": "w7",
+   "expected": {
+    "service": "w7-cli",
+    "cause": [
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "w7-cli",
+    "cause": "port_or_host",
+    "explanation": "The client is trying to connect to 127.0.0.2:30507, but the server is listening on 127.0.0.1:30507. The IP addresses are different (127.0.0.1 vs 127.0.0.2).",
+    "fix": "Change the client's host setting from 127.0.0.2 to 127.0.0.1"
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 8.9,
+   "tok_s": 19.8,
+   "trace": []
+  },
+  {
+   "id": "w8",
+   "expected": {
+    "service": "w8-cli",
+    "cause": [
+     "bit_offset"
+    ]
+   },
+   "report": {
+    "service": "w8-cli",
+    "cause": "bit_offset",
+    "explanation": "The client (w8-cli) is configured with a bit_length of 8 for the pressure tag, but the server (w8-srv) expects a bit_length of 16. This mismatch causes the client to read a different value (245) than the actual sensor value (1013).",
+    "fix": "Change the bit_length in the client's configuration to match the server's bit_length of 16."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 8.5,
+   "tok_s": 19.3,
+   "trace": []
+  },
+  {
+   "id": "w9",
+   "expected": {
+    "service": "w9-cli",
+    "cause": [
+     "sparkplug_ids"
+    ]
+   },
+   "report": {
+    "service": "w9-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The client (w9-cli) expects a Sparkplug device type of 'Tank', but the server (w9-srv) publishes no device type (None). This mismatch causes the client to not receive the level tag.",
+    "fix": "Ensure the server (w9-srv) publishes a device type of 'Tank' in its Sparkplug node configuration to match the client's expectation."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 8.2,
+   "tok_s": 18.7,
+   "trace": []
+  },
+  {
+   "id": "w10",
+   "expected": {
+    "service": "w10-cli",
+    "cause": [
+     "address_offset",
+     "other"
+    ]
+   },
+   "report": {
+    "service": "w10-cli",
+    "cause": "register_table",
+    "explanation": "The client (w10-cli) is configured to read from register 2000, but the server (w10-srv) is configured to use register 10 for the setpoint. This mismatch in register addresses causes the client to receive bad quality data.",
+    "fix": "Change the client's register address from 2000 to 10 to match the server's register address."
+   },
+   "pass": false,
+   "service_ok": true,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 8.1,
+   "tok_s": 19.6,
+   "trace": []
+  },
+  {
+   "id": "w11",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "w11-srv",
+    "cause": "none",
+    "explanation": "The client and server settings for the 'speed' tag are identical. Both have the same initial value (1450.0), data type (float64), and are configured with the same security policies and credentials. The live tag values match (1450.0) with good quality. There are no discrepancies in the configuration or live data between the client and server.",
+    "fix": "No fix needed. The speed value is correct as reported by both the server and client."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 9.7,
+   "tok_s": 18.1,
+   "trace": []
+  },
+  {
+   "id": "w12",
+   "expected": {
+    "service": "w12-cli",
+    "cause": [
+     "unit_id",
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "w12-cli",
+    "cause": "unit_id",
+    "explanation": "The client (w12-cli) is configured with unit_id 1, but the server (w12-srv) uses unit_id 3. Modbus requires the client to match the server's unit_id for communication.",
+    "fix": "Change the client's unit_id from 1 to 3 to match the server's unit_id."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 7.7,
+   "tok_s": 19.3,
+   "trace": []
+  }
+ ]
+}

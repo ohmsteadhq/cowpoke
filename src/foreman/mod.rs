@@ -182,6 +182,25 @@ fn py_obj(pairs: &[(&str, String)]) -> String {
     format!("{{{}}}", body.join(", "))
 }
 
+/// The path of `url` (`/` when it has none), as the rule checks compare it.
+fn url_path(settings: &Value) -> Option<String> {
+    let url = settings.get("url")?.as_str()?;
+    let (scheme, rest) = url.split_once("://")?;
+    if scheme.is_empty() || !scheme.chars().all(|c| c.is_ascii_lowercase() || ".+-".contains(c)) {
+        return None;
+    }
+    let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    if end == 0 {
+        return None;
+    }
+    let after = &rest[end..];
+    if !after.starts_with('/') {
+        return Some("/".into());
+    }
+    let stop = after.find(['?', '#']).unwrap_or(after.len());
+    Some(after[..stop].to_string())
+}
+
 /// The port a client connects to (or a server listens on): `port`, or the port in `url`.
 fn port_of(settings: &Value) -> Option<i64> {
     if let Some(p) = settings.get("port").and_then(|p| p.as_i64()) {
@@ -199,7 +218,7 @@ const OPCUA_POLICIES: &[&str] = &["none", "basic256sha256", "aes128_sha256_rsa_o
 
 const TAG_FIELDS: &[&str] = &[
     "register", "table", "unit", "length", "scale", "offset", "port", "pd", "bit_offset", "bit_length", "node_id",
-    "datatype",
+    "datatype", "s7_address",
 ];
 
 fn tag_default(k: &str) -> Option<Value> {
@@ -223,6 +242,16 @@ pub fn rule_checks(seen: &[Seen]) -> Vec<String> {
             if state != "running" {
                 out.push(format!("{} is not running (state {state}).", sv.id));
             }
+        }
+    }
+    let servers: Vec<&Seen> = seen.iter().filter(|s| s.mode == Mode::Server).collect();
+    for c in seen.iter().filter(|s| s.mode == Mode::Client) {
+        let Some(cp) = port_of(&c.settings).filter(|p| *p != 0) else { continue };
+        if servers.iter().any(|x| x.kind == c.kind && port_of(&x.settings) == Some(cp)) {
+            continue;
+        }
+        for sv in servers.iter().filter(|x| x.kind != c.kind && port_of(&x.settings) == Some(cp)) {
+            out.push(format!("{} speaks {} to port {cp}, where {} speaks {}.", c.id, c.kind, sv.id, sv.kind));
         }
     }
     for c in seen.iter().filter(|s| s.mode == Mode::Client) {
@@ -255,6 +284,27 @@ pub fn rule_checks(seen: &[Seen]) -> Vec<String> {
                         "{} asks for security policy {pol}, but {} offers {}.",
                         c.id, sv.id, offered.join(", ")
                     ));
+                }
+                let anon_ok = ss.get("allow_anonymous") != Some(&Value::Bool(false));
+                let has_user = cs.get("username").is_some_and(|u| u.as_str().is_some_and(|u| !u.is_empty()));
+                if !anon_ok && !has_user {
+                    out.push(format!("{} requires a login, but {} connects anonymously.", sv.id, c.id));
+                }
+            }
+            if c.kind == "api" {
+                if let Some(path) = url_path(cs) {
+                    let mut served: Vec<String> = ss
+                        .get("routes")
+                        .and_then(|r| r.as_array())
+                        .map(|a| a.iter().filter_map(|r| r.get("path").and_then(|p| p.as_str()).map(String::from)).collect())
+                        .unwrap_or_default();
+                    if ss.get("expose_tags") != Some(&Value::Bool(false)) {
+                        served.push("/tags".into());
+                    }
+                    if !served.contains(&path) && !path.starts_with("/tags/") {
+                        let list = if served.is_empty() { "nothing".to_string() } else { served.join(", ") };
+                        out.push(format!("{} calls {path}, but {} serves {list}.", c.id, sv.id));
+                    }
                 }
             }
             let csp = cs.get("sparkplug").filter(|v| v.is_object());

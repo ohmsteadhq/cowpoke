@@ -1,0 +1,39 @@
+# A fresh unseen set for v3: fault types still outside the generator, and new variants or
+# combinations of trained ones. Answer key in scenarios_unseen3.json. Ports 30500-30599.
+services:
+  # w1: IO-Link client reads process data out instead of in
+  - { id: w1-srv, kind: iolink, mode: server, settings: { bind: 127.0.0.1, port: 30501 }, tags: [ { name: level, datatype: uint16, port: 2, bit_offset: 0, bit_length: 16, initial: 640, units: mm } ] }
+  - { id: w1-cli, kind: iolink, mode: client, settings: { host: 127.0.0.1, port: 30501, poll_ms: 500 }, tags: [ { name: level, datatype: uint16, port: 2, pd: out, bit_offset: 0, bit_length: 16, units: mm } ] }
+  # w2: a Modbus coil read as a discrete input
+  - { id: w2-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30502 }, tags: [ { name: pump_on, datatype: bool, table: coil, register: 3, initial: true } ] }
+  - { id: w2-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30502, poll_ms: 500 }, tags: [ { name: pump_on, datatype: bool, table: discrete_input, register: 3 } ] }
+  # w3: S7 wrong bit (DBX4.2 instead of DBX4.3)
+  - { id: w3-srv, kind: s7, mode: server, settings: { bind: 127.0.0.1, port: 30503 }, tags: [ { name: valve_open, datatype: bool, s7_address: DB4.DBX4.3, initial: true }, { name: valve_fault, datatype: bool, s7_address: DB4.DBX4.2, initial: false } ] }
+  - { id: w3-cli, kind: s7, mode: client, settings: { host: 127.0.0.1, port: 30503, poll_ms: 500 }, tags: [ { name: valve_open, datatype: bool, s7_address: DB4.DBX4.2 } ] }
+  # w4: Logix array element: Tank[2] instead of Tank[3]
+  - { id: w4-srv, kind: eip, mode: server, settings: { bind: 127.0.0.1, port: 30504 }, tags: [ { name: tank3, datatype: float32, cip_tag: "Tank[3].Level", initial: 42.5 }, { name: tank2, datatype: float32, cip_tag: "Tank[2].Level", initial: 17.0 } ] }
+  - { id: w4-cli, kind: eip, mode: client, settings: { host: 127.0.0.1, port: 30504, poll_ms: 500 }, tags: [ { name: tank3, datatype: float32, cip_tag: "Tank[2].Level" } ] }
+  # w5: OPC UA boolean read as a float
+  - { id: w5-srv, kind: opcua, mode: server, settings: { port: 30505, hostname: localhost, security_policies: [none], allow_anonymous: true }, tags: [ { name: running, datatype: bool, initial: true } ] }
+  - { id: w5-cli, kind: opcua, mode: client, settings: { url: "opc.tcp://localhost:30505/", security_policy: none, security_mode: none, poll_ms: 500 }, tags: [ { name: running, datatype: float64, node_id: "ns=2;s=running" } ] }
+  # w6: MQTT wildcard at the wrong depth
+  - { id: w6-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30506 }, tags: [ { name: level, datatype: float64, topic: site/line6/tank/level, initial: 42.5 } ] }
+  - { id: w6-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30506 }, tags: [ { name: level, datatype: float64, topic: "site/+/level" } ] }
+  # w7: Modbus client points at the wrong host (right port)
+  - { id: w7-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30507 }, tags: [ { name: flow, datatype: float32, register: 0, initial: 12.5 } ] }
+  - { id: w7-cli, kind: modbus, mode: client, settings: { host: 127.0.0.2, port: 30507, poll_ms: 500, timeout_ms: 800 }, tags: [ { name: flow, datatype: float32, register: 0 } ] }
+  # w8: IO-Link bit length 8 instead of 16
+  - { id: w8-srv, kind: iolink, mode: server, settings: { bind: 127.0.0.1, port: 30508 }, tags: [ { name: pressure, datatype: uint16, port: 1, bit_offset: 0, bit_length: 16, initial: 1013 } ] }
+  - { id: w8-cli, kind: iolink, mode: client, settings: { host: 127.0.0.1, port: 30508, poll_ms: 500 }, tags: [ { name: pressure, datatype: uint16, port: 1, bit_offset: 0, bit_length: 8 } ] }
+  # w9: Sparkplug client expects a device; the node publishes the metric itself
+  - { id: w9-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30509, sparkplug: { group_id: Plant, edge_node: Line9 } }, tags: [ { name: level, datatype: float64, metric: Level, initial: 42.5 } ] }
+  - { id: w9-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30509, sparkplug: { group_id: Plant, edge_node: Line9, device: Tank } }, tags: [ { name: level, datatype: float64, metric: Level } ] }
+  # w10: a strict Modbus device rejects an unmapped register (holding 2000; the map ends at 10)
+  - { id: w10-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30510, strict: true }, tags: [ { name: setpoint, datatype: uint16, register: 10, initial: 55 } ] }
+  - { id: w10-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30510, poll_ms: 500 }, tags: [ { name: setpoint, datatype: uint16, register: 2000 } ] }
+  # w11: healthy OPC UA pair with a login, operator suspects it
+  - { id: w11-srv, kind: opcua, mode: server, settings: { port: 30511, hostname: localhost, security_policies: [none], allow_anonymous: false, users: [ { username: op, password: secret-pass } ] }, tags: [ { name: speed, datatype: float64, initial: 1450.0 } ] }
+  - { id: w11-cli, kind: opcua, mode: client, settings: { url: "opc.tcp://localhost:30511/", security_policy: none, security_mode: none, username: op, password: secret-pass, poll_ms: 500 }, tags: [ { name: speed, datatype: float64, node_id: "ns=2;s=speed" } ] }
+  # w12: two faults on one client: wrong unit id and missing scale; the unit id stops it reading at all
+  - { id: w12-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30512 }, tags: [ { name: temp, datatype: int16, register: 0, unit: 3, scale: 0.1, initial: 21.5 } ] }
+  - { id: w12-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30512, poll_ms: 500, timeout_ms: 800 }, tags: [ { name: temp, datatype: int16, register: 0, unit: 1 } ] }

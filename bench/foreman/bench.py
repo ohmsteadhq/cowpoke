@@ -28,7 +28,7 @@ CAUSES = [
     "address_offset", "word_order", "unit_id", "scaling", "tag_name", "port_or_host",
     "credentials", "topic", "sparkplug_ids", "json_pointer", "bit_offset",
     "register_table", "datatype", "string_length", "node_id", "security_policy", "device_offline", "metric_name",
-    "none",
+    "url_path", "protocol_mismatch", "other", "none",
 ]
 
 SYSTEM = """You are the foreman of a Cowpoke box, an industrial gateway that runs protocol services \
@@ -90,6 +90,9 @@ CAUSE_TEXT = {
     "security_policy": "The client asks for a security policy or mode the server doesn't offer",
     "device_offline": "The device (server) is stopped or offline",
     "metric_name": "The Sparkplug metric name is wrong",
+    "url_path": "The client calls the wrong URL path",
+    "protocol_mismatch": "The client speaks a different protocol than the device on that port",
+    "other": "Something else; say what in the explanation",
     "none": "Nothing is wrong; the values match the device",
 }
 
@@ -97,9 +100,14 @@ CAUSE_TEXT = {
 # Defaults Cowpoke applies when a field is left out, so "missing" and "default" compare equal.
 TAG_DEFAULTS = {"unit": 1, "table": "holding_register", "scale": 1, "offset": 0, "bit_offset": 0, "pd": "in"}
 TAG_FIELDS = ["register", "table", "unit", "length", "scale", "offset", "port", "pd", "bit_offset", "bit_length",
-              "node_id", "datatype"]
+              "node_id", "datatype", "s7_address"]
 SETTING_FIELDS = ["word_order"]
 OPCUA_POLICIES = ["none", "basic256sha256", "aes128_sha256_rsa_oaep", "aes256_sha256_rsa_pss"]
+
+
+def _url_path(settings):
+    m = re.match(r"[a-z.+-]+://[^/?#]+(/[^?#]*)?", settings.get("url") or "")
+    return (m.group(1) or "/") if m else None
 
 
 def _port_of(settings):
@@ -120,6 +128,12 @@ def rule_checks(defs):
         if st and st != "running":
             out.append(f"{sv['id']} is not running (state {st}).")
     for c in clients:
+        cp_ = _port_of(c.get("settings") or {})
+        if cp_ and not any(x["kind"] == c["kind"] and _port_of(x.get("settings") or {}) == cp_ for x in servers):
+            for sv in servers:
+                if sv["kind"] != c["kind"] and _port_of(sv.get("settings") or {}) == cp_:
+                    out.append(f"{c['id']} speaks {c['kind']} to port {cp_}, where {sv['id']} speaks {sv['kind']}.")
+    for c in clients:
         for sv in [x for x in servers if x["kind"] == c["kind"]]:
             cs, ss = c.get("settings") or {}, sv.get("settings") or {}
             cp_, sp_ = _port_of(cs), _port_of(ss)
@@ -137,6 +151,13 @@ def rule_checks(defs):
                 offered = ss.get("security_policies") or OPCUA_POLICIES
                 if pol not in offered:
                     out.append(f"{c['id']} asks for security policy {pol}, but {sv['id']} offers {', '.join(offered)}.")
+                if ss.get("allow_anonymous", True) is False and not cs.get("username"):
+                    out.append(f"{sv['id']} requires a login, but {c['id']} connects anonymously.")
+            if c["kind"] == "api":
+                path = _url_path(cs)
+                served = [r.get("path") for r in ss.get("routes") or []] + (["/tags"] if ss.get("expose_tags", True) else [])
+                if path is not None and path not in served and not path.startswith("/tags/"):
+                    out.append(f"{c['id']} calls {path}, but {sv['id']} serves {', '.join(served) or 'nothing'}.")
             csp, ssp = cs.get("sparkplug") or {}, ss.get("sparkplug") or {}
             for k in ("group_id", "edge_node", "device"):
                 if (csp or ssp) and csp.get(k) != ssp.get(k):

@@ -1,0 +1,321 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": false,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 10,
+  "service_ok": 10,
+  "cause_ok": 10,
+  "inspected_faulty": 12,
+  "invalid_calls": 0,
+  "no_report": 0,
+  "avg_seconds": 2.4,
+  "avg_tok_s": 29.6
+ },
+ "results": [
+  {
+   "id": "n1",
+   "expected": {
+    "service": "n1-cli",
+    "cause": [
+     "address_offset",
+     "register_table"
+    ]
+   },
+   "report": {
+    "service": "n1-cli",
+    "cause": "register_table",
+    "explanation": "The tank level on line N1 reads 0, but the gauge shows 42. The client's settings differ from the device's (register table).",
+    "fix": "Set the client's table to the one the device uses."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 31.2,
+   "trace": []
+  },
+  {
+   "id": "n2",
+   "expected": {
+    "service": "n2-cli",
+    "cause": [
+     "scaling",
+     "word_order",
+     "datatype"
+    ]
+   },
+   "report": {
+    "service": "n2-cli",
+    "cause": "datatype",
+    "explanation": "The device publishes a plain value on that register, but the client expects it to be a 32-bit integer, but the device publishes it as a plain value on that register.",
+    "fix": "Set the client's data type to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 30.8,
+   "trace": []
+  },
+  {
+   "id": "n3",
+   "expected": {
+    "service": "n3-cli",
+    "cause": [
+     "tag_name",
+     "node_id"
+    ]
+   },
+   "report": {
+    "service": "n3-cli",
+    "cause": "node_id",
+    "explanation": "The N3 temperature from the OPC UA server is bad quality. The client's settings differ from the device's (node id).",
+    "fix": "Correct the OPC UA node id in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 27.9,
+   "trace": []
+  },
+  {
+   "id": "n4",
+   "expected": {
+    "service": "n4-cli",
+    "cause": [
+     "credentials",
+     "port_or_host",
+     "security_policy"
+    ]
+   },
+   "report": {
+    "service": "n4-cli",
+    "cause": "security_policy",
+    "explanation": "The n4-cli's settings differ from the device's (security policy).",
+    "fix": "Choose a security policy and mode the server offers."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.1,
+   "tok_s": 26.7,
+   "trace": []
+  },
+  {
+   "id": "n5",
+   "expected": {
+    "service": "n5-cli",
+    "cause": [
+     "sparkplug_ids",
+     "tag_name",
+     "topic",
+     "metric_name"
+    ]
+   },
+   "report": {
+    "service": "n5-cli",
+    "cause": "sparkplug_ids",
+    "explanation": "The Sparkplug host shows no tank level for N5, though the node is online. The client's settings differ from the device's (sparkplug ids).",
+    "fix": "Make the client's Sparkplug group, edge node and device ids match the publisher's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.6,
+   "tok_s": 31.5,
+   "trace": []
+  },
+  {
+   "id": "n6",
+   "expected": {
+    "service": "n6-cli",
+    "cause": [
+     "address_offset",
+     "bit_offset",
+     "port_or_host"
+    ]
+   },
+   "report": {
+    "service": "n6-cli",
+    "cause": "address_offset",
+    "explanation": "The N6 IO-Link distance reads 0; the sensor shows 300 mm. The client's settings differ from the device's (address offset).",
+    "fix": "Set the client's register or address to match the device."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.4,
+   "tok_s": 31.7,
+   "trace": []
+  },
+  {
+   "id": "n7",
+   "expected": {
+    "service": "n7-cli",
+    "cause": [
+     "scaling"
+    ]
+   },
+   "report": {
+    "service": "n7-cli",
+    "cause": "scaling",
+    "explanation": "The device publishes a value of 21.5, but the client expects a scale of 0.1. The client's settings differ from the device's (scaling).",
+    "fix": "Give the client the device's scale and offset."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.3,
+   "tok_s": 33.0,
+   "trace": []
+  },
+  {
+   "id": "n8",
+   "expected": {
+    "service": "n8-srv",
+    "cause": [
+     "port_or_host",
+     "none",
+     "device_offline"
+    ]
+   },
+   "report": {
+    "service": "n8-srv",
+    "cause": "port_or_host",
+    "explanation": "The N8 Logix controller's service (n8-srv) is stopped, and the client (n8-cli) reports a connection refused error on port 30308.",
+    "fix": "Start the device (n8-srv) or port forward the 30308 port."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.5,
+   "tok_s": 36.8,
+   "trace": []
+  },
+  {
+   "id": "n9",
+   "expected": {
+    "service": "n9-mix-cli",
+    "cause": [
+     "tag_name"
+    ]
+   },
+   "report": {
+    "service": "n9-mix-cli",
+    "cause": "tag_name",
+    "explanation": "The mixer speed panel looks wrong. The client's settings differ from the device's (tag name).",
+    "fix": "Correct the PLC tag name in the client."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 3.8,
+   "tok_s": 16.3,
+   "trace": []
+  },
+  {
+   "id": "n10",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "n10-cli",
+    "cause": "node_id",
+    "explanation": "The local meter says 12.5 m3/h, but the client's settings differ from the device's (node id).",
+    "fix": "Correct the OPC UA node id in the client."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.2,
+   "tok_s": 31.4,
+   "trace": []
+  },
+  {
+   "id": "n11",
+   "expected": {
+    "service": "n11-cli",
+    "cause": [
+     "address_offset",
+     "scaling",
+     "string_length"
+    ]
+   },
+   "report": {
+    "service": "n11-cli",
+    "cause": "string_length",
+    "explanation": "The N11 batch number on the HMI shows only part of it. The client's settings differ from the device's (string length).",
+    "fix": "Set the string length to the device's."
+   },
+   "pass": true,
+   "service_ok": true,
+   "cause_ok": true,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 2.2,
+   "tok_s": 31.8,
+   "trace": []
+  },
+  {
+   "id": "n12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": {
+    "service": "n12-cli",
+    "cause": "address_offset",
+    "explanation": "The device publishes a plain value, but the client expects a register or address to offset it."
+   },
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 0,
+   "seconds": 1.8,
+   "tok_s": 25.6,
+   "trace": []
+  }
+ ]
+}

@@ -39,6 +39,9 @@ FIX = {
     "security_policy": "Choose a security policy and mode the server offers.",
     "device_offline": "Start the device (server) or restore its power and network.",
     "metric_name": "Correct the Sparkplug metric name in the client.",
+    "url_path": "Correct the URL path the client calls.",
+    "protocol_mismatch": "Point the client at the right device, or use a client of the device's protocol.",
+    "other": "See the explanation.",
     "none": "No change needed; the client matches the device.",
 }
 
@@ -79,6 +82,8 @@ def main():
         elif key in pending:
             service = pending.pop(key)
             d = diagnosis(e["state"], service, e["answer_key"])
+            if e["meta"].get("why"):
+                d["explanation"] = e["meta"]["why"][0].upper() + e["meta"]["why"][1:] + "."
             convs.append({"messages": [
                 {"role": "system", "content": SYSTEM},
                 {"role": "user", "content": e["state"]},

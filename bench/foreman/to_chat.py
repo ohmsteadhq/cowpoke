@@ -15,6 +15,7 @@ import random
 import re
 
 import bench
+import gen
 
 SYSTEM = bench.SYSTEM.split("When you know")[0] + (
     "Answer with JSON: service (id or none), cause (one of " + ", ".join(bench.CAUSES) + "), explanation, fix."
@@ -62,6 +63,24 @@ def diagnosis(state, service, cause):
     return {"service": service, "cause": cause, "explanation": why, "fix": FIX[cause]}
 
 
+def grounded(state, cause, default, rng):
+    """v5 explanation: cite a finding only when the evidence shows it, else stay short and generic."""
+    if cause in ("none", "other"):
+        return default
+    lines = []
+    if "Rule checks" in state:
+        lines = [l[2:].rstrip(".") for l in state.split("Rule checks", 1)[1].splitlines()[1:] if l.startswith("- ")]
+        lines = [l for l in lines if not l.startswith("No differences")]
+    effect = rng.choice(gen.EFFECT.get(cause, ["which explains the symptom"]))
+    if lines:
+        return f"{lines[0]}, {effect}."
+    if cause == "device_offline":
+        return f"The device's server is not running, {effect}."
+    if cause == "protocol_mismatch":
+        return f"The client speaks a different protocol than the device on that port, {effect}."
+    return f"The client's {cause.replace('_', ' ')} setting does not match the device, {effect}."
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("src")
@@ -70,6 +89,8 @@ def main():
     ap.add_argument("--valid-frac", type=float, default=0.05)
     ap.add_argument("--limit", type=int, default=0, help="keep at most this many conversations")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--grounded", action="store_true",
+                    help="v5: quote only rule findings shown in the evidence; otherwise one short sentence")
     a = ap.parse_args()
 
     # gen.py writes, per scenario and variant, the service question then the cause question.
@@ -86,7 +107,9 @@ def main():
             # gen.py v4 writes a varied explanation per fault; keep the rule lines sometimes.
             why = e["meta"].get("why")
             has_lines = "Rule checks" in e["state"] and "- No differences" not in e["state"]
-            if why and not (has_lines and e["answer_key"] not in ("other", "none") and rng.random() < 0.3):
+            if a.grounded:
+                d["explanation"] = grounded(e["state"], e["answer_key"], d["explanation"], rng)
+            elif why and not (has_lines and e["answer_key"] not in ("other", "none") and rng.random() < 0.3):
                 d["explanation"] = why if why.endswith(".") else why[0].upper() + why[1:] + "."
             convs.append({"messages": [
                 {"role": "system", "content": SYSTEM},

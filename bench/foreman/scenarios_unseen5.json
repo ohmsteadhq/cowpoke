@@ -1,0 +1,14 @@
+[
+  {"id": "y1", "symptom": "Y1 drive temperature reads 0; the drive display shows 412.", "service": "y1-cli", "causes": ["register_table"], "truth": "input register read from the holding table"},
+  {"id": "y2", "symptom": "Y2 pressure shows 412 bar; the gauge says 41.2.", "service": "y2-cli", "causes": ["scaling"], "truth": "device scales by 0.1, client doesn't"},
+  {"id": "y3", "symptom": "The Y3 line pressure never arrives over MQTT.", "service": "y3-cli", "causes": ["topic"], "truth": "topic differs only in case"},
+  {"id": "y4", "symptom": "Y4 flow is bad quality; the controller shows 18.4.", "service": "y4-cli", "causes": ["tag_name"], "truth": "program-scoped tag read as a controller tag"},
+  {"id": "y5", "symptom": "Y5 ratio reads a huge number; the PLC shows 3.75.", "service": "y5-cli", "causes": ["datatype"], "truth": "REAL read as DINT"},
+  {"id": "y6", "symptom": "Y6 temperature is bad quality over OPC UA.", "service": "y6-cli", "causes": ["node_id"], "truth": "wrong namespace index"},
+  {"id": "y7", "symptom": "Y7 speed from the web API never updates.", "service": "y7-cli", "causes": ["url_path"], "truth": "/tag instead of /tags"},
+  {"id": "y8", "symptom": "Y8 distance reads 0 mm; the sensor shows 830.", "service": "y8-cli", "causes": ["bit_offset"], "truth": "value at bit 16, client reads bits 0-15"},
+  {"id": "y9", "symptom": "The Sparkplug host shows nothing for Y9 though the node is online.", "service": "y9-cli", "causes": ["sparkplug_ids"], "truth": "edge node id Line-9 vs Line9"},
+  {"id": "y10", "symptom": "On line Y10 the conveyor speed panel is empty; counts and gaps look fine.", "service": "y10-plc-srv", "causes": ["device_offline"], "truth": "S7 PLC off; API and IO-Link decoys healthy"},
+  {"id": "y11", "symptom": "Y11 tank level never reads; the controller shows 64.", "service": "y11-cli", "causes": ["protocol_mismatch"], "truth": "Modbus client on an EtherNet/IP port"},
+  {"id": "y12", "symptom": "Y12 total shows 48211 in both the PLC view and MQTT; can you confirm it's right?", "service": "none", "causes": ["none"], "truth": "healthy"}
+]

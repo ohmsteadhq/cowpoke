@@ -270,10 +270,25 @@ FREE_FORM = False  # --no-format: runners without structured output (Ollama's ML
 OPENAI = None  # --openai URL: an OpenAI-compatible server (e.g. mlx_lm.server) instead of Ollama
 
 
+LAST_EVIDENCE = ""  # the evidence text of the last evidence-mode call, for grading the explanation
+
+
+def explanation_grade(report, text):
+    """An explanation is grounded when every identifier or value it quotes (anything with a digit,
+    underscore, slash or dot inside) appears in the evidence, and it stays short (<= 300 chars)."""
+    expl = str((report or {}).get("explanation", ""))
+    quoted = [t.strip(".,:;()'\"") for t in re.findall(r"[^\s]+", expl)]
+    quoted = [t for t in quoted if re.search(r"[0-9_/]|\w\.\w", t)]
+    missing = [t for t in quoted if t not in text]
+    return {"grounded": bool(expl) and not missing and len(expl) <= 300, "chars": len(expl), "unsupported": missing}
+
+
 def run_evidence(sc, cp, url, model, think, rules=False):
     """The same pre-gathered evidence for a chat model, answered as JSON in one call."""
+    global LAST_EVIDENCE
     t0 = time.time()
     text = f"Operator report: {sc['symptom']}\n\nServices:\n" + evidence(cp, sc["id"] + "-", rules)
+    LAST_EVIDENCE = text
     schema = TOOLS[3]["function"]["parameters"]
     # A diagnosis is ~100 tokens; the cap stops a model that keeps writing after its JSON.
     body = {"model": model, "stream": False, "options": {"temperature": 0, "num_ctx": 8192, "num_predict": 400},
@@ -460,6 +475,8 @@ def main():
             r = {"id": sc["id"], "expected": {"service": sc["service"], "cause": sc.get("causes", [sc.get("cause")])}, "report": report,
                  "pass": ok_s and ok_c, "service_ok": ok_s, "cause_ok": ok_c, "inspected_faulty": True,
                  "steps": 0, "invalid": 0 if report else 1, "seconds": secs, "tok_s": tok_s, "trace": []}
+            if a.mode == "evidence":
+                r["explanation"] = explanation_grade(report, LAST_EVIDENCE)
             results.append(r)
             rep = report or {}
             print(f"{r['id']:>4}  {'PASS' if r['pass'] else 'fail'}  {str(rep.get('service', '-')):>8} {str(rep.get('cause', '-')):<15} {secs}s", flush=True)
@@ -489,6 +506,9 @@ def main():
         "avg_seconds": round(sum(r["seconds"] for r in results) / n, 1),
         "avg_tok_s": round(sum(r["tok_s"] or 0 for r in results) / n, 1),
     }
+    if any("explanation" in r for r in results):
+        summary["explained_ok"] = sum(r.get("explanation", {}).get("grounded", False) for r in results)
+        summary["avg_explanation_chars"] = round(sum(r.get("explanation", {}).get("chars", 0) for r in results) / n)
     print(json.dumps(summary))
     os.makedirs(os.path.join(HERE, "results"), exist_ok=True)
     label = a.label or (a.model.replace(":", "-").replace("/", "-") + ("" if a.mode == "agent" else "-" + a.mode) + ("-rules" if a.rules else "") + ("-free" if a.no_format else ""))

@@ -1,0 +1,44 @@
+# A fresh unseen set for v5: variants the generators haven't made. Answer key in scenarios_unseen5.json. Ports 30700-30799.
+services:
+  # y1: Modbus input register read from the holding table
+  - { id: y1-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30701 }, tags: [ { name: drive_temp, datatype: int16, table: input_register, register: 100, initial: 412 } ] }
+  - { id: y1-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30701, poll_ms: 500 }, tags: [ { name: drive_temp, datatype: int16, table: holding_register, register: 100 } ] }
+  # y2: Modbus device scales by 0.1, the client doesn't
+  - { id: y2-srv, kind: modbus, mode: server, settings: { bind: 127.0.0.1, port: 30702 }, tags: [ { name: pressure, datatype: int16, register: 4, scale: 0.1, initial: 41.2 } ] }
+  - { id: y2-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30702, poll_ms: 500 }, tags: [ { name: pressure, datatype: int16, register: 4 } ] }
+  # y3: MQTT topic differs only in case
+  - { id: y3-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30703, prefix: line5 }, tags: [ { name: pressure, datatype: float64, initial: 6.2 } ] }
+  - { id: y3-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30703 }, tags: [ { name: pressure, datatype: float64, topic: Line5/pressure } ] }
+  # y4: Logix program-scoped tag read as a controller tag
+  - { id: y4-srv, kind: eip, mode: server, settings: { bind: 127.0.0.1, port: 30704 }, tags: [ { name: flow, datatype: float32, cip_tag: "Program:MainProgram.Flow", initial: 18.4 } ] }
+  - { id: y4-cli, kind: eip, mode: client, settings: { host: 127.0.0.1, port: 30704, poll_ms: 500 }, tags: [ { name: flow, datatype: float32, cip_tag: Flow } ] }
+  # y5: S7 REAL read as a DINT
+  - { id: y5-srv, kind: s7, mode: server, settings: { bind: 127.0.0.1, port: 30705 }, tags: [ { name: ratio, datatype: float32, s7_address: DB2.DBD4, initial: 3.75 } ] }
+  - { id: y5-cli, kind: s7, mode: client, settings: { host: 127.0.0.1, port: 30705, poll_ms: 500 }, tags: [ { name: ratio, datatype: int32, s7_address: DB2.DBD4 } ] }
+  # y6: OPC UA node id in the wrong namespace
+  - { id: y6-srv, kind: opcua, mode: server, settings: { port: 30706, hostname: localhost, security_policies: [none], allow_anonymous: true }, tags: [ { name: temp, datatype: float64, initial: 71.5 } ] }
+  - { id: y6-cli, kind: opcua, mode: client, settings: { url: "opc.tcp://localhost:30706/", security_policy: none, security_mode: none, poll_ms: 500 }, tags: [ { name: temp, datatype: float64, node_id: "ns=1;s=temp" } ] }
+  # y7: API client calls /tag instead of /tags
+  - { id: y7-srv, kind: api, mode: server, settings: { bind: 127.0.0.1, port: 30707 }, tags: [ { name: speed, datatype: float64, initial: 1200.0 } ] }
+  - { id: y7-cli, kind: api, mode: client, settings: { url: "http://127.0.0.1:30707/tag", interval_ms: 1000 }, tags: [ { name: speed, datatype: float64, pointer: /speed } ] }
+  # y8: IO-Link value at bit 16, client cuts bits 0-15
+  - { id: y8-srv, kind: iolink, mode: server, settings: { bind: 127.0.0.1, port: 30708 }, tags: [ { name: distance, datatype: uint16, port: 3, bit_offset: 16, bit_length: 16, initial: 830, units: mm } ] }
+  - { id: y8-cli, kind: iolink, mode: client, settings: { host: 127.0.0.1, port: 30708, poll_ms: 500 }, tags: [ { name: distance, datatype: uint16, port: 3, bit_offset: 0, bit_length: 16, units: mm } ] }
+  # y9: Sparkplug edge node id spelled differently
+  - { id: y9-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30709, sparkplug: { group_id: Plant, edge_node: Line9 } }, tags: [ { name: rate, datatype: float64, initial: 55.0 } ] }
+  - { id: y9-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30709, sparkplug: { group_id: Plant, edge_node: Line-9 } }, tags: [ { name: rate, datatype: float64 } ] }
+  # y10: an S7 PLC switched off among healthy API and IO-Link decoys
+  - { id: y10-api-srv, kind: api, mode: server, settings: { bind: 127.0.0.1, port: 30710 }, tags: [ { name: count, datatype: float64, initial: 314.0 } ] }
+  - { id: y10-api-cli, kind: api, mode: client, settings: { url: "http://127.0.0.1:30710/tags", interval_ms: 1000 }, tags: [ { name: count, datatype: float64, pointer: /count } ] }
+  - { id: y10-io-srv, kind: iolink, mode: server, settings: { bind: 127.0.0.1, port: 30711 }, tags: [ { name: gap, datatype: uint16, port: 1, bit_offset: 0, bit_length: 16, initial: 12, units: mm } ] }
+  - { id: y10-io-cli, kind: iolink, mode: client, settings: { host: 127.0.0.1, port: 30711, poll_ms: 500 }, tags: [ { name: gap, datatype: uint16, port: 1, bit_offset: 0, bit_length: 16, units: mm } ] }
+  - { id: y10-plc-srv, kind: s7, mode: server, enabled: false, settings: { bind: 127.0.0.1, port: 30712 }, tags: [ { name: speed, datatype: int16, s7_address: DB1.DBW0, initial: 900 } ] }
+  - { id: y10-plc-cli, kind: s7, mode: client, settings: { host: 127.0.0.1, port: 30712, poll_ms: 500, timeout_ms: 800 }, tags: [ { name: speed, datatype: int16, s7_address: DB1.DBW0 } ] }
+  # y11: a Modbus client pointed at an EtherNet/IP controller
+  - { id: y11-srv, kind: eip, mode: server, settings: { bind: 127.0.0.1, port: 30713 }, tags: [ { name: level, datatype: float32, initial: 64.0 } ] }
+  - { id: y11-cli, kind: modbus, mode: client, settings: { host: 127.0.0.1, port: 30713, poll_ms: 500, timeout_ms: 800 }, tags: [ { name: level, datatype: float32, register: 0 } ] }
+  # y12: healthy S7 and MQTT pair
+  - { id: y12-plc-srv, kind: s7, mode: server, settings: { bind: 127.0.0.1, port: 30714 }, tags: [ { name: total, datatype: int32, s7_address: DB3.DBD0, initial: 48211 } ] }
+  - { id: y12-plc-cli, kind: s7, mode: client, settings: { host: 127.0.0.1, port: 30714, poll_ms: 500 }, tags: [ { name: total, datatype: int32, s7_address: DB3.DBD0 } ] }
+  - { id: y12-mq-srv, kind: mqtt, mode: server, settings: { bind: 127.0.0.1, port: 30715, prefix: y12 }, tags: [ { name: total, datatype: float64, initial: 48211.0 } ] }
+  - { id: y12-mq-cli, kind: mqtt, mode: client, settings: { host: 127.0.0.1, port: 30715 }, tags: [ { name: total, datatype: float64, topic: y12/total } ] }

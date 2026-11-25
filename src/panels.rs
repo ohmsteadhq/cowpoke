@@ -399,6 +399,93 @@ async fn put_insights_config(State(p): State<Panels>, me: Me, body: Bytes) -> R<
     Ok(p.insights.config_yaml())
 }
 
+// ------------------------------------------------------------------ foreman twins
+
+fn twins() -> R<&'static Arc<crate::foreman::twin::Twins>> {
+    crate::foreman::twin::get().ok_or_else(|| bad("twins aren't running"))
+}
+
+async fn list_twins(_me: Me) -> R<Json<serde_json::Value>> {
+    Ok(Json(twins()?.report()))
+}
+
+async fn twins_config(_me: Me) -> R<String> {
+    Ok(twins()?.config_yaml())
+}
+
+async fn put_twins_config(me: Me, body: Bytes) -> R<String> {
+    me.need(Role::Admin)?;
+    let t = twins()?;
+    t.set_config(&String::from_utf8_lossy(&body)).map_err(bad)?;
+    Ok(t.config_yaml())
+}
+
+#[derive(serde::Deserialize, Default)]
+struct BaselineReq {
+    #[serde(default)]
+    note: Option<String>,
+}
+
+/// Freeze what the twin knows now as the new healthy reference (after a repair or a change).
+async fn rebaseline_twin(me: Me, Path(name): Path<String>, body: Bytes) -> R<Json<serde_json::Value>> {
+    me.need(Role::Operator)?;
+    let req: BaselineReq = serde_json::from_slice(&body).unwrap_or_default();
+    let t = twins()?;
+    t.rebaseline(&name, req.note.as_deref().unwrap_or("new baseline")).map_err(bad)?;
+    Ok(Json(t.report()))
+}
+
+#[derive(serde::Deserialize)]
+struct MatchReq {
+    /// The Ohmstead export (`export_twins`): an object, or its text.
+    export: serde_json::Value,
+    /// The user's picks: twin → role → `service/tag`, over the proposal.
+    #[serde(default)]
+    picks: std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
+}
+
+fn export_of(v: &serde_json::Value) -> R<serde_json::Value> {
+    match v {
+        serde_json::Value::String(s) => serde_json::from_str(s).map_err(|e| bad(format!("the export isn't JSON: {e}"))),
+        v => Ok(v.clone()),
+    }
+}
+
+/// Propose which of Cowpoke's tags fills each role of each twin in an Ohmstead export. Changes nothing.
+async fn match_twins(State(p): State<Panels>, _me: Me, Json(req): Json<MatchReq>) -> R<Json<serde_json::Value>> {
+    let export = export_of(&req.export)?;
+    let prop = crate::foreman::twin_match::propose(&export, &p.app.cfg.get()).map_err(bad)?;
+    Ok(Json(crate::foreman::twin_match::to_json(&prop)))
+}
+
+/// Write the proposal (with the user's picks) to twins.yaml; twins from Ohmstead are replaced by name,
+/// keeping what they learned. Hand-written twins are left alone.
+async fn apply_twins(State(p): State<Panels>, me: Me, Json(req): Json<MatchReq>) -> R<Json<serde_json::Value>> {
+    me.need(Role::Admin)?;
+    let export = export_of(&req.export)?;
+    let prop = crate::foreman::twin_match::propose(&export, &p.app.cfg.get()).map_err(bad)?;
+    let t = twins()?;
+    let current: crate::foreman::twin::TwinsConfig = serde_yaml::from_str(&t.config_yaml()).unwrap_or_default();
+    let (cfg, left_out) = crate::foreman::twin_match::apply(&current, &prop, &req.picks, export["project"]["id"].as_str());
+    t.set_config(&serde_yaml::to_string(&cfg).map_err(|e| bad(e.to_string()))?).map_err(bad)?;
+    Ok(Json(serde_json::json!({"twins": cfg.twins.len(), "left_out": left_out, "report": t.report()})))
+}
+
+/// Have Foreman retrain one twin's regressions now (or every twin's, with name `all`).
+async fn train_twin(me: Me, Path(name): Path<String>) -> R<Json<serde_json::Value>> {
+    me.need(Role::Operator)?;
+    let t = twins()?;
+    Ok(Json(t.train(if name == "all" { None } else { Some(&name) }).map_err(bad)?))
+}
+
+/// Forget everything a twin learned (a different machine on the same tags).
+async fn reset_twin(me: Me, Path(name): Path<String>) -> R<Json<serde_json::Value>> {
+    me.need(Role::Admin)?;
+    let t = twins()?;
+    t.reset(&name).map_err(bad)?;
+    Ok(Json(t.report()))
+}
+
 async fn dismiss_insight(State(p): State<Panels>, me: Me, Path(id): Path<String>) -> R<StatusCode> {
     me.need(Role::Operator)?;
     p.insights.dismiss(&id, true);
@@ -435,6 +522,13 @@ pub fn router(p: Panels) -> Router {
         .route("/api/insights/config", get(insights_config).put(put_insights_config))
         .route("/api/insights/digest", post(send_digest_now))
         .route("/api/insights/{id}/dismiss", post(dismiss_insight).delete(restore_insight))
+        .route("/api/foreman/twins", get(list_twins))
+        .route("/api/foreman/twins/config", get(twins_config).put(put_twins_config))
+        .route("/api/foreman/twins/match", post(match_twins))
+        .route("/api/foreman/twins/apply", post(apply_twins))
+        .route("/api/foreman/twins/{name}/baseline", post(rebaseline_twin))
+        .route("/api/foreman/twins/{name}/reset", post(reset_twin))
+        .route("/api/foreman/twins/{name}/train", post(train_twin))
         .route("/api/dashboards", get(list_dashboards).post(create_dashboard))
         .route("/api/dashboards/{id}", get(get_dashboard).put(update_dashboard).delete(delete_dashboard))
         .with_state(p)

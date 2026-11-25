@@ -454,6 +454,58 @@ The model answers with one cause from a fixed list (address offset, word order, 
 | `COWPOKE_FOREMAN_MODEL_NAME` | The model to ask for, for example `qwen3:4b` |
 | `COWPOKE_FOREMAN_MODEL` | Builds with `--features foreman` only: path to a GGUF file the built-in engine loads |
 
+### Digital twins
+
+Foreman keeps a digital twin of each machine on a drive, and the twin never stops learning. From the machine's own data it learns what the motor current, DC bus voltage and, for a pump, the differential pressure should be at the speed the drive runs. It learns once a second while the machine runs steady, for as long as Cowpoke runs. What it can't explain is the residual, and a diagnosis of the twin's services includes it, so Foreman sees process faults (a closed valve, a leak, a blockage, thicker product, a freezing heat exchanger, a dragging bearing, a jam, a supply problem, a dead transmitter) as well as communication faults.
+
+| Kind | For | Models |
+|---|---|---|
+| `pump_vfd` | a centrifugal pump with a discharge pressure | ΔP from speed² (affinity laws), current from speed |
+| `pump_pd_vfd` | a lobe, gear or piston pump with a discharge pressure | ΔP from speed (viscous and turbulent losses), current from the pressure it pushes against |
+| `drive_load` | anything else on a drive: agitators, mixers, rotors, conveyors, fans, a pump with no pressure | current from speed |
+
+**Learning is gated** so the twin learns the machine and not its faults. It skips speed changes, samples it can't already explain, and residuals creeping one way. It judges a residual by how familiar the operating point is (unsure at a speed it has rarely seen, strict at speeds it knows) and never claims to know a load better than 4 % of it, since product and weather move loads that much. It forgets slowly (a half-life, default a week of running). After the warm-up it freezes a baseline; live vs. baseline is wear.
+
+**Stuck and noisy transmitters.** A pressure or a trained input that reads exactly the same value for 10 minutes of running is held as stuck: live analog readings move in their last digits. Each twin learns how long each signal normally sits still (a coarse transmitter on a steady tank sits longer) and allows three times that. A residual that stays three times rougher than usual for about a minute is held too: a noisy transmitter, surging, cavitation.
+
+**Recipes.** Give a twin the PLC tag holding the recipe or product number (`recipe:`) and it keeps a model per recipe, so a product change isn't a fault. A recipe it has seen before picks up what was learned for it; a new one is learned fresh, starting from the last recipe's curves, like a commissioning. Once learned, Foreman compares the two: if the old recipe's model predicts the new one about as well, the recipe doesn't change this machine (a utility pump, a conveyor), and the twin goes back to one model for every recipe.
+
+**Foreman trains the regressions.** Each twin keeps the healthy samples it accepted. Every night (and on `POST /api/foreman/twins/<name>/train`) Foreman retrains its models from them. It tries each candidate input (a nearby temperature, weight, density or level; alone, × speed or × speed²), keeps those that cut the error on held-out data by 5 % or more, up to three, and refits. A scraped-surface cooler's current, for example, follows the product temperature leaving it. The retrain, the inputs and the error before and after go into the twin's history, and the baseline is reset because the model changed. Candidates are process conditions, not other machines' pressures or flows: those are outputs, and a fault in that machine would leak into this twin.
+
+**From an Ohmstead drawing.** Ohmstead's `export_twins` (MCP) lists every motor on a drive, what it turns, the drive, the instruments on a pump's piping and the transmitters nearby, by ISA tag. Cowpoke matches those names to the tags it already reads, however the plant named them (`PT-301`, `Skid4.PT401_PV`, `VFD_301_OutFreq`, `vfd-401/OutputFreq`), and says how sure it is: exact, likely, pick or none. A recipe or product number tag (`Line_RecipeNo`, `ProductCode`) is offered to every twin. `POST /api/foreman/twins/match` with `{"export": …}` previews; `POST /api/foreman/twins/apply` (admin, with `picks` for anything you choose yourself) writes `twins.yaml`. Twins from Ohmstead are replaced by name on a re-match, keeping what they learned; hand-written twins are left alone.
+
+Or write `twins.yaml` in the data folder (or `PUT /api/foreman/twins/config`, admin):
+
+```yaml
+twins:
+  - name: P-301
+    description: timing pump
+    kind: pump_pd_vfd                  # pump_vfd (default), pump_pd_vfd or drive_load
+    freq: cp1-plc/VFD_301_OutFreq      # service/tag; freq and current are required, discharge for a pump
+    current: cp1-plc/VFD_301_OutCurrent
+    discharge: cp1-plc/PT-301
+    suction: cp1-plc/PT-300            # optional: differential pressure if given
+    out_voltage: cp1-plc/VFD_301_OutVolts   # with dc_bus: the DC bus model
+    dc_bus: cp1-plc/VFD_301_DCBusVolts
+    flow: cp1-plc/FT-301.AO+           # flow, level, temperature: shown with the twin
+    inputs: [cp1-plc/TT-301, cp1-plc/TT-303]   # candidates Foreman may train in
+    recipe: cp1-plc/Line_RecipeNo      # optional: a model per recipe
+    # f_base: 60, half_life_h: 168, warmup_s: 600, gate_z: 4, trend_gate: 1
+```
+
+| Route | |
+|---|---|
+| `GET /api/foreman/twins` | Each twin: status (warming up, learning a recipe, learning, holding and why), the recipe, measured vs. expected, z, 60 s trend, roughness against its usual, drift from the baseline, fidelity (RMSE), trained inputs, context and its version history |
+| `GET`/`PUT /api/foreman/twins/config` | `twins.yaml` |
+| `POST /api/foreman/twins/match`, `/apply` | Match an Ohmstead export to Cowpoke's tags; write the result |
+| `POST /api/foreman/twins/<name>/train` | Retrain one twin's regressions now (operator); `all` for every twin |
+| `POST /api/foreman/twins/<name>/baseline` | Freeze a new baseline after a repair or a change (operator), `{"note": "new impeller"}` |
+| `POST /api/foreman/twins/<name>/reset` | Forget everything learned (admin) |
+
+From the command line (no hub needed): `cowpoke twins match|apply <export.json>` (with `COWPOKE_CONFIG`), `cowpoke twins replay <day.csv.gz>…` feeds recorded data through the twins file by file and saves what they learn (a `t` column in Unix seconds, then one column per `service/tag`), and `cowpoke twins train [name]`.
+
+What the twins learned is saved to `twins.json` every minute. The single-pump model, its simulator and tests are in `bench/foreman/process`; a whole buttercream plant learned over four weeks is in `bench/foreman/plant`. Foreman's language model has been trained on communication faults only, so it doesn't yet name process faults from the twins' evidence reliably.
+
 **Not covered yet.** The rule checks need a reference to compare a client with, and today that is a simulator of the same protocol in the same Cowpoke; a client reading a real device has none. The traffic monitor isn't part of a diagnosis, and there's no Foreman page in the web UI. In `bench/foreman`, stock `qwen3:4b` through Ollama with the rule findings passed 11 of 12 scenarios on the first hand-staged set and 5, 6 and 9 of 12 on three later, harder sets. Twelve scenarios is a small test: treat an answer as a lead to check.
 
 ## Not yet

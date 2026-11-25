@@ -44,6 +44,11 @@ Usage:
   cowpoke          run a hub (web UI, API and services)
   cowpoke agent    run an edge agent for a hub
   cowpoke health   check that the hub on COWPOKE_BIND answers (exit 0) or not (exit 1)
+  cowpoke twins match <export.json>     propose tags for an Ohmstead twins export (COWPOKE_CONFIG's services)
+  cowpoke twins apply <export.json>     write that proposal to twins.yaml in COWPOKE_DATA
+  cowpoke twins replay <file.csv[.gz]>…  feed recorded data through the twins, file by file, and save what they learn
+  cowpoke twins train [name]            have Foreman retrain the twins' regressions now (COWPOKE_DATA)
+  cowpoke twins reset <name>            forget what a twin learned: a new normal after a recipe change or a repair
 
 Hub settings (environment): COWPOKE_DATA, COWPOKE_CONFIG, COWPOKE_BIND, COWPOKE_ADMIN_PASSWORD, COWPOKE_LOG
   Two hubs (active + standby): COWPOKE_PEER (the other hub's URL), COWPOKE_CLUSTER_KEY, COWPOKE_NODE, COWPOKE_FAILOVER_S
@@ -64,6 +69,7 @@ async fn main() -> Result<()> {
         None | Some("hub") => run_hub(data_dir).await,
         Some("agent") => run_agent(data_dir).await,
         Some("health") => health().await,
+        Some("twins") => twins_cli(&data_dir),
         Some("-h" | "--help" | "help") => {
             println!("{USAGE}");
             Ok(())
@@ -76,6 +82,52 @@ async fn main() -> Result<()> {
     }
 }
 
+/// `cowpoke twins …`: Foreman's digital twins from the command line.
+fn twins_cli(data_dir: &Path) -> Result<()> {
+    let args: Vec<String> = std::env::args().skip(2).collect();
+    let load_export = |p: &str| -> Result<serde_json::Value> { Ok(serde_json::from_slice(&std::fs::read(p).with_context(|| format!("can't read {p}"))?)?) };
+    let config = || -> Result<model::Config> {
+        let p = std::env::var("COWPOKE_CONFIG").context("set COWPOKE_CONFIG to the services' YAML")?;
+        Ok(serde_yaml::from_str(&std::fs::read_to_string(&p).with_context(|| format!("can't read {p}"))?)?)
+    };
+    match (args.first().map(String::as_str), args.get(1)) {
+        (Some("match"), Some(f)) => {
+            let prop = foreman::twin_match::propose(&load_export(f)?, &config()?).map_err(anyhow::Error::msg)?;
+            println!("{}", serde_json::to_string_pretty(&foreman::twin_match::to_json(&prop))?);
+        }
+        (Some("apply"), Some(f)) => {
+            let export = load_export(f)?;
+            let prop = foreman::twin_match::propose(&export, &config()?).map_err(anyhow::Error::msg)?;
+            std::fs::create_dir_all(data_dir)?;
+            let path = data_dir.join("twins.yaml");
+            let current = std::fs::read_to_string(&path).ok().and_then(|t| serde_yaml::from_str(&t).ok()).unwrap_or_default();
+            let (cfg, left_out) = foreman::twin_match::apply(&current, &prop, &Default::default(), export["project"]["id"].as_str());
+            cfg.validate().map_err(anyhow::Error::msg)?;
+            std::fs::write(&path, serde_yaml::to_string(&cfg)?)?;
+            println!("{} twins in {}", cfg.twins.len(), path.display());
+            for l in left_out {
+                println!("left out: {l}");
+            }
+        }
+        (Some("reset"), Some(name)) => {
+            // An operator accepting a new normal (a recipe, a repair): the twin learns again from here.
+            let t = foreman::twin::Twins::open(data_dir);
+            t.reset(name).map_err(anyhow::Error::msg)?;
+            println!("{name}: reset");
+        }
+        (Some("train"), name) => {
+            let t = foreman::twin::Twins::open(data_dir);
+            println!("{}", serde_json::to_string_pretty(&t.train(name.map(String::as_str)).map_err(anyhow::Error::msg)?)?);
+        }
+        (Some("replay"), Some(_)) => {
+            let files: Vec<PathBuf> = args[1..].iter().map(PathBuf::from).collect();
+            println!("{}", serde_json::to_string(&foreman::twin::replay(data_dir, &files)?)?);
+        }
+        _ => bail!("usage: cowpoke twins match|apply <export.json>, cowpoke twins replay <file.csv[.gz]>…, or cowpoke twins train [name]"),
+    }
+    Ok(())
+}
+
 /// Start the alarm engine and open the dashboards; the router for their pages and API.
 pub fn setup_panels(app: &web::App) -> Result<panels::Panels> {
     let store = Arc::new(alarms::AlarmStore::open(&app.data_dir.join("alarms.yaml"))?);
@@ -83,6 +135,7 @@ pub fn setup_panels(app: &web::App) -> Result<panels::Panels> {
     tokio::spawn(engine.clone().run());
     let insights = insights::Insights::open(app.data_dir.join("baselines.json"));
     tokio::spawn(insights::run(insights.clone(), app.clone(), engine.clone()));
+    foreman::twin::start(&app.data_dir, &app.tags);
     Ok(panels::Panels {
         app: app.clone(),
         insights,

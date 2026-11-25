@@ -19,6 +19,9 @@ use serde_json::{Value, json};
 use crate::model::{Mode, ServiceDef};
 use crate::tags::TagStore;
 
+pub mod twin;
+pub mod twin_match;
+
 pub const SYSTEM_PROMPT: &str = include_str!("system_prompt.txt");
 
 
@@ -416,6 +419,16 @@ pub fn evidence(symptom: &str, seen: &[Seen], rules: bool) -> (String, Vec<Strin
             text.push_str("- No differences between the client and the device settings.");
         } else {
             text.push_str(&found.iter().map(|f| format!("- {f}")).collect::<Vec<_>>().join("\n"));
+        }
+    }
+    // Process evidence from the twins that watch these services. Only present when a twin
+    // reads from one, so the communication-fault evidence stays what the models were trained on.
+    if let Some(tw) = twin::get() {
+        let ids: Vec<String> = seen.iter().map(|s| s.id.clone()).collect();
+        let lines = tw.evidence(&ids);
+        if !lines.is_empty() {
+            text.push_str("\n\nDigital twins (how this machine behaves when healthy, learned from its own data):\n");
+            text.push_str(&lines.iter().map(|l| format!("- {l}")).collect::<Vec<_>>().join("\n"));
         }
     }
     (text, found)

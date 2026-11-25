@@ -146,10 +146,36 @@ fn d_trend() -> f64 {
 pub struct TwinsConfig {
     #[serde(default)]
     pub twins: Vec<TwinDef>,
+    /// Foreman's own training data, generated from the twins' regressions (off unless set).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub synthetic: Option<Synthetic>,
+}
+
+/// Synthetic training data: once a twin has run `after_days`, Foreman generates samples from its own
+/// regression every night (the teacher) and mixes them into what the twin learns the next day and into
+/// the nightly retrain, as `share` of the samples. Operating points are spread over the speeds the twin
+/// has run at, with the inputs of real samples and noise as large as the twin's error. Held-out scoring
+/// stays on real samples only.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Synthetic {
+    /// Share of samples learned that are synthetic, 0 to 0.9.
+    pub share: f64,
+    #[serde(default = "d_after")]
+    pub after_days: f64,
+}
+
+fn d_after() -> f64 {
+    30.0
 }
 
 impl TwinsConfig {
     pub fn validate(&self) -> Result<(), String> {
+        if let Some(sy) = &self.synthetic {
+            if !(0.0..=0.9).contains(&sy.share) || sy.after_days < 0.0 {
+                return Err("synthetic: share must be 0 to 0.9 and after_days not negative".into());
+            }
+        }
         let mut names = std::collections::HashSet::new();
         for t in &self.twins {
             if !names.insert(&t.name) {
@@ -447,6 +473,30 @@ struct Learned {
     /// seconds of running: a coarse transmitter on a steady tank sits still longer than a noisy one.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     flat_ref: BTreeMap<String, f64>,
+    /// First and latest running sample (the data's own clock: replays run faster than time).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    started_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    last_ts: Option<DateTime<Utc>>,
+    /// Synthetic data: the models frozen last night that generate it, for the recipe then running.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    teacher: Option<Teacher>,
+    #[serde(default)]
+    synth_credit: f64,
+    #[serde(default)]
+    synth_learned: u64,
+    #[serde(default)]
+    rng: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct Teacher {
+    recipe: Option<String>,
+    /// Per model: θ, the trained inputs, and the noise (the model's error), in measured units.
+    models: BTreeMap<String, (Vec<f64>, Vec<Extra>, f64)>,
+    /// The speeds the twin has run at (r).
+    r_lo: f64,
+    r_hi: f64,
 }
 
 /// One recipe's models while another recipe runs.
@@ -489,6 +539,7 @@ struct Twin {
     def: TwinDef,
     learned: Learned,
     live: Live,
+    synth: Option<Synthetic>,
 }
 
 impl Twin {
@@ -518,7 +569,7 @@ impl Twin {
         for s in learned.recipes.values_mut() {
             fit(&mut s.models);
         }
-        Self { def, learned, live: Live::default() }
+        Self { def, learned, live: Live::default(), synth: None }
     }
 
     fn sample(&self, now: DateTime<Utc>) -> Result<Option<Sample>, String> {
@@ -709,6 +760,8 @@ impl Twin {
             }
             Ok(Some(s)) => s,
         };
+        self.learned.started_at.get_or_insert(now);
+        self.learned.last_ts = Some(now);
         let stuck = self.stuck(now);
         let w = &mut self.live.window;
         w.push_back(s.freq);
@@ -804,6 +857,8 @@ impl Twin {
             }
             l.learned += 1;
             l.recipe_learned += 1;
+            self.rehearse();
+            let l = &mut self.learned;
             if l.learned % BUFFER_EVERY == 0 {
                 l.buffer.push_back(s.clone());
                 if l.buffer.len() > BUFFER_MAX {
@@ -832,11 +887,25 @@ impl Twin {
     /// more, up to three, and refit. A model whose inputs change gets a new baseline. Returns what
     /// happened per model.
     fn train(&mut self, now: DateTime<Utc>) -> Vec<Value> {
-        let rows: Vec<Sample> = self.learned.buffer.iter().filter(|s| self.learned.recipe_blind || s.recipe == self.learned.recipe).cloned().collect();
+        let out = self.retrain(now);
+        self.refresh_teacher(now);
+        out
+    }
+
+    fn retrain(&mut self, now: DateTime<Utc>) -> Vec<Value> {
+        let rows: Vec<Sample> = self.real_rows().into_iter().cloned().collect();
         if rows.len() < 300 {
             return vec![json!({"skipped": format!("{} accepted samples; needs 300", rows.len())})];
         }
         let cut = rows.len() * 7 / 10;
+        // Foreman's own samples join the fitting rows (never the held-out ones) as their share.
+        let n_synth = match (&self.synth, &self.learned.teacher) {
+            (Some(sy), Some(t)) if self.learned.recipe_blind || t.recipe == self.learned.recipe => (cut as f64 * sy.share / (1.0 - sy.share)).round() as usize,
+            _ => 0,
+        };
+        let synth_rows: Vec<Sample> = (0..n_synth).filter_map(|_| self.synth_sample()).collect();
+        let fit: Vec<&Sample> = rows[..cut].iter().chain(synth_rows.iter()).collect();
+        let all: Vec<&Sample> = rows.iter().chain(synth_rows.iter()).collect();
         let candidates: Vec<String> = self
             .def
             .candidates()
@@ -864,8 +933,8 @@ impl Twin {
             };
             // Error on the held-out rows of a model fitted on the others, in measured units.
             let score = |extra: &[Extra]| -> Option<f64> {
-                let xs: Vec<Vec<f64>> = rows[..cut].iter().map(|s| feats(extra, s)).collect();
-                let ys: Vec<f64> = rows[..cut].iter().map(|s| k.target(s)).collect();
+                let xs: Vec<Vec<f64>> = fit.iter().map(|s| feats(extra, s)).collect();
+                let ys: Vec<f64> = fit.iter().map(|s| k.target(s)).collect();
                 let (theta, _) = lstsq(&xs, &ys)?;
                 let se: f64 = rows[cut..]
                     .iter()
@@ -907,8 +976,8 @@ impl Twin {
             let labels: Vec<String> = chosen.iter().map(Extra::label).collect();
             let mut r = json!({"model": k.key(), "rmse_before": round(current, 4), "rmse_after": round(best.min(current), 4), "inputs": labels, "changed": false});
             if !same && best < current * 0.95 {
-                let xs: Vec<Vec<f64>> = rows.iter().map(|s| feats(&chosen, s)).collect();
-                let ys: Vec<f64> = rows.iter().map(|s| k.target(s)).collect();
+                let xs: Vec<Vec<f64>> = all.iter().map(|s| feats(&chosen, s)).collect();
+                let ys: Vec<f64> = all.iter().map(|s| k.target(s)).collect();
                 if let Some((theta, inv)) = lstsq(&xs, &ys) {
                     let m = self.learned.models.get_mut(k.key()).expect("model per kind");
                     m.extra = chosen;
@@ -937,6 +1006,113 @@ impl Twin {
         out
     }
 
+    /// The accepted samples of the recipe running now.
+    fn real_rows(&self) -> Vec<&Sample> {
+        self.learned.buffer.iter().filter(|s| self.learned.recipe_blind || s.recipe == self.learned.recipe).collect()
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        let r = &mut self.learned.rng;
+        if *r == 0 {
+            *r = self.def.name.bytes().fold(0x9E37_79B9_7F4A_7C15u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01B3)) | 1;
+        }
+        *r ^= *r << 13;
+        *r ^= *r >> 7;
+        *r ^= *r << 17;
+        *r
+    }
+    fn uniform(&mut self) -> f64 {
+        (self.next_u64() >> 11) as f64 / (1u64 << 53) as f64
+    }
+    fn gauss(&mut self) -> f64 {
+        let (a, b) = (self.uniform().max(1e-12), self.uniform());
+        (-2.0 * a.ln()).sqrt() * (2.0 * std::f64::consts::PI * b).cos()
+    }
+
+    /// One sample Foreman makes up from last night's models: a real sample's inputs at a speed drawn
+    /// from the range the twin has run at, with what the models say it should read, plus their error.
+    fn synth_sample(&mut self) -> Option<Sample> {
+        let n = self.learned.buffer.len();
+        if n == 0 || self.learned.teacher.is_none() {
+            return None;
+        }
+        // A random accepted sample of the recipe running now (drawn until one fits: they mostly do).
+        let (blind, recipe) = (self.learned.recipe_blind, self.learned.recipe.clone());
+        let mut pick = None;
+        for _ in 0..64 {
+            let i = (self.next_u64() % n as u64) as usize;
+            if blind || self.learned.buffer[i].recipe == recipe {
+                pick = Some(i);
+                break;
+            }
+        }
+        let i = pick?;
+        let u = self.uniform();
+        let noise: Vec<f64> = (0..4).map(|_| self.gauss()).collect();
+        let mut s = self.learned.buffer[i].clone();
+        let t = self.learned.teacher.as_ref()?;
+        let r = t.r_lo + (t.r_hi - t.r_lo) * u;
+        if s.r > 0.0 {
+            s.out_voltage *= r / s.r;
+        }
+        s.r = r;
+        s.freq = r * self.def.f_base;
+        for (j, k) in self.def.models().into_iter().enumerate() {
+            let (theta, extra, sd) = t.models.get(k.key())?;
+            let mut x = k.features(&s);
+            x.extend(extra.iter().map(|e| e.value(&s)));
+            let y = k.measured(Rls::predict_with(theta, &x)) + sd * noise[j];
+            match k {
+                Kind::Dp | Kind::DpPd => s.dp = y,
+                Kind::Current | Kind::CurrentPd => s.current = y.max(0.0),
+                Kind::Bus => s.dc_bus = y,
+            }
+        }
+        Some(s)
+    }
+
+    /// After a real sample is learned, learn Foreman's own samples at their share.
+    fn rehearse(&mut self) {
+        let Some(sy) = self.synth.clone() else { return };
+        let Some(t) = &self.learned.teacher else { return };
+        if (!self.learned.recipe_blind && t.recipe != self.learned.recipe) || self.learned.recipe_learned < self.def.warmup_s {
+            return;
+        }
+        self.learned.synth_credit += sy.share / (1.0 - sy.share);
+        while self.learned.synth_credit >= 1.0 {
+            self.learned.synth_credit -= 1.0;
+            let Some(s) = self.synth_sample() else { return };
+            for k in self.def.models() {
+                let m = self.learned.models.get_mut(k.key()).expect("model per kind");
+                let x = m.features(k, &s);
+                m.rls.update(&x, k.target(&s));
+            }
+            self.learned.synth_learned += 1;
+        }
+    }
+
+    /// Nightly: once the twin has run `after_days`, freeze today's models as tomorrow's teacher.
+    fn refresh_teacher(&mut self, now: DateTime<Utc>) {
+        let Some(sy) = &self.synth else { return };
+        let l = &self.learned;
+        let (Some(a), Some(b)) = (l.started_at, l.last_ts) else { return };
+        if ((b - a).num_seconds() as f64) < sy.after_days * 86400.0 || l.recipe_learned < self.def.warmup_s {
+            return;
+        }
+        let mut rs: Vec<f64> = self.real_rows().iter().map(|s| s.r).collect();
+        if rs.len() < 50 {
+            return;
+        }
+        rs.sort_by(f64::total_cmp);
+        let (r_lo, r_hi) = (rs[rs.len() / 50], rs[rs.len() - 1 - rs.len() / 50]);
+        let models = self.def.models().into_iter().filter_map(|k| self.learned.models.get(k.key()).map(|m| (k.key().to_string(), (m.rls.theta.clone(), m.extra.clone(), m.sd(k))))).collect();
+        let first = self.learned.teacher.is_none();
+        self.learned.teacher = Some(Teacher { recipe: self.learned.recipe.clone(), models, r_lo, r_hi });
+        if first {
+            self.version(now, &format!("Foreman started generating its own training data: {:.0} % of what this twin learns", sy.share * 100.0));
+        }
+    }
+
     fn freeze_baseline(&mut self, now: DateTime<Utc>, note: &str) {
         for m in self.learned.models.values_mut() {
             m.baseline = Some(m.rls.theta.clone());
@@ -962,6 +1138,7 @@ impl Twin {
             "recipe": self.learned.recipe,
             "recipes_learned": self.learned.recipes.keys().collect::<Vec<_>>(),
             "recipe_blind": self.learned.recipe_blind,
+            "synthetic_learned": self.learned.synth_learned,
             "now": self.live.last,
             "inputs": self.learned.models.iter().filter(|(_, m)| !m.extra.is_empty()).map(|(k, m)| (k.clone(), json!(m.extra.iter().map(Extra::label).collect::<Vec<_>>()))).collect::<serde_json::Map<_, _>>(),
             "context": self.def.context().iter().filter_map(|(r, _)| self.live.latest.get(*r).map(|(v, _)| (r.to_string(), json!(round(*v, 3))))).collect::<serde_json::Map<_, _>>(),
@@ -1089,6 +1266,7 @@ pub struct Twins {
     state_path: PathBuf,
     config_path: PathBuf,
     twins: Mutex<Vec<Twin>>,
+    synthetic: Mutex<Option<Synthetic>>,
     /// (service, tag) → (twin index, role), rebuilt with the config.
     routes: Mutex<HashMap<(String, String), Vec<(usize, String)>>>,
 }
@@ -1122,7 +1300,7 @@ impl Twins {
                 }),
             Err(_) => TwinsConfig::default(),
         };
-        let t = Arc::new(Self { state_path, config_path, twins: Mutex::new(vec![]), routes: Mutex::new(HashMap::new()) });
+        let t = Arc::new(Self { state_path, config_path, twins: Mutex::new(vec![]), synthetic: Mutex::new(None), routes: Mutex::new(HashMap::new()) });
         t.apply(cfg);
         t
     }
@@ -1136,10 +1314,14 @@ impl Twins {
                 current.iter().map(|t| (t.def.name.clone(), t.learned.clone())).collect()
             }
         };
+        let synth = cfg.synthetic.clone();
         let twins: Vec<Twin> = cfg.twins.into_iter().map(|d| {
             let s = saved.remove(&d.name);
-            Twin::new(d, s)
+            let mut t = Twin::new(d, s);
+            t.synth = synth.clone();
+            t
         }).collect();
+        *self.synthetic.lock() = synth;
         let mut routes: HashMap<(String, String), Vec<(usize, String)>> = HashMap::new();
         for (i, t) in twins.iter().enumerate() {
             for (role, key) in t.def.routed() {
@@ -1153,7 +1335,7 @@ impl Twins {
     }
 
     pub fn config_yaml(&self) -> String {
-        let cfg = TwinsConfig { twins: self.twins.lock().iter().map(|t| t.def.clone()).collect() };
+        let cfg = TwinsConfig { twins: self.twins.lock().iter().map(|t| t.def.clone()).collect(), synthetic: self.synthetic.lock().clone() };
         serde_yaml::to_string(&cfg).unwrap_or_default()
     }
 
@@ -1223,7 +1405,9 @@ impl Twins {
         let i = twins.iter().position(|t| t.def.name == name).ok_or_else(|| format!("no twin `{name}`"))?;
         let def = twins[i].def.clone();
         let history = std::mem::take(&mut twins[i].learned.history);
+        let synth = twins[i].synth.clone();
         twins[i] = Twin::new(def, None);
+        twins[i].synth = synth;
         twins[i].learned.history = history;
         twins[i].version(Utc::now(), "reset: learning again from here (a new normal)");
         drop(twins);
@@ -1733,6 +1917,32 @@ mod tests {
         assert_eq!(p.live.last["status"], "learning", "not yet: {}", p.live.last);
         run(&mut m, &mut p, &mut now, 1.0, 1500, Some(last));
         assert!(p.live.last["status"].as_str().unwrap().contains("d/pd stuck at"), "{}", p.live.last);
+    }
+
+    #[test]
+    fn foreman_learns_its_own_samples_at_their_share() {
+        let mut t = Twin::new(def(), None);
+        t.synth = Some(Synthetic { share: 0.5, after_days: 0.0 });
+        let mut now = Utc::now();
+        for f in [40.0, 50.0, 60.0, 45.0, 55.0] {
+            now = feed(&mut t, now, f, 1.0, 1.0, 1500);
+        }
+        assert!(t.learned.teacher.is_none(), "no teacher before the first night");
+        t.train(now);
+        let tch = t.learned.teacher.clone().expect("teacher after the night");
+        assert!(tch.r_lo < 0.7 && tch.r_hi > 0.95, "{} {}", tch.r_lo, tch.r_hi);
+        let real = t.learned.learned;
+        now = feed(&mut t, now, 52.0, 1.0, 1.0, 3000);
+        let synth = t.learned.synth_learned;
+        let real = t.learned.learned - real;
+        assert!(synth.abs_diff(real) <= 1, "half the samples learned are synthetic: {synth} vs {real}");
+        // Made-up samples look like the pump: the model they train still explains the real one.
+        assert_eq!(t.live.last["status"], "learning", "{}", t.live.last);
+        assert!(t.learned.history.iter().any(|v| v.note.contains("its own training data")));
+        let s = t.synth_sample().unwrap();
+        let dp_true = 1.0 + 4.0 * s.r * s.r;
+        assert!((s.dp - dp_true).abs() < 0.1, "{} vs {}", s.dp, dp_true);
+        let _ = now;
     }
 
     #[test]

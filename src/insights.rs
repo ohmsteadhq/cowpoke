@@ -306,6 +306,9 @@ fn poll_ms(def: &ServiceDef) -> Option<f64> {
         return None;
     }
     let s = &def.settings;
+    if def.kind == crate::model::Kind::Opcua && s.get("read").and_then(|v| v.as_str()) == Some("subscribe") {
+        return None; // pushed by the server, like MQTT
+    }
     s.get("poll_ms").or_else(|| s.get("interval_ms")).and_then(|v| v.as_f64()).or_else(|| {
         use crate::model::Kind::*;
         match def.kind {

@@ -147,6 +147,10 @@ tags:
 }
 
 async fn opcua_pair(policy: &str, mode: &str) {
+    opcua_pair_with(policy, mode, "").await;
+}
+
+async fn opcua_pair_with(policy: &str, mode: &str, extra: &str) {
     let p = free_port();
     let host = opcua::crypto::X509Data::computer_hostnames()
         .into_iter()
@@ -194,6 +198,7 @@ settings:
   security_mode: {mode}
   trust_server_certs: true
   poll_ms: 100
+  {extra}
   {creds}
 tags:
   - {{ name: temp, datatype: float64, node_id: "ns={ns};s=Temperature" }}
@@ -231,6 +236,17 @@ async fn opcua_basic256sha256_encrypted() {
 #[tokio::test(flavor = "multi_thread")]
 async fn opcua_aes256_signed() {
     opcua_pair("aes256_sha256_rsa_pss", "sign").await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcua_subscribe() {
+    opcua_pair_with("none", "none", "read: subscribe").await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcua_subscribe_deadband_encrypted() {
+    // The deadband is refused on the bool node and retried without it.
+    opcua_pair_with("basic256sha256", "sign_and_encrypt", "read: subscribe\n  deadband: 0.1").await;
 }
 
 #[tokio::test(flavor = "multi_thread")]

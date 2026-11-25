@@ -11,7 +11,10 @@ settings:
   # username: operator
   # password: secret
   trust_server_certs: false    # false: trust the server's cert from the service's certificate list
-  poll_ms: 1000
+  read: poll                   # poll | subscribe (the server sends changes)
+  poll_ms: 1000                # poll period, or the publishing interval with subscribe
+  # sampling_ms: 250           # subscribe: how often the server samples each node
+  # deadband: 0.5              # subscribe: ignore numeric changes smaller than this
 tags:
   - name: temperature
     datatype: float64

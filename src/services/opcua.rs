@@ -370,10 +370,28 @@ struct ClientSettings {
     /// Trust the server's certificate automatically (otherwise trust it from the service's certificate list).
     #[serde(default)]
     trust_server_certs: bool,
+    /// `poll` reads every tag every `poll_ms`; `subscribe` asks the server to send changes.
+    #[serde(default)]
+    read: ReadMode,
+    /// Poll period, or in subscribe mode the publishing interval.
     #[serde(default = "default_poll")]
     poll_ms: u64,
+    /// Subscribe mode: how often the server samples each node (default: the publishing interval).
+    #[serde(default)]
+    sampling_ms: Option<u64>,
+    /// Subscribe mode: absolute deadband; numeric changes smaller than this aren't sent.
+    #[serde(default)]
+    deadband: Option<f64>,
     #[serde(default = "default_timeout")]
     timeout_ms: u64,
+}
+
+#[derive(Deserialize, Default, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "snake_case")]
+enum ReadMode {
+    #[default]
+    Poll,
+    Subscribe,
 }
 
 fn policy_none() -> Policy {
@@ -432,8 +450,6 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
         lp.abort();
         bail!("couldn't open a session with {}", s.url);
     }
-    ctx.status.running(format!("connected to {}", s.url));
-
     let tags = ctx.def.tags.clone();
     let nodes: Vec<NodeId> = tags
         .iter()
@@ -450,14 +466,66 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
     let has_tags = !to_read.is_empty();
     to_read.push(ReadValueId::from(&NodeId::new(0, 2258u32)));
     let id = ctx.def.id.clone();
-    let mut tick = tokio::time::interval(Duration::from_millis(s.poll_ms.max(50)));
+    let subscribe = s.read == ReadMode::Subscribe;
+    // Subscribe mode: changes come in on `changes`; the timer only reads the server's clock.
+    let (ctx_tx, mut changes) = tokio::sync::mpsc::unbounded_channel::<(usize, DataValue)>();
+    if subscribe && has_tags {
+        match subscribe_tags(&session, &s, &nodes, ctx_tx, timeout).await {
+            Ok(refused) => {
+                for (i, code) in &refused {
+                    ctx.tags.set_bad(&id, &tags[*i].name);
+                    tracing::warn!("{id}: server refused to monitor `{}`: {code}", tags[*i].name);
+                }
+                let note = if refused.is_empty() {
+                    String::new()
+                } else {
+                    let names: Vec<&str> = refused.iter().map(|(i, _)| tags[*i].name.as_str()).collect();
+                    format!(", refused: {}", names.join(", "))
+                };
+                ctx.status.running(format!("connected to {}, subscribed to {} tags{note}", s.url, tags.len() - refused.len()));
+            }
+            Err(e) => {
+                let _ = tokio::time::timeout(Duration::from_secs(2), session.disconnect()).await;
+                lp.abort();
+                return Err(e);
+            }
+        }
+    } else {
+        ctx.status.running(format!("connected to {}", s.url));
+    }
+    // In subscribe mode the clock check alone runs on the timer, at most every 5 s.
+    let period = if subscribe { s.poll_ms.max(5000) } else { s.poll_ms.max(50) };
+    let mut tick = tokio::time::interval(Duration::from_millis(period));
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let clock_only = [ReadValueId::from(&NodeId::new(0, 2258u32))];
 
     let result: Result<()> = loop {
         tokio::select! {
             _ = ctx.cancel.cancelled() => break Ok(()),
             r = &mut lp => break Err(anyhow!("session ended: {}", r.map(|s| s.to_string()).unwrap_or_else(|e| e.to_string()))),
+            Some((i, dv)) = changes.recv() => {
+                let t = &tags[i];
+                match dv.value.as_ref().and_then(|v| from_variant(t, v)) {
+                    Some(j) if dv.status().is_good() => ctx.tags.set(&id, &t.name, j, Quality::Good, Origin::Service),
+                    Some(j) if !dv.status().is_bad() => ctx.tags.set(&id, &t.name, j, Quality::Uncertain, Origin::Service),
+                    _ => ctx.tags.set_bad(&id, &t.name),
+                }
+            }
             _ = tick.tick() => {
+                if subscribe {
+                    let sent = chrono::Utc::now();
+                    match tokio::time::timeout(timeout, session.read(&clock_only, TimestampsToReturn::Neither, 0.0)).await {
+                        Err(_) => break Err(anyhow!("timed out reading the server's clock")),
+                        Ok(Err(e)) => break Err(anyhow!("reading the server's clock: {e}")),
+                        Ok(Ok(mut v)) => {
+                            if let Some(Variant::DateTime(st)) = v.pop().and_then(|dv| dv.value) {
+                                let mid = sent + (chrono::Utc::now() - sent) / 2;
+                                crate::insights::note_clock_offset(&id, (st.as_chrono() - mid).num_milliseconds() as f64);
+                            }
+                        }
+                    }
+                    continue;
+                }
                 if !has_tags { continue; }
                 let sent = chrono::Utc::now();
                 let mut vals = match tokio::time::timeout(timeout, session.read(&to_read, TimestampsToReturn::Neither, 0.0)).await {
@@ -512,6 +580,118 @@ pub async fn client(ctx: &mut Ctx) -> Result<()> {
     let _ = tokio::time::timeout(Duration::from_secs(2), session.disconnect()).await;
     lp.abort();
     result
+}
+
+/// Creates one subscription with a monitored item per tag. Each data change goes to `tx`
+/// as (tag index, value). Returns the tags the server refused to monitor, with its reason.
+async fn subscribe_tags(
+    session: &Arc<opcua::client::Session>,
+    s: &ClientSettings,
+    nodes: &[NodeId],
+    tx: tokio::sync::mpsc::UnboundedSender<(usize, DataValue)>,
+    timeout: Duration,
+) -> Result<Vec<(usize, StatusCode)>> {
+    use opcua::client::DataChangeCallback;
+    use opcua::types::{
+        DataChangeFilter, DataChangeTrigger, DeadbandType, ExtensionObject, MonitoredItemCreateRequest,
+        MonitoringMode, MonitoringParameters,
+    };
+    let publish = Duration::from_millis(s.poll_ms.max(50));
+    let sub_id = tokio::time::timeout(
+        timeout,
+        session.create_subscription(
+            publish,
+            // Lifetime and keep-alive counts, in publishing intervals: the server keeps the
+            // subscription for 60 intervals without a publish request and sends an empty
+            // keep-alive at least every 10, so a quiet server still proves it's there.
+            60,
+            10,
+            0,
+            0,
+            true,
+            DataChangeCallback::new(move |dv, item| {
+                // Client handles are tag index + 1 (0 means "pick one for me").
+                let _ = tx.send((item.client_handle() as usize - 1, dv));
+            }),
+        ),
+    )
+    .await
+    .map_err(|_| anyhow!("timed out creating the subscription"))?
+    .map_err(|e| anyhow!("creating the subscription: {e}"))?;
+
+    let sampling = s.sampling_ms.unwrap_or(s.poll_ms) as f64;
+    let filter = match s.deadband {
+        Some(d) if d > 0.0 => ExtensionObject::from_message(DataChangeFilter {
+            trigger: DataChangeTrigger::StatusValue,
+            deadband_type: DeadbandType::Absolute as u32,
+            deadband_value: d,
+        }),
+        _ => ExtensionObject::null(),
+    };
+    let items: Vec<MonitoredItemCreateRequest> = nodes
+        .iter()
+        .enumerate()
+        .map(|(i, n)| {
+            MonitoredItemCreateRequest::new(
+                n.into(),
+                MonitoringMode::Reporting,
+                MonitoringParameters {
+                    client_handle: i as u32 + 1,
+                    sampling_interval: sampling,
+                    filter: filter.clone(),
+                    queue_size: 1,
+                    discard_oldest: true,
+                },
+            )
+        })
+        .collect();
+    let created = tokio::time::timeout(timeout, session.create_monitored_items(sub_id, TimestampsToReturn::Source, items))
+        .await
+        .map_err(|_| anyhow!("timed out creating monitored items"))?
+        .map_err(|e| anyhow!("creating monitored items: {e}"))?;
+    let mut refused = vec![];
+    for (i, r) in created.iter().enumerate() {
+        if !r.result.status_code.is_good() {
+            refused.push((i, r.result.status_code));
+        }
+    }
+    // A deadband on a node that isn't numeric is refused with BadFilterNotAllowed:
+    // monitor those again without a filter.
+    if s.deadband.is_some() {
+        let retry: Vec<usize> = refused
+            .iter()
+            .filter(|(_, c)| *c == StatusCode::BadFilterNotAllowed || *c == StatusCode::BadMonitoredItemFilterUnsupported)
+            .map(|(i, _)| *i)
+            .collect();
+        if !retry.is_empty() {
+            let items = retry
+                .iter()
+                .map(|&i| {
+                    MonitoredItemCreateRequest::new(
+                        (&nodes[i]).into(),
+                        MonitoringMode::Reporting,
+                        MonitoringParameters {
+                            client_handle: i as u32 + 1,
+                            sampling_interval: sampling,
+                            filter: ExtensionObject::null(),
+                            queue_size: 1,
+                            discard_oldest: true,
+                        },
+                    )
+                })
+                .collect();
+            let again = tokio::time::timeout(timeout, session.create_monitored_items(sub_id, TimestampsToReturn::Source, items))
+                .await
+                .map_err(|_| anyhow!("timed out creating monitored items"))?
+                .map_err(|e| anyhow!("creating monitored items: {e}"))?;
+            for (&i, r) in retry.iter().zip(again.iter()) {
+                if r.result.status_code.is_good() {
+                    refused.retain(|(j, _)| *j != i);
+                }
+            }
+        }
+    }
+    Ok(refused)
 }
 
 // ------------------------------------------------------------------ trust list

@@ -7,7 +7,7 @@ Create *services* in a web UI, a REST API or a YAML file. Each service speaks on
 | Protocol | Server mode (Cowpoke is the device) | Client mode (Cowpoke talks to a device) |
 |---|---|---|
 | **Modbus TCP** | Simulated device: holding/input registers, coils, discrete inputs; several unit ids on one port | Polls a device or gateway; several unit ids per service; writes coils and holding registers |
-| **OPC UA** | Server with your tags as variables; None, Basic256Sha256, Aes128Sha256RsaOaep, Aes256Sha256RsaPss; anonymous and username logins; trust list | Reads and writes a server's nodes with any of the same policies, as anonymous or a user |
+| **OPC UA** | Server with your tags as variables; None, Basic256Sha256, Aes128Sha256RsaOaep, Aes256Sha256RsaPss; anonymous and username logins; trust list | Reads and writes a server's nodes with any of the same policies, as anonymous or a user; polls, or subscribes so the server sends changes (sampling interval and deadband) |
 | **API request** | Mock HTTP API: routes with canned bodies, `:params`, delays, status codes, and `{{tags.NAME}}` placeholders; routes can set tags from the request; plus `GET/PUT /tags` | Calls an endpoint on a timer and picks values from the JSON with JSON pointers; optional write request |
 | **IO-Link** | Simulated ifm IoT Core master: `pdin`/`pdout`, device info, `getdatamulti` | Reads sensors through a real ifm IoT Core master (AL13xx and similar) by IODD bit offset; writes `pdout` |
 | **MQTT** | Built-in MQTT 3.1.1 broker: publishes every tag on change to `<prefix>/<tag>` (retained), takes writes on `<topic>/set`, optional login; optionally a **Sparkplug B edge node** (or device): NBIRTH/DBIRTH, data on change by alias, NDEATH, writes and rebirth through NCMD/DCMD, on its own broker and optionally an outside one (with an NDEATH will); other clients publish and subscribe as with any broker | Subscribes to a broker's topics (wildcards allowed), picks values from JSON or text payloads with JSON pointers; writes publish to a topic template; TLS, login, QoS 0/1, retain. **Sparkplug B**: reads an edge node's or device's metrics from births and data (aliases included), marks tags bad on death, asks for a rebirth, writes with NCMD/DCMD |
@@ -424,7 +424,6 @@ These aren't built yet:
 
 - Modbus RTU over serial
 - IO-Link masters other than ifm IoT Core
-- OPC UA subscriptions (the client polls)
 - Built-in HTTPS
 - S7: S7comm-plus (symbolic access on S7-1200/1500 with optimized blocks), userdata services (SZL, block lists) in the simulator
 - Traffic monitor: S7comm-plus (S7-1200/1500) and encrypted OPC UA contents, DNP3, PROFINET, out-of-order TCP reassembly

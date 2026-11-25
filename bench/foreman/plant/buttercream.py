@@ -158,6 +158,8 @@ def make_config():
 
 
 def cowpoke_bin():
+    if os.environ.get("COWPOKE_BIN"):
+        return os.environ["COWPOKE_BIN"]
     for p in ("target/release/cowpoke", "target/debug/cowpoke"):
         if os.path.exists(os.path.join(ROOT, p)):
             return os.path.join(ROOT, p)

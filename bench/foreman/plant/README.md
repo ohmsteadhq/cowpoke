@@ -87,3 +87,40 @@ and off-page connectors). Foreman uses them to group what the twins report (`pla
   a model per recipe, and Foreman drops the split where the recipe makes no difference.
 - **Short events need fast data.** The 0.4 s sag is one sample at 2 s polling: a blip, not an episode.
   The drives' own fault logs see more.
+
+## Foreman's own synthetic data (a year, five shares)
+
+`year.py` runs 365 days with ~120 seeded events on top of production (wear, process faults, faulty
+sensors, comms dropouts, recipe runs, repairs). With `synthetic:` in `twins.yaml`, once a twin has run
+30 days Foreman freezes its models every night and, the next day, mixes samples made from them into what
+the twin learns: a real sample's inputs at a speed drawn from the range the twin has run at, what the
+models say it should read, and noise as large as the twin's error. The nightly retrain gets the same
+share in its fitting rows; its held-out check stays real.
+
+```bash
+for s in 0 0.1 0.25 0.5 0.75; do python3 year.py run --out synth-$(python3 -c "print(int($s*100))") --synthetic $s & done; wait
+python3 compare_synth.py     # out/synth-compare.txt and .png
+```
+
+Seed 1, days 30–364, against no synthetic data:
+
+| Synthetic | Faults caught | Wear: median days to first hold | Holds no event explains | Retrains that changed a model | Model error (mean / worst 10 % of twin-days) |
+|---|---|---|---|---|---|
+| none | 70 of 74 | 13.7 | 35 | 27 | 1.000 / 1.000 |
+| 10 % | 71 of 73 | 11.7 | 35 | 28 | 1.001 / 1.008 |
+| 25 % | 71 of 74 | 11.5 | 35 | 20 | 1.007 / 1.018 |
+| 50 % | 70 of 74 | 13.7 | 34 | 17 | 1.007 / 1.029 |
+| 75 % | 68 of 74 | 15.0 | 341 | 10 | 1.018 / 1.089 |
+
+- **Samples made from a twin's own model teach it nothing new about the machine.** What they do is
+  make it surer and slower to forget: it holds on to last month's machine a little longer.
+- **10–25 % helps a little with slow faults.** Wear was held about two days sooner, and the slow
+  TT-401 drift (missed with none) was caught at both; at 10 % so was the noisy WT-201. With one seed,
+  a difference of one or two events is within chance.
+- **It makes Foreman reluctant to change a model.** The made-up rows follow the current inputs, so a
+  new input has to beat them too: 27 retrains with none, 10 at 75 %.
+- **75 % breaks.** The scraper agitator (AG-202) learned chocolate, a recipe it had never seen, in
+  three hours; three made-up samples for every real one then pinned that first guess, and it held 306
+  times over the two-week run. It also missed a bearing and a drift the others caught.
+- **Starting point: 10–25 %, never above 50 %.** It's off by default. Not done yet: a new recipe's
+  model teaches as soon as it's past warm-up (hours); waiting days would likely remove the 75 % failure.

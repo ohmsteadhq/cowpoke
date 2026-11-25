@@ -463,12 +463,16 @@ def expected_twins(e, reads, inputs_now):
     return {}
 
 
-def run(seed, days, keep_every=30):
+def run(seed, days, keep_every=30, synthetic=0.0, after_days=30):
     os.makedirs(os.path.join(YEAR, "days"), exist_ok=True)
     data = os.path.join(YEAR, "twins")
     os.makedirs(data, exist_ok=True)
     import shutil
     shutil.copy(os.path.join(OUT, "train", "twins.yaml"), os.path.join(data, "twins.yaml"))
+    if synthetic > 0:
+        # Foreman's own training data, from its regressions, after the first month.
+        with open(os.path.join(data, "twins.yaml"), "a") as fh:
+            fh.write(f"synthetic:\n  share: {synthetic}\n  after_days: {after_days}\n")
     for f in ("twins.json", "baselines.json"):
         if os.path.exists(os.path.join(data, f)):
             os.remove(os.path.join(data, f))
@@ -738,7 +742,12 @@ def main():
     ap.add_argument("what", choices=["plan", "run", "report", "plots"])
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--days", type=int, default=365)
+    ap.add_argument("--out", default="year", help="folder under out/ for this run (variants side by side)")
+    ap.add_argument("--synthetic", type=float, default=0.0, help="share of Foreman's own samples in what twins learn, 0-0.9")
+    ap.add_argument("--after-days", type=float, default=30)
     a = ap.parse_args()
+    global YEAR
+    YEAR = os.path.join(OUT, a.out)
     if a.what == "plan":
         os.makedirs(YEAR, exist_ok=True)
         ev = plan(a.seed, a.days)
@@ -748,7 +757,7 @@ def main():
             kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
         print(len(ev), "events:", ", ".join(f"{k} {v}" for k, v in sorted(kinds.items())))
     elif a.what == "run":
-        run(a.seed, a.days)
+        run(a.seed, a.days, synthetic=a.synthetic, after_days=a.after_days)
         report()
         plots()
     elif a.what == "plots":

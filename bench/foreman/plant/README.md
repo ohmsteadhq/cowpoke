@@ -108,21 +108,26 @@ Three seeds (three different years of events), each run against its own seed's r
 | Synthetic | Faults caught | Wear vs. none, same events | Holds no event explains, by seed | Retrains that changed a model, by seed | Model error (mean) |
 |---|---|---|---|---|---|
 | none | 201 of 224 | — | 35, 145, 39 | 27, 23, 7 | 1.000 |
-| 10 % | 202 of 223 | +0.0 d (1 sooner, 2 later of 55) | 35, 147, 39 | 28, 12, 9 | 1.000 |
-| 25 % | 202 of 225 | −0.3 d (5 sooner, 0 later) | 35, 122, 38 | 20, 7, 7 | 1.001 |
-| 50 % | 201 of 224 | −0.0 d (8 sooner, 5 later) | 34, **250**, 38 | 17, 7, 6 | 1.005 |
-| 75 % | 199 of 224 | +0.6 d (10 sooner, 10 later) | **341, 204, 148** | 10, 9, 6 | 1.012 |
+| 10 %¹ | 202 of 223 | +0.0 d (1 sooner, 2 later of 55) | 35, 147, 39 | 28, 12, 9 | 1.000 |
+| 25 % | 203 of 225 | −0.2 d (1 sooner, 0 later) | 34, 122, 38 | 22, 11, 6 | 1.003 |
+| 50 % | 202 of 224 | −0.2 d (3 sooner, 1 later) | 34, 105, 39 | 18, 9, 6 | 1.016 |
+| 75 % | 202 of 224 | −0.0 d (4 sooner, 2 later) | 34, 120, 37 | 10, 11, 5 | 1.026 |
+
+¹ run before the two fixes below.
 
 - **Samples made from a twin's own model teach it nothing new about the machine,** and it shows:
-  the catch rate doesn't move at any share. What they do is make a twin surer and slower to forget.
-- **25 % is the only share with a consistent effect, and it's small:** wear held a few hours sooner
-  on average (5 events sooner, none later). With seed 1 alone it looked like two days; that was an
-  unpaired median and didn't hold up.
+  the catch rate doesn't move at any share. Wear is held a few hours sooner at 25–50 %.
 - **It makes Foreman reluctant to change a model.** The made-up rows follow the current inputs, so a
-  new input has to beat them too: retrains fall as the share rises.
-- **From 50 %, a newly learned recipe can get pinned.** A scraper agitator learned a recipe it had
-  never seen in three hours; then the made-up samples, made from that first guess, outweighed the
-  real ones and it held hundreds of times over the run (seed 1 at 75 %, seed 2 at 50 %).
-- **Verdict: leave it off.** If it's used, 25 % at most. Not done yet: a new recipe's model teaches
-  as soon as it's past warm-up (hours); waiting days would likely remove the pinning.
+  new input has to beat them too: retrains fall as the share rises. Model error rises a little with
+  the share (the made-up samples carry noise as large as the twin's error).
+- **Two fixes made high shares safe.** At first 50 % and 75 % raised hundreds of false holds
+  (75 %: 341, 204, 148 by seed). The cause was memory: every learned sample ages out a little of
+  what came before, so at 75 % a twin remembered a quarter of the real running it should, followed
+  whichever recipe was on, and after a recipe run crept into a trend hold it never learned out of.
+  Now a made-up sample moves the model without touching its memory (`Rls::nudge`: no forgetting, no
+  added certainty), and a change of recipe drops last night's teacher and waits `recipe_days` (3)
+  into the new run before making samples again. The wait alone barely helped (75 %: 256, 855, 132);
+  the memory fix did. Earlier runs are kept in `out/no-recipe-wait/`, `out/per-recipe-wait/` and
+  `out/run-wait/`.
+- **Verdict: safe up to 75 % now, but it buys little.** If it's on, 25–50 %; off is fine.
 - Seed 2's 145 holds with none are a separate problem: the CIP pump P-501 in months 10–11.

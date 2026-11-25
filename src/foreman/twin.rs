@@ -163,17 +163,25 @@ pub struct Synthetic {
     pub share: f64,
     #[serde(default = "d_after")]
     pub after_days: f64,
+    /// A recipe new to the twin teaches only once it has run this many days: its first models are
+    /// a guess, and samples made from a guess outweigh the real ones that would correct it.
+    #[serde(default = "d_recipe_days")]
+    pub recipe_days: f64,
 }
 
 fn d_after() -> f64 {
     30.0
 }
 
+fn d_recipe_days() -> f64 {
+    3.0
+}
+
 impl TwinsConfig {
     pub fn validate(&self) -> Result<(), String> {
         if let Some(sy) = &self.synthetic {
-            if !(0.0..=0.9).contains(&sy.share) || sy.after_days < 0.0 {
-                return Err("synthetic: share must be 0 to 0.9 and after_days not negative".into());
+            if !(0.0..=0.9).contains(&sy.share) || sy.after_days < 0.0 || sy.recipe_days < 0.0 {
+                return Err("synthetic: share must be 0 to 0.9, after_days and recipe_days not negative".into());
             }
         }
         let mut names = std::collections::HashSet::new();
@@ -369,6 +377,18 @@ impl Rls {
             }
         }
     }
+
+    /// Move θ toward a made-up sample without touching P: no forgetting (it would age out real
+    /// running at the synthetic share) and no added certainty (it would slow learning from real data).
+    fn nudge(&mut self, x: &[f64], y: f64) {
+        let n = self.theta.len();
+        let px: Vec<f64> = (0..n).map(|i| (0..n).map(|j| self.p[i][j] * x[j]).sum()).collect();
+        let denom = 1.0 + (0..n).map(|i| x[i] * px[i]).sum::<f64>();
+        let err = y - Self::predict_with(&self.theta, x);
+        for i in 0..n {
+            self.theta[i] += px[i] / denom * err;
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -466,6 +486,12 @@ struct Learned {
     /// The recipe before this one, while this one is being learned (to compare them after).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     prev_recipe: Option<String>,
+    /// The recipe the line is running now and since when (the data's clock), followed even by a
+    /// recipe-blind twin: synthetic data waits for a run to settle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    run_recipe: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    run_since: Option<DateTime<Utc>>,
     /// Foreman found the recipe doesn't change this machine: one set of models for every recipe.
     #[serde(default)]
     recipe_blind: bool,
@@ -622,6 +648,16 @@ impl Twin {
     fn switch_recipe(&mut self, now: DateTime<Utc>) {
         let Some(next) = self.recipe_now(now) else { return };
         let l = &mut self.learned;
+        // A new run: last night's teacher learned the run before, and its samples, at their share,
+        // would hold the models there. No synthetic data until this run has gone recipe_days.
+        if l.run_recipe.as_deref() != Some(next.as_str()) {
+            if l.run_recipe.is_some() {
+                l.teacher = None;
+                l.synth_credit = 0.0;
+            }
+            l.run_recipe = Some(next.clone());
+            l.run_since = Some(now);
+        }
         let Some(cur) = l.recipe.clone() else {
             l.recipe = Some(next);
             return;
@@ -1085,7 +1121,7 @@ impl Twin {
             for k in self.def.models() {
                 let m = self.learned.models.get_mut(k.key()).expect("model per kind");
                 let x = m.features(k, &s);
-                m.rls.update(&x, k.target(&s));
+                m.rls.nudge(&x, k.target(&s));
             }
             self.learned.synth_learned += 1;
         }
@@ -1097,6 +1133,10 @@ impl Twin {
         let l = &self.learned;
         let (Some(a), Some(b)) = (l.started_at, l.last_ts) else { return };
         if ((b - a).num_seconds() as f64) < sy.after_days * 86400.0 || l.recipe_learned < self.def.warmup_s {
+            return;
+        }
+        // A recipe still being compared with the last, or a run younger than recipe_days: not yet.
+        if l.prev_recipe.is_some() || l.run_since.is_some_and(|since| ((b - since).num_seconds() as f64) < sy.recipe_days * 86400.0) {
             return;
         }
         let mut rs: Vec<f64> = self.real_rows().iter().map(|s| s.r).collect();
@@ -1922,12 +1962,17 @@ mod tests {
     #[test]
     fn foreman_learns_its_own_samples_at_their_share() {
         let mut t = Twin::new(def(), None);
-        t.synth = Some(Synthetic { share: 0.5, after_days: 0.0 });
+        t.synth = Some(Synthetic { share: 0.5, after_days: 0.0, recipe_days: 3.0 });
         let mut now = Utc::now();
         for f in [40.0, 50.0, 60.0, 45.0, 55.0] {
             now = feed(&mut t, now, f, 1.0, 1.0, 1500);
         }
         assert!(t.learned.teacher.is_none(), "no teacher before the first night");
+        // A run teaches only once it has gone three days.
+        t.learned.run_since = Some(t.learned.last_ts.unwrap() - chrono::Duration::days(2));
+        t.train(now);
+        assert!(t.learned.teacher.is_none(), "the run is two days old");
+        t.learned.run_since = Some(t.learned.last_ts.unwrap() - chrono::Duration::days(4));
         t.train(now);
         let tch = t.learned.teacher.clone().expect("teacher after the night");
         assert!(tch.r_lo < 0.7 && tch.r_hi > 0.95, "{} {}", tch.r_lo, tch.r_hi);
@@ -1942,7 +1987,22 @@ mod tests {
         let s = t.synth_sample().unwrap();
         let dp_true = 1.0 + 4.0 * s.r * s.r;
         assert!((s.dp - dp_true).abs() < 0.1, "{} vs {}", s.dp, dp_true);
-        let _ = now;
+        // The line changes recipe: last night's samples are of the run before, so they stop.
+        t.def.recipe = Some("cp1-plc/Line_RecipeNo".into());
+        t.learned.run_recipe = Some("1".into());
+        t.live.latest.insert("recipe".into(), (2.0, now));
+        t.switch_recipe(now);
+        assert!(t.learned.teacher.is_none() && t.learned.run_since == Some(now));
+    }
+
+    #[test]
+    fn a_made_up_sample_moves_the_model_but_not_its_memory() {
+        let mut r = Rls::new(2, 0.999);
+        r.update(&[1.0, 0.5], 2.0);
+        let (p, th) = (r.p.clone(), r.theta.clone());
+        r.nudge(&[1.0, 0.8], 3.0);
+        assert_eq!(r.p, p, "P unchanged");
+        assert_ne!(r.theta, th, "θ moved");
     }
 
     #[test]

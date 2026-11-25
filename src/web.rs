@@ -48,6 +48,20 @@ impl App {
         self.agents.push_config(&cfg);
     }
 
+    /// Pooled services with no worker yet: say so in their status.
+    pub fn note_unplaced(&self) {
+        let cfg = self.cfg.get();
+        for s in cfg.services.iter().filter(|s| s.enabled) {
+            let Some(a) = &s.agent else { continue };
+            if self.agents.is_pool(a) && self.agents.placed(&s.id).is_none() {
+                let st = self.mgr.status(&s.id);
+                if st.state != crate::manager::State::Error || !st.detail.starts_with("worker ") {
+                    self.mgr.set_remote_status(&s.id, crate::manager::State::Starting, format!("waiting for a worker of pool {a}"));
+                }
+            }
+        }
+    }
+
     /// Refuse services assigned to an agent that isn't registered.
     fn check_agent(&self, def: &ServiceDef) -> R<()> {
         match &def.agent {
@@ -847,19 +861,30 @@ struct AgentBody {
     id: String,
     #[serde(default)]
     name: String,
+    /// A pool of workers: every worker container uses this one token.
+    #[serde(default)]
+    pool: bool,
 }
 
-/// The token is in this answer only. Save it on the agent as `COWPOKE_AGENT_TOKEN`.
+/// The token is in this answer only. Save it on the agent (or every worker of a pool)
+/// as `COWPOKE_AGENT_TOKEN`.
 async fn create_agent(State(app): State<App>, me: Me, Json(b): Json<AgentBody>) -> R<(StatusCode, Json<Value>)> {
     me.need(Role::Admin)?;
-    let token = app.agents.create(&b.id, &b.name).map_err(bad)?;
-    Ok((StatusCode::CREATED, Json(json!({"id": b.id, "token": token}))))
+    let token = app.agents.create_kind(&b.id, &b.name, b.pool).map_err(bad)?;
+    Ok((StatusCode::CREATED, Json(json!({"id": b.id, "token": token, "pool": b.pool}))))
+}
+
+/// Spread a pool's services evenly over its online workers.
+async fn rebalance_pool(State(app): State<App>, me: Me, Path(id): Path<String>) -> R<Json<Value>> {
+    me.need(Role::Admin)?;
+    let moved = app.agents.rebalance(&id, &app.cfg.get()).map_err(bad)?;
+    Ok(Json(json!({"moved": moved})))
 }
 
 async fn rotate_agent_token(State(app): State<App>, me: Me, Path(id): Path<String>) -> R<Json<Value>> {
     me.need(Role::Admin)?;
     let token = app.agents.rotate(&id).map_err(bad)?;
-    Ok(Json(json!({"id": id, "token": token})))
+    Ok(Json(json!({"id": id, "token": token, "pool": app.agents.is_pool(&id)})))
 }
 
 async fn delete_agent(State(app): State<App>, me: Me, Path(id): Path<String>) -> R<StatusCode> {
@@ -875,11 +900,22 @@ async fn agent_connect(State(app): State<App>, headers: HeaderMap, ws: axum::ext
         .and_then(|h| h.to_str().ok())
         .and_then(|h| h.strip_prefix("Bearer "))
         .unwrap_or("");
-    let Some(agent) = app.agents.authenticate(token) else {
-        tokio::time::sleep(Duration::from_millis(600)).await;
-        return ApiError(StatusCode::UNAUTHORIZED, "unknown agent token".into()).into_response();
+    let (key, pool) = match app.agents.authenticate(token) {
+        Some(crate::agent::hub::Caller::Agent(id)) => (id, None),
+        Some(crate::agent::hub::Caller::Pool(pool)) => {
+            let node = headers
+                .get("x-cowpoke-node")
+                .and_then(|h| h.to_str().ok())
+                .map(crate::model::to_id)
+                .unwrap_or_else(|| crate::auth::random_token(4).to_ascii_lowercase());
+            (format!("{pool}/{node}"), Some(pool))
+        }
+        None => {
+            tokio::time::sleep(Duration::from_millis(600)).await;
+            return ApiError(StatusCode::UNAUTHORIZED, "unknown agent token".into()).into_response();
+        }
     };
-    ws.on_upgrade(move |socket| crate::agent::hub::serve(app, agent, socket))
+    ws.on_upgrade(move |socket| crate::agent::hub::serve(app, key, pool, socket))
 }
 
 // ------------------------------------------------------------------ whole config
@@ -1076,6 +1112,7 @@ pub fn router(app: App) -> Router {
         .route("/api/agents/connect", get(agent_connect))
         .route("/api/agents/{id}", axum::routing::delete(delete_agent))
         .route("/api/agents/{id}/token", post(rotate_agent_token))
+        .route("/api/agents/{id}/rebalance", post(rebalance_pool))
         .route("/api/config", get(export_config).put(import_config))
         .route("/api/import/ohmstead", post(import_ohmstead))
         .route("/api/templates/{kind}/{mode}", get(template))

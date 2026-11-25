@@ -51,7 +51,14 @@ pub enum Op {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ToHub {
-    Hello { version: String, hostname: String },
+    Hello {
+        version: String,
+        hostname: String,
+        /// Services already running (from the cached configuration): a worker keeps
+        /// them when the hub restarts or fails over, instead of them starting elsewhere.
+        #[serde(default)]
+        running: Vec<String>,
+    },
     /// Tag values, coalesced (and a full snapshot right after connecting).
     Values { batch: Vec<ValueMsg> },
     /// Status of each assigned service.

@@ -762,7 +762,7 @@ async function agentsPage() {
   clearPage();
   shell("agents", `
     <div class="row"><div><h1>Agents</h1>
-      <p class="sub">An edge agent runs services on a plant network and dials out to this Cowpoke, so the plant needs no inbound firewall rules.</p></div></div>
+      <p class="sub">An edge agent runs services on a plant network and dials out to this Cowpoke, so the plant needs no inbound firewall rules. A pool is a group of worker containers that share one token: Cowpoke spreads the pool's services over them and moves them when one stops.</p></div></div>
     <div id="m"></div>
     <div id="newtoken"></div>
     <div class="agents" id="list"><div class="panel pad muted">Loading…</div></div>
@@ -771,19 +771,22 @@ async function agentsPage() {
     <form class="panel pad row" id="add">
       <label>Id <input name="id" class="mono" required pattern="[a-z0-9_\\-]{1,64}" placeholder="plant-1" title="a-z, 0-9, - and _"></label>
       <label>Name <input name="name" placeholder="Plant 1"></label>
+      <label class="check"><input type="checkbox" name="pool"> Pool of workers</label>
       <button class="primary">Create agent</button>
     </form>` : ""}`);
   const m = document.getElementById("m");
 
-  const showToken = (id, token) => {
+  const showToken = (id, token, pool) => {
     const hub = location.origin;
-    const cmd = `docker run -d --name cowpoke-agent --restart unless-stopped --network host \\\n  -v cowpoke-agent:/data \\\n  -e COWPOKE_HUB=${hub} \\\n  -e COWPOKE_AGENT_TOKEN=${token} \\\n  cowpoke agent`;
+    const cmd = pool
+      ? `docker run -d --restart unless-stopped --network host \\\n  -v cowpoke-worker:/data \\\n  -e COWPOKE_HUB=${hub} \\\n  -e COWPOKE_AGENT_TOKEN=${token} \\\n  -e COWPOKE_NODE=worker-1 \\\n  cowpoke agent`
+      : `docker run -d --name cowpoke-agent --restart unless-stopped --network host \\\n  -v cowpoke-agent:/data \\\n  -e COWPOKE_HUB=${hub} \\\n  -e COWPOKE_AGENT_TOKEN=${token} \\\n  cowpoke agent`;
     document.getElementById("newtoken").innerHTML = `
       <div class="panel pad token-box">
         <div class="row"><b>Token for <span class="mono">${esc(id)}</span></b><span class="spacer"></span><button class="small" id="hide">Done</button></div>
         <p class="warn-text">Copy it now. Cowpoke keeps only a hash, so it can't show this token again.</p>
         <div class="copyrow"><code id="tok">${esc(token)}</code><button class="small" data-copy="tok">Copy</button></div>
-        <p class="muted">Start the agent on the plant network:</p>
+        <p class="muted">${pool ? "Start as many workers as you like with this token, each with its own <span class=\"mono\">COWPOKE_NODE</span> (or let it default to the container's hostname):" : "Start the agent on the plant network:"}</p>
         <div class="copyrow"><pre id="cmd">${esc(cmd)}</pre><button class="small" data-copy="cmd">Copy</button></div>
         <p class="muted">Then put <span class="mono">agent: ${esc(id)}</span> in each service that should run there.</p>
       </div>`;
@@ -803,22 +806,31 @@ async function agentsPage() {
       <div class="panel agent ${a.online ? "on" : "off"}" data-id="${esc(a.id)}">
         <div class="agent-h">
           <span class="${a.online ? "st-running" : "st-degraded"}"><span class="dot"></span></span>
-          <b>${esc(a.name)}</b><span class="tag">${esc(a.id)}</span><span class="spacer"></span>
+          <b>${esc(a.name)}</b><span class="tag">${esc(a.id)}</span>${a.pool ? `<span class="badge">pool</span>` : ""}<span class="spacer"></span>
           <span class="badge">${a.online ? "online" : "offline"}</span>
         </div>
-        <dl class="agent-d">
+        ${a.pool ? `<dl class="agent-d">
+          <div><dt>Workers</dt><dd>${a.members.length}</dd></div>
+          <div><dt>Services</dt><dd>${a.services ? `<a href="#/services">${a.services}</a>` : "0"}</dd></div>
+          ${a.members.map((w) => `<div><dt class="mono">${esc(w.node)}</dt><dd>${w.services.length ? w.services.map((s) => `<span class="tag">${esc(s)}</span>`).join(" ") : `<span class="muted">idle</span>`}</dd></div>`).join("")}
+        </dl>` : `<dl class="agent-d">
           <div><dt>Host</dt><dd class="mono">${esc(a.hostname || "—")}</dd></div>
           <div><dt>Version</dt><dd class="mono">${esc(a.version || "—")}</dd></div>
           <div><dt>${a.online ? "Connected" : "Last seen"}</dt><dd>${esc(a.online ? ago(a.connected_since) : a.last_seen ? ago(a.last_seen) : "never")}</dd></div>
           <div><dt>Services</dt><dd>${a.services ? `<a href="#/services">${a.services}</a>` : "0"}</dd></div>
-        </dl>
-        ${can("admin") ? `<div class="row agent-a"><button class="small" data-rotate>New token</button><button class="small danger" data-del>Delete</button></div>` : ""}
+        </dl>`}
+        ${can("admin") ? `<div class="row agent-a">${a.pool ? `<button class="small" data-rebalance>Rebalance</button>` : ""}<button class="small" data-rotate>New token</button><button class="small danger" data-del>Delete</button></div>` : ""}
       </div>`).join("")
       : `<div class="panel pad empty"><b>No agents yet.</b><p class="muted">${can("admin") ? "Add one below, then start it on the plant network with the command Cowpoke gives you." : "An admin can add one."}</p></div>`;
+    list.querySelectorAll("[data-rebalance]").forEach((b) => (b.onclick = async () => {
+      const id = b.closest("[data-id]").dataset.id;
+      try { const r = await api("POST", `/api/agents/${encodeURIComponent(id)}/rebalance`); flash(m, `${r.moved} service${r.moved === 1 ? "" : "s"} moved.`); load(); }
+      catch (e) { flash(m, e.message); }
+    }));
     list.querySelectorAll("[data-rotate]").forEach((b) => (b.onclick = async () => {
       const id = b.closest("[data-id]").dataset.id;
       if (!confirm(`Make a new token for ${id}? The agent disconnects until it's restarted with the new token.`)) return;
-      try { const r = await api("POST", `/api/agents/${encodeURIComponent(id)}/token`); showToken(r.id, r.token); load(); }
+      try { const r = await api("POST", `/api/agents/${encodeURIComponent(id)}/token`); showToken(r.id, r.token, r.pool); load(); }
       catch (e) { flash(m, e.message); }
     }));
     list.querySelectorAll("[data-del]").forEach((b) => (b.onclick = async () => {
@@ -833,10 +845,10 @@ async function agentsPage() {
   if (f) f.onsubmit = async (ev) => {
     ev.preventDefault();
     try {
-      const r = await api("POST", "/api/agents", { id: f.elements.namedItem("id").value.trim(), name: f.elements.namedItem("name").value.trim() });
+      const r = await api("POST", "/api/agents", { id: f.elements.namedItem("id").value.trim(), name: f.elements.namedItem("name").value.trim(), pool: f.elements.namedItem("pool").checked });
       f.reset();
       flash(m, "");
-      showToken(r.id, r.token);
+      showToken(r.id, r.token, r.pool);
       load();
     } catch (e) { flash(m, e.message); }
   };

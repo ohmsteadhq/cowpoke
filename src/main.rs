@@ -7,6 +7,7 @@
 mod agent;
 mod alarms;
 mod auth;
+mod cluster;
 mod codec;
 mod dashboards;
 mod foreman;
@@ -45,7 +46,9 @@ Usage:
   cowpoke health   check that the hub on COWPOKE_BIND answers (exit 0) or not (exit 1)
 
 Hub settings (environment): COWPOKE_DATA, COWPOKE_CONFIG, COWPOKE_BIND, COWPOKE_ADMIN_PASSWORD, COWPOKE_LOG
-Agent settings (environment): COWPOKE_HUB (the hub's URL), COWPOKE_AGENT_TOKEN, COWPOKE_DATA, COWPOKE_LOG";
+  Two hubs (active + standby): COWPOKE_PEER (the other hub's URL), COWPOKE_CLUSTER_KEY, COWPOKE_NODE, COWPOKE_FAILOVER_S
+Agent settings (environment): COWPOKE_HUB (the hub's URL, or several separated by commas), COWPOKE_AGENT_TOKEN
+  (an agent's or a pool's token), COWPOKE_NODE (a pool worker's name; default: the hostname), COWPOKE_DATA, COWPOKE_LOG";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -105,6 +108,16 @@ pub async fn setup_hub(data_dir: &Path, config_path: &Path) -> Result<web::App> 
         data_dir: data_dir.to_path_buf(),
     };
     app.reload().await;
+    // Pools: move services off workers that left, and place ones still waiting.
+    let placer = app.clone();
+    tokio::spawn(async move {
+        let mut t = tokio::time::interval(std::time::Duration::from_secs(2));
+        loop {
+            t.tick().await;
+            placer.agents.tick(&placer.cfg.get());
+            placer.note_unplaced();
+        }
+    });
     Ok(app)
 }
 
@@ -113,6 +126,30 @@ async fn run_hub(data_dir: PathBuf) -> Result<()> {
         .map(PathBuf::from)
         .unwrap_or_else(|_| data_dir.join("cowpoke.yaml"));
     let bind = std::env::var("COWPOKE_BIND").unwrap_or_else(|_| "0.0.0.0:8080".into());
+
+    // Two hubs: wait as the standby until this one should be active.
+    let cluster = cluster::Settings::from_env()?;
+    if let Some(cl) = &cluster {
+        let peer_epoch = match cluster::decide(&data_dir, cl).await {
+            cluster::Role::Active => cluster::peer_state(cl).await.map(|p| p.epoch).unwrap_or(0),
+            cluster::Role::Standby => {
+                let stop = tokio_util::sync::CancellationToken::new();
+                let s2 = stop.clone();
+                let signal = tokio::spawn(async move {
+                    shutdown_signal().await;
+                    s2.cancel();
+                });
+                let promoted = cluster::run_standby(&data_dir, &config_path, cl, &bind, stop).await?;
+                signal.abort();
+                match promoted {
+                    Some(epoch) => epoch,
+                    None => return Ok(()), // stopped while standby
+                }
+            }
+        };
+        cluster::activate(&data_dir, &config_path, cl, peer_epoch);
+    }
+
     let app = setup_hub(&data_dir, &config_path).await?;
     tracing::info!(
         "Cowpoke {} with {} services from {}",
@@ -127,14 +164,22 @@ async fn run_hub(data_dir: PathBuf) -> Result<()> {
     tracing::info!("web UI and API on http://{bind}");
     let (mgr, hist) = (app.mgr.clone(), app.hist.clone());
     let panels = setup_panels(&app)?;
+    let demote = tokio_util::sync::CancellationToken::new();
+    if cluster.is_some() {
+        tokio::spawn(cluster::watch(demote.clone()));
+    }
+    let cluster_routes = cluster::router(app.clone());
     // Graceful shutdown waits for open connections, and the UI's live event streams never
     // end on their own: give requests in flight a few seconds, then close the rest.
     let stopping = tokio_util::sync::CancellationToken::new();
-    let serve = axum::serve(listener, web::router(app).merge(panels::router(panels))).with_graceful_shutdown({
+    let serve = axum::serve(listener, web::router(app).merge(panels::router(panels)).merge(cluster_routes)).with_graceful_shutdown({
         let stopping = stopping.clone();
+        let demote = demote.clone();
         async move {
-            shutdown_signal().await;
-            tracing::info!("shutting down");
+            tokio::select! {
+                _ = shutdown_signal() => tracing::info!("shutting down"),
+                _ = demote.cancelled() => tracing::warn!("the peer hub is active: stopping to restart as the standby"),
+            }
             stopping.cancel();
         }
     });
@@ -147,6 +192,10 @@ async fn run_hub(data_dir: PathBuf) -> Result<()> {
     }
     mgr.shutdown().await;
     hist.flush();
+    if demote.is_cancelled() {
+        // Docker's restart policy starts us again; the peer is active, so as the standby.
+        std::process::exit(cluster::STEPPED_DOWN);
+    }
     Ok(())
 }
 

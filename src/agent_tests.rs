@@ -116,3 +116,85 @@ async fn hub_and_agent() {
     cancel.cancel();
     run.await.unwrap().unwrap();
 }
+
+/// A pool of two workers: services spread over both, and move to the survivor when one stops.
+#[tokio::test(flavor = "multi_thread")]
+async fn pool_failover() {
+    let hub_dir = tempfile::tempdir().unwrap();
+    let app: App = crate::setup_hub(hub_dir.path(), &hub_dir.path().join("cowpoke.yaml")).await.unwrap();
+    let token = app.agents.create_kind("workers", "Workers", true).unwrap();
+    let (p1, p2) = (free_port(), free_port());
+    let services: Vec<ServiceDef> = serde_yaml::from_str(&format!(
+        r#"
+- id: a
+  kind: modbus
+  mode: server
+  agent: workers
+  settings: {{ bind: 127.0.0.1, port: {p1} }}
+  tags: [{{ name: x, datatype: uint16, register: 0, initial: 1 }}]
+- id: b
+  kind: modbus
+  mode: server
+  agent: workers
+  settings: {{ bind: 127.0.0.1, port: {p2} }}
+  tags: [{{ name: x, datatype: uint16, register: 0, initial: 2 }}]
+"#
+    ))
+    .unwrap();
+    for s in services {
+        app.cfg.upsert(None, s).unwrap();
+    }
+    app.reload().await;
+
+    let web = free_port();
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", web)).await.unwrap();
+    tokio::spawn(axum::serve(listener, crate::web::router(app.clone())).into_future());
+    let hub_url = format!("http://127.0.0.1:{web}");
+
+    let (d1, d2) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (c1, c2) = (CancellationToken::new(), CancellationToken::new());
+    let w1 = Edge::with_node(d1.path(), "w1".into()).unwrap();
+    let w2 = Edge::with_node(d2.path(), "w2".into()).unwrap();
+    let r1 = tokio::spawn(edge::run(w1.clone(), hub_url.clone(), token.clone(), c1.clone()));
+    // A comma list: the first hub is down, the agent moves on to the second.
+    let dead = format!("http://127.0.0.1:{}", free_port());
+    let r2 = tokio::spawn(edge::run(w2.clone(), format!("{dead},{hub_url}"), token.clone(), c2.clone()));
+
+    // The hub waits out its start-up grace, then spreads the two services over the two workers.
+    wait_for_long("both services running", || {
+        app.mgr.status("a").state == State::Running && app.mgr.status("b").state == State::Running
+    })
+    .await;
+    let (pa, pb) = (app.agents.placed("a").unwrap(), app.agents.placed("b").unwrap());
+    assert_ne!(pa, pb, "one service per worker");
+    let pools = app.agents.list(&app.cfg.get());
+    assert_eq!(pools[0]["members"].as_array().unwrap().len(), 2);
+
+    // A write is routed to whichever worker runs the service.
+    app.agents.write("workers", "a", "x", json!(11)).await.unwrap();
+    wait_for("the write on the hub", || has(&app.tags, "a", "x", &json!(11), Quality::Good)).await;
+
+    // Stop the worker running `a`: it moves to the other one.
+    let (gone, stay) = if pa == "workers/w1" { (c1.clone(), "workers/w2") } else { (c2.clone(), "workers/w1") };
+    gone.cancel();
+    wait_for_long("a moved to the other worker", || {
+        app.agents.placed("a").as_deref() == Some(stay) && app.mgr.status("a").state == State::Running
+    })
+    .await;
+    assert_eq!(app.agents.placed("b").as_deref(), Some(stay));
+
+    c1.cancel();
+    c2.cancel();
+    let _ = r1.await;
+    let _ = r2.await;
+}
+
+async fn wait_for_long(what: &str, mut ok: impl FnMut() -> bool) {
+    for _ in 0..600 {
+        if ok() {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    panic!("timed out waiting for {what}");
+}

@@ -43,10 +43,16 @@ pub struct Edge {
     pub(crate) hist: Arc<Historian>,
     cfg: Mutex<Config>,
     state: Mutex<LinkState>,
+    /// The name this agent gives the hub; a pool tells its workers apart by it.
+    node: String,
 }
 
 impl Edge {
     pub fn new(data_dir: &Path) -> Result<Arc<Self>> {
+        Self::with_node(data_dir, node_name())
+    }
+
+    pub fn with_node(data_dir: &Path, node: String) -> Result<Arc<Self>> {
         std::fs::create_dir_all(data_dir)
             .with_context(|| format!("can't create {}", data_dir.display()))?;
         let tags = TagStore::new();
@@ -62,6 +68,7 @@ impl Edge {
                     .and_then(|t| serde_json::from_str(&t).ok())
                     .unwrap_or_default(),
             ),
+            node,
         });
         Ok(edge)
     }
@@ -172,14 +179,20 @@ pub fn ws_url(hub: &str) -> Result<String> {
     Ok(format!("{rest}/api/agents/connect"))
 }
 
-/// Run the agent forever (until `cancel`).
+/// Run the agent forever (until `cancel`). `hub` is one URL, or several separated by
+/// commas (an active hub and its standby): the agent tries them in turn.
 pub async fn run(edge: Arc<Edge>, hub: String, token: String, cancel: CancellationToken) -> Result<()> {
-    let url = ws_url(&hub)?;
+    let urls: Vec<String> = hub.split(',').filter(|h| !h.trim().is_empty()).map(ws_url).collect::<Result<_>>()?;
+    if urls.is_empty() {
+        bail!("COWPOKE_HUB is empty");
+    }
     tokio::spawn(edge.hist.clone().run(edge.tags.clone()));
     edge.start_cached().await;
     let mut backoff = Duration::from_secs(1);
+    let mut next = 0;
     loop {
         let started = tokio::time::Instant::now();
+        let url = urls[next % urls.len()].clone();
         let res = tokio::select! {
             _ = cancel.cancelled() => break,
             r = session(&edge, &url, &token, &cancel, SILENCE) => r,
@@ -192,6 +205,11 @@ pub async fn run(edge: Arc<Edge>, hub: String, token: String, cancel: Cancellati
         }
         if started.elapsed() > Duration::from_secs(30) {
             backoff = Duration::from_secs(1);
+        }
+        // With several hubs, try the next one at once; back off after a full round.
+        next += 1;
+        if urls.len() > 1 && next % urls.len() != 0 {
+            continue;
         }
         tracing::info!("reconnecting in {backoff:?}");
         tokio::select! {
@@ -212,6 +230,8 @@ async fn session(edge: &Arc<Edge>, url: &str, token: &str, cancel: &Cancellation
     let mut req = url.into_client_request()?;
     req.headers_mut()
         .insert("Authorization", format!("Bearer {token}").parse()?);
+    // A worker of a pool is known by its node name (the container's hostname by default).
+    req.headers_mut().insert("X-Cowpoke-Node", edge.node.parse()?);
     let (ws, _) = tokio::time::timeout(Duration::from_secs(15), tokio_tungstenite::connect_async(req))
         .await
         .map_err(|_| anyhow!("timed out connecting to {url}"))?
@@ -227,6 +247,7 @@ async fn session(edge: &Arc<Edge>, url: &str, token: &str, cancel: &Cancellation
     send(ToHub::Hello {
         version: env!("CARGO_PKG_VERSION").to_string(),
         hostname: hostname(),
+        running: edge.cfg.lock().services.iter().filter(|s| s.enabled).map(|s| s.id.clone()).collect(),
     });
 
     let since = edge.state.lock().last_connected;
@@ -339,6 +360,12 @@ async fn session(edge: &Arc<Edge>, url: &str, token: &str, cancel: &Cancellation
     edge.save_state();
     let _ = sink.close().await;
     result
+}
+
+/// `COWPOKE_NODE`, or the hostname, as an id (`a-z 0-9 - _`).
+pub fn node_name() -> String {
+    let raw = std::env::var("COWPOKE_NODE").ok().filter(|n| !n.is_empty()).unwrap_or_else(hostname);
+    crate::model::to_id(&raw)
 }
 
 fn hostname() -> String {

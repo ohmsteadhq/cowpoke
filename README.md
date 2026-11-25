@@ -225,6 +225,44 @@ How it behaves:
 | `DELETE /api/agents/<id>` | admin |
 | `GET /api/agents/connect` (WebSocket, `Authorization: Bearer <agent token>`) | the agent |
 
+### Pools of workers
+
+A **pool** is an agent that many containers share. Create it with `POST /api/agents {"id": "workers", "pool": true}` (or tick *Pool of workers* on the Agents page). Every worker uses the pool's one token, and each tells the hub its name in `COWPOKE_NODE` (default: the container's hostname, so `docker compose up --scale worker=4` just works).
+
+Services name the pool like any agent: `agent: workers`. The hub runs each on one worker:
+
+- **Placement.** A new service goes to the worker running the fewest. A service stays on its worker while that worker is connected.
+- **Failover.** When a worker stops, or is silent for 15 s, its services move to the other workers within about 2 s. Their tags are bad in between.
+- **Hub restarts.** Workers tell the hub what they already run. For 10 s after it starts, the hub waits for them instead of starting second copies elsewhere, so a restart or a hub failover doesn't reshuffle anything.
+- **Rebalance.** Services don't move back when a worker returns. `POST /api/agents/<pool>/rebalance` (the *Rebalance* button) spreads them evenly, moving as few as it can.
+- Server-mode services listen on whichever worker runs them, so their address changes when they move. Pools suit client services best, or servers behind an address that follows them.
+- If a worker loses the hub but keeps running, the hub moves its services elsewhere and both copies run until the worker reconnects and stops its own.
+
+`GET /api/agents` lists a pool with `"pool": true` and its `members`: each worker's `node`, `hostname`, `version`, `connected_since` and `services`.
+
+### Two hubs: active and standby
+
+Run two hubs, each pointing at the other, and one takes over if the other dies:
+
+| Setting | |
+|---|---|
+| `COWPOKE_PEER` | The other hub's URL, `http://hub-b:8080` |
+| `COWPOKE_CLUSTER_KEY` | The same secret on both, 16 characters or more |
+| `COWPOKE_NODE` | This hub's name (default: hostname) |
+| `COWPOKE_FAILOVER_S` | How long the active hub may be unreachable before the standby takes over (default 15) |
+
+- **The standby** runs no services and serves no UI: `/healthz` answers 503 and every other route 503. Every 2 s it mirrors the active hub's data folder: configuration, users, agents and pools, alarms, boards and OPC UA certificates. Each hub keeps its own history. The standby records the active hub's live values into its own historian, and on reconnect it catches up whatever it missed (up to 7 days).
+- **Failover.** When the active hub has been unreachable for `COWPOKE_FAILOVER_S`, the standby starts as the active hub from its mirrored copy. Agents and workers with both hubs in `COWPOKE_HUB` (`http://hub-a:8080,http://hub-b:8080`) reconnect to it, keeping their services. Users sign in again.
+- **Coming back.** A hub that starts while its peer is active becomes the standby.
+- **Split brain.** If the hubs lose each other but both stay up, both run. Each becomes active with a higher *epoch*. When they see each other again, the higher epoch stays (then the lower node name). The other stops its services and exits with code 3, and Docker's restart policy (`unless-stopped` or `always`) brings it back as the standby. Changes made on the losing hub during the split are lost.
+- Put a load balancer in front of both that health-checks `/healthz`, so users always reach the active one. `docker-compose.cluster.yml` does this with Caddy.
+- The peer link carries password hashes and alarm settings: keep it on a private network, or use `https://` URLs.
+
+```bash
+COWPOKE_ADMIN_PASSWORD=... COWPOKE_CLUSTER_KEY=$(openssl rand -hex 24) \
+  docker compose -f docker-compose.cluster.yml up -d --scale worker=3
+```
+
 ## Boards, alarms and hooks
 
 **Boards** are dashboards you build in the UI: a 12-column grid of widgets that everyone sees, edited by operators and admins. They're stored in `<data>/dashboards.json`.

@@ -270,6 +270,17 @@ pub fn valid_id(id: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_')
 }
 
+/// Any text as an id: lower case, other characters as `-`, at most 64 long.
+pub fn to_id(raw: &str) -> String {
+    let id: String = raw
+        .to_ascii_lowercase()
+        .chars()
+        .map(|c| if c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' { c } else { '-' })
+        .take(64)
+        .collect();
+    if id.is_empty() { "node".into() } else { id }
+}
+
 impl ServiceDef {
     pub fn name_or_id(&self) -> String {
         if self.name.trim().is_empty() {

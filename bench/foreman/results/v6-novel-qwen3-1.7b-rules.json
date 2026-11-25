@@ -1,0 +1,324 @@
+{
+ "summary": {
+  "model": "x",
+  "mode": "evidence",
+  "rules": true,
+  "think": "off",
+  "scenarios": 12,
+  "passed": 0,
+  "service_ok": 0,
+  "cause_ok": 0,
+  "inspected_faulty": 12,
+  "invalid_calls": 12,
+  "no_report": 12,
+  "avg_seconds": 10.9,
+  "avg_tok_s": 36.9,
+  "explained_ok": 0,
+  "avg_explanation_chars": 0
+ },
+ "results": [
+  {
+   "id": "n1",
+   "expected": {
+    "service": "n1-cli",
+    "cause": [
+     "address_offset",
+     "register_table"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 10.2,
+   "tok_s": 39.2,
+   "trace": [],
+   "explanation": {
+    "grounded": false,
+    "chars": 0,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n2",
+   "expected": {
+    "service": "n2-cli",
+    "cause": [
+     "scaling",
+     "word_order",
+     "datatype"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 10.4,
+   "tok_s": 38.5,
+   "trace": [],
+   "explanation": {
+    "grounded": false,
+    "chars": 0,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n3",
+   "expected": {
+    "service": "n3-cli",
+    "cause": [
+     "tag_name",
+     "node_id"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 10.5,
+   "tok_s": 38.1,
+   "trace": [],
+   "explanation": {
+    "grounded": false,
+    "chars": 0,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n4",
+   "expected": {
+    "service": "n4-cli",
+    "cause": [
+     "credentials",
+     "port_or_host",
+     "security_policy"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 11.7,
+   "tok_s": 34.2,
+   "trace": [],
+   "explanation": {
+    "grounded": false,
+    "chars": 0,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n5",
+   "expected": {
+    "service": "n5-cli",
+    "cause": [
+     "sparkplug_ids",
+     "tag_name",
+     "topic",
+     "metric_name"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 10.8,
+   "tok_s": 37.0,
+   "trace": [],
+   "explanation": {
+    "grounded": false,
+    "chars": 0,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n6",
+   "expected": {
+    "service": "n6-cli",
+    "cause": [
+     "address_offset",
+     "bit_offset",
+     "port_or_host"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 10.8,
+   "tok_s": 37.0,
+   "trace": [],
+   "explanation": {
+    "grounded": false,
+    "chars": 0,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n7",
+   "expected": {
+    "service": "n7-cli",
+    "cause": [
+     "scaling"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 10.4,
+   "tok_s": 38.5,
+   "trace": [],
+   "explanation": {
+    "grounded": false,
+    "chars": 0,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n8",
+   "expected": {
+    "service": "n8-srv",
+    "cause": [
+     "port_or_host",
+     "none",
+     "device_offline"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 10.5,
+   "tok_s": 38.1,
+   "trace": [],
+   "explanation": {
+    "grounded": false,
+    "chars": 0,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n9",
+   "expected": {
+    "service": "n9-mix-cli",
+    "cause": [
+     "tag_name"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 13.8,
+   "tok_s": 29.0,
+   "trace": [],
+   "explanation": {
+    "grounded": false,
+    "chars": 0,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n10",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 10.7,
+   "tok_s": 37.4,
+   "trace": [],
+   "explanation": {
+    "grounded": false,
+    "chars": 0,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n11",
+   "expected": {
+    "service": "n11-cli",
+    "cause": [
+     "address_offset",
+     "scaling",
+     "string_length"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 10.6,
+   "tok_s": 37.7,
+   "trace": [],
+   "explanation": {
+    "grounded": false,
+    "chars": 0,
+    "unsupported": []
+   }
+  },
+  {
+   "id": "n12",
+   "expected": {
+    "service": "none",
+    "cause": [
+     "none"
+    ]
+   },
+   "report": null,
+   "pass": false,
+   "service_ok": false,
+   "cause_ok": false,
+   "inspected_faulty": true,
+   "steps": 0,
+   "invalid": 1,
+   "seconds": 10.5,
+   "tok_s": 38.1,
+   "trace": [],
+   "explanation": {
+    "grounded": false,
+    "chars": 0,
+    "unsupported": []
+   }
+  }
+ ]
+}

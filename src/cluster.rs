@@ -157,6 +157,19 @@ fn wins(a_epoch: u64, a_node: &str, b_epoch: u64, b_node: &str) -> bool {
     (a_epoch, std::cmp::Reverse(a_node)) > (b_epoch, std::cmp::Reverse(b_node))
 }
 
+/// `http://hub-b:8080/` → `hub-b`.
+fn peer_host(url: &str) -> &str {
+    let rest = url.split_once("://").map(|x| x.1).unwrap_or(url);
+    let host = rest.split(['/', '?']).next().unwrap_or(rest);
+    if let Some(v6) = host.strip_prefix('[') {
+        return v6.split(']').next().unwrap_or(v6);
+    }
+    match host.rsplit_once(':') {
+        Some((h, port)) if port.chars().all(|c| c.is_ascii_digit()) => h,
+        _ => host,
+    }
+}
+
 #[derive(PartialEq, Eq, Debug)]
 pub enum Role {
     Active,
@@ -175,6 +188,15 @@ pub async fn decide(data_dir: &Path, s: &Settings) -> Role {
             }
             None if attempt < 2 => tokio::time::sleep(Duration::from_secs(2)).await,
             None => {}
+        }
+    }
+    // Both hubs may be starting at once and not see each other yet. The one whose name
+    // sorts after the peer's host waits longer, so the other is usually active first
+    // and this one finds it (instead of both starting active and one stepping down).
+    if s.node.as_str() > peer_host(&s.peer) {
+        tokio::time::sleep(Duration::from_secs(8)).await;
+        if let Some(p) = peer_state(s).await {
+            return if p.role != "active" && wins(mine, &s.node, p.epoch, &p.node) { Role::Active } else { Role::Standby };
         }
     }
     tracing::warn!("peer hub {} unreachable; starting as the active hub", s.peer);
@@ -697,6 +719,14 @@ pub async fn run_standby(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn peer_hosts() {
+        assert_eq!(peer_host("http://hub-b:8080"), "hub-b");
+        assert_eq!(peer_host("https://hub-b.example.com/"), "hub-b.example.com");
+        assert_eq!(peer_host("http://10.0.0.5:8080/x"), "10.0.0.5");
+        assert_eq!(peer_host("http://[fd00::5]:8080"), "fd00::5");
+    }
 
     #[test]
     fn tie_breaks() {

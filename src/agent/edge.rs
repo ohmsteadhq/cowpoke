@@ -216,7 +216,9 @@ pub async fn run(edge: Arc<Edge>, hub: String, token: String, cancel: Cancellati
             _ = cancel.cancelled() => break,
             _ = tokio::time::sleep(backoff) => {}
         }
-        backoff = (backoff * 2).min(Duration::from_secs(30));
+        // With a standby hub, retry soon: the other one may be taking over right now.
+        let most = if urls.len() > 1 { 5 } else { 30 };
+        backoff = (backoff * 2).min(Duration::from_secs(most));
     }
     edge.save_state();
     edge.mgr.shutdown().await;

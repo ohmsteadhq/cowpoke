@@ -202,7 +202,9 @@ async fn run_hub(data_dir: PathBuf) -> Result<()> {
 async fn run_agent(data_dir: PathBuf) -> Result<()> {
     let hub = std::env::var("COWPOKE_HUB").context("set COWPOKE_HUB to the hub's URL, e.g. https://cowpoke.example.com")?;
     let token = std::env::var("COWPOKE_AGENT_TOKEN")
-        .context("set COWPOKE_AGENT_TOKEN to the token the hub showed when you created this agent")?;
+        .ok()
+        .filter(|t| !t.trim().is_empty())
+        .context("set COWPOKE_AGENT_TOKEN to the token the hub showed when you created this agent (or pool)")?;
     let edge = agent::edge::Edge::new(&data_dir)?;
     let cancel = tokio_util::sync::CancellationToken::new();
     let stop = cancel.clone();

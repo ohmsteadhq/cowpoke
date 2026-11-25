@@ -49,6 +49,9 @@ pub enum Caller {
 /// How long after the hub starts it waits for workers to report what they already run
 /// before placing services on others (after a restart or a failover).
 const PLACE_GRACE: Duration = Duration::from_secs(10);
+/// After a worker joins a pool, how long new services wait before being placed, so that
+/// workers started together (`--scale worker=3`) share them instead of the first taking all.
+const SETTLE: Duration = Duration::from_secs(3);
 
 struct Conn {
     conn_id: u64,
@@ -77,6 +80,8 @@ pub struct Hub {
     /// Pooled service id → the worker (`pool/node`) running it.
     placement: Mutex<HashMap<String, String>>,
     started: std::time::Instant,
+    /// When a worker last joined each pool.
+    joined: Mutex<HashMap<String, std::time::Instant>>,
 }
 
 impl Hub {
@@ -95,6 +100,7 @@ impl Hub {
             next_id: AtomicU64::new(1),
             placement: Mutex::new(HashMap::new()),
             started: std::time::Instant::now(),
+            joined: Mutex::new(HashMap::new()),
         }))
     }
 
@@ -291,7 +297,15 @@ impl Hub {
         self.place_with(cfg, self.started.elapsed() < PLACE_GRACE)
     }
 
-    fn place_with(&self, cfg: &Config, in_grace: bool) -> bool {
+    /// `wait`: hold back services no worker claims (start-up grace, or a pool settling).
+    fn place_with(&self, cfg: &Config, wait: bool) -> bool {
+        let settling: HashSet<String> = self
+            .joined
+            .lock()
+            .iter()
+            .filter(|(_, t)| t.elapsed() < SETTLE)
+            .map(|(p, _)| p.clone())
+            .collect();
         let pools: HashSet<String> = self.recs.lock().iter().filter(|r| r.pool).map(|r| r.id.clone()).collect();
         // Connected workers keep their services, even in the moment between a reconnect
         // and its hello; only ready ones (hello received) get new services.
@@ -330,7 +344,8 @@ impl Hub {
                 Some(k) => k,
                 // Right after the hub starts, workers that already run a service are still
                 // connecting: wait for them instead of starting a second copy elsewhere.
-                None if in_grace => continue,
+                // While workers are joining a pool, wait for the rest to arrive.
+                None if wait || settling.contains(pool) => continue,
                 None => {
                     let load = |k: &str| placement.values().filter(|v| *v == k).count();
                     ws.iter().map(|(k, _)| k).min_by_key(|k| (load(k), (*k).clone())).cloned().unwrap()
@@ -371,7 +386,8 @@ impl Hub {
             }
             moved
         };
-        // The freed services go to the least loaded workers.
+        // The freed services go to the least loaded workers, now.
+        self.joined.lock().remove(pool);
         self.place_with(cfg, false);
         self.send_config(cfg);
         Ok(moved)
@@ -539,6 +555,9 @@ pub async fn serve(app: App, agent: String, pool: Option<String>, socket: WebSoc
                             }
                         }
                         if became_ready {
+                            if let Some(p) = &pool {
+                                hub.joined.lock().insert(p.clone(), std::time::Instant::now());
+                            }
                             // A worker: place what it claims (and anything waiting), then send configs.
                             hub.push_config(&cfg);
                         }

@@ -3,7 +3,8 @@
 # 1. Start the hubs and Caddy:
 #      COWPOKE_ADMIN_PASSWORD=... COWPOKE_CLUSTER_KEY=$(openssl rand -hex 24) \
 #        docker compose -f docker-compose.cluster.yml up -d
-#    Open http://localhost:8080 (Caddy sends you to whichever hub is active).
+#    Open http://localhost:8080 (Caddy sends you to whichever hub is active;
+#    set COWPOKE_PORT to publish another port).
 # 2. On the Agents page, create a pool named `workers` (tick "Pool of workers") and copy its token.
 # 3. Start the workers, as many as you like:
 #      COWPOKE_WORKER_TOKEN=<token> docker compose -f docker-compose.cluster.yml \
@@ -49,10 +50,10 @@ services:
     image: caddy:2.10.2
     restart: unless-stopped
     ports:
-      - "8080:8080"
-    command: >
-      caddy reverse-proxy --from :8080 --to hub-a:8080 --to hub-b:8080
-      --lb-policy first --health-uri /healthz --health-interval 2s
+      - "${COWPOKE_PORT:-8080}:8080"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
     depends_on: [hub-a, hub-b]
 
   worker:
@@ -63,8 +64,23 @@ services:
     environment:
       # Both hubs: a worker moves to whichever is active.
       COWPOKE_HUB: http://hub-a:8080,http://hub-b:8080
-      COWPOKE_AGENT_TOKEN: ${COWPOKE_WORKER_TOKEN:?set COWPOKE_WORKER_TOKEN to the pool's token}
+      # (Not `:?`: compose would demand it even when the workers profile is off.)
+      COWPOKE_AGENT_TOKEN: ${COWPOKE_WORKER_TOKEN:-}
       # COWPOKE_NODE defaults to the container's hostname, so each replica has its own name.
+
+configs:
+  # Both hubs as upstreams; only the active one passes the health check.
+  caddyfile:
+    content: |
+      :8080 {
+        reverse_proxy hub-a:8080 hub-b:8080 {
+          lb_policy first
+          health_uri /healthz
+          health_interval 2s
+          health_timeout 2s
+          fail_duration 5s
+        }
+      }
 
 volumes:
   hub-a-data:

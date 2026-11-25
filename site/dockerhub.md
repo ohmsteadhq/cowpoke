@@ -8,7 +8,7 @@ Industrial protocol simulator, client and historian: Modbus, OPC UA, EtherNet/IP
 - About 70 MB, distroless, runs as a non-root user, with a healthcheck.
 - Configure it in the web UI, over REST, or with one YAML file.
 - Drive it from Python in real time (the client in `clients/python`): read and write every tag, run a process model, start a throwaway instance in pytest.
-- Free under the AGPL-3.0. Ohmstead runs a paid hosted version.
+- Free and open source under the MIT License. Ohmstead runs a paid hosted version.
 
 ## Quick start
 

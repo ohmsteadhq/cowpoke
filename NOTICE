@@ -1,14 +1,9 @@
 Cowpoke
-Copyright (C) 2026 Ohmstead
+Copyright (c) 2026 Ohmstead
 
-This program is free software: you can redistribute it and/or modify it under the
-terms of the GNU Affero General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later version.
-See LICENSE.
-
-If you run a modified version of Cowpoke for other people over a network, the AGPL
-asks you to offer them its source code. Set COWPOKE_SOURCE_URL to show where it is in
-the web UI (Settings > About) and at GET /api/about.
+Cowpoke is released under the MIT License. See LICENSE.
 
 Third-party crates keep their own licenses; `cargo about` or `cargo license` lists them.
+The OPC UA crates (async-opcua*) are under the Mozilla Public License 2.0; Cowpoke uses
+them unmodified, and their source is at https://github.com/FreeOpcUa/async-opcua.
 Model weights used by the foreman are separate downloads under their own licenses.

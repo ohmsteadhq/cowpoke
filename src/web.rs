@@ -151,7 +151,7 @@ async fn logout(State(app): State<App>, jar: CookieJar, headers: HeaderMap) -> i
     (jar.remove(Cookie::from(COOKIE)), StatusCode::NO_CONTENT)
 }
 
-/// Version, license and where to get the source (the AGPL asks hosted copies to offer it).
+/// Version, license and where to get the source.
 /// Public: no login needed.
 async fn about() -> Json<Value> {
     Json(json!({

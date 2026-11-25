@@ -1,5 +1,5 @@
 //! Cowpoke: one container, many industrial communication services.
-//! Copyright (C) 2026 the Cowpoke contributors. Licensed under the GNU AGPL v3 or later (see LICENSE).
+//! Copyright (C) 2026 the Cowpoke contributors. Licensed under the MIT License (see LICENSE).
 //!
 //! `cowpoke` runs a hub: the web UI, the API and the services.
 //! `cowpoke agent` runs an edge agent that dials out to a hub and runs the services assigned to it.

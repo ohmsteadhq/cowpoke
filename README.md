@@ -26,7 +26,7 @@ The rest comes with every service:
   - **Admin** also edits services, users and certificates.
 - **One binary.** The web UI is built into the binary. Data lives in one folder.
 
-Cowpoke is **free to self-host** under the GNU AGPL v3. Ohmstead runs a paid hosted version.
+Cowpoke is **free to self-host**, open source under the MIT License. Ohmstead runs a paid hosted version.
 
 ## Run it
 
@@ -59,7 +59,7 @@ For something closer to a real plant, `examples/plant.yaml` has four machines on
 | `COWPOKE_BIND` | `0.0.0.0:8080` | Web UI and API address |
 | `COWPOKE_ADMIN_PASSWORD` | random, logged once | Password for the first `admin` user |
 | `COWPOKE_LOG` | `info` | Log filter, for example `debug` or `cowpoke=debug` |
-| `COWPOKE_SOURCE_URL` | | Where this copy's source code is, shown under Settings > About and at `GET /api/about`. The AGPL asks anyone running a modified Cowpoke for others to offer its source. |
+| `COWPOKE_SOURCE_URL` | | Where this copy's source code is, shown under Settings > About and at `GET /api/about`. Optional. |
 | `COWPOKE_HUB` | | Agent only: the hub's URL (`https://…`) |
 | `COWPOKE_AGENT_TOKEN` | | Agent only: the token the hub showed when the agent was created |
 
@@ -433,4 +433,4 @@ These aren't built yet:
 
 ## License
 
-GNU Affero General Public License v3.0 or later. See [LICENSE](LICENSE). If you run a modified Cowpoke as a service for others, you must offer them its source.
+MIT. See [LICENSE](LICENSE).

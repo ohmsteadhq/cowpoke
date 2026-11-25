@@ -3,7 +3,7 @@ name = "cowpoke"
 version = "0.1.0"
 edition = "2024"
 description = "One container, many industrial communication services: Modbus TCP, OPC UA, HTTP APIs and IO-Link, each as client or server, with a historian."
-license = "AGPL-3.0-or-later"
+license = "MIT"
 publish = false
 
 [dependencies]

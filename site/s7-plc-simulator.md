@@ -51,8 +51,8 @@ The same container reads and writes real S7-300/400/1200/1500 PLCs by Siemens ad
 | Needs TIA Portal / STEP 7 | Yes | No |
 | Runs in Docker, scriptable from Python | No | Yes |
 | Other protocols in the same box | No | Modbus, OPC UA, EtherNet/IP, MQTT, IO-Link |
-| Price | Licensed | Free (AGPL-3.0) |
+| Price | Licensed | Free (MIT) |
 
-Free to self-host (AGPL-3.0). [Docs](/docs) · [Source]([SOURCE URL])
+Free to self-host (MIT). [Docs](/docs) · [Source]([SOURCE URL])
 
 Related: [Modbus TCP simulator](/modbus-tcp-simulator) · [OPC UA simulator](/opc-ua-simulator) · [Neuron alternative](/neuron-alternative)

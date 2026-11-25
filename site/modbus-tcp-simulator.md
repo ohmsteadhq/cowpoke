@@ -46,6 +46,6 @@ services:
 
 A small Modbus-only image is fine when all you need is a register to poll. Cowpoke is for when the test grows: more devices, other protocols (OPC UA, EtherNet/IP, S7, MQTT, IO-Link), recorded history, and checks that tell you why a value is wrong.
 
-Free to self-host (AGPL-3.0). [Docs](/docs) · [Source]([SOURCE URL])
+Free to self-host (MIT). [Docs](/docs) · [Source]([SOURCE URL])
 
 Related: [OPC UA simulator](/opc-ua-simulator) · [Simulate an S7 PLC](/s7-plc-simulator)

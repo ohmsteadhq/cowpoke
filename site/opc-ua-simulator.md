@@ -48,6 +48,6 @@ The same container simulates Modbus TCP, EtherNet/IP (Logix), Siemens S7, MQTT w
 
 Desktop simulators such as Prosys and Integration Objects are mature and cover more of the OPC UA model: events, methods, history access. Cowpoke's OPC UA server serves variables only, and its client polls; it does not subscribe. If you need those parts of the model, use a desktop simulator. Pick Cowpoke when you want the server in Docker, driven from code, next to the other protocols on your floor.
 
-Free to self-host (AGPL-3.0). [Docs](/docs) · [Source]([SOURCE URL])
+Free to self-host (MIT). [Docs](/docs) · [Source]([SOURCE URL])
 
 Related: [Modbus TCP simulator](/modbus-tcp-simulator) · [Simulate an S7 PLC](/s7-plc-simulator)

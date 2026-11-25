@@ -916,12 +916,12 @@ async function settingsPage() {
       <label class="btn">Import… <input type="file" id="imp" accept=".yaml,.yml" hidden></label></div>
     </div>` : ""}
     <h2>About</h2>
-    <div class="panel pad" id="about"><p class="muted">Cowpoke by Ohmstead. Free to self-host under the GNU AGPL v3.</p></div>`);
+    <div class="panel pad" id="about"><p class="muted">Cowpoke by Ohmstead. Open source under the MIT License.</p></div>`);
   api("GET", "/api/about").then((a) => {
     const src = a.source
       ? `Source code: <a href="${esc(a.source)}">${esc(a.source)}</a>.`
-      : can("admin") ? `Set <span class="mono">COWPOKE_SOURCE_URL</span> to link this copy's source code here (the AGPL asks anyone who runs a modified Cowpoke for others to offer its source).` : "";
-    document.getElementById("about").innerHTML = `<p class="muted">Cowpoke ${esc(a.version)} by Ohmstead. Free to self-host under the GNU AGPL v3. ${src}</p>`;
+      : can("admin") ? `Set <span class="mono">COWPOKE_SOURCE_URL</span> to link this copy's source code here.` : "";
+    document.getElementById("about").innerHTML = `<p class="muted">Cowpoke ${esc(a.version)} by Ohmstead. Open source under the MIT License. ${src}</p>`;
   }).catch(() => {});
   const m = document.getElementById("m");
   const f = document.getElementById("pw");

@@ -30,12 +30,14 @@ def runs():
     for d in glob.glob(os.path.join(OUT, "synth-*")):
         if not os.path.exists(os.path.join(d, "scores.json")):
             continue
-        share = int(os.path.basename(d).split("-")[1])
+        parts = os.path.basename(d).split("-")  # synth-<share>[-s<seed>]; no suffix is seed 1
+        share = int(parts[1])
+        seed = int(parts[2][1:]) if len(parts) > 2 else 1
         sc = json.load(open(os.path.join(d, "scores.json")))
         log = [json.loads(l) for l in open(os.path.join(d, "log.jsonl"))]
         tw = json.load(open(os.path.join(d, "twins", "twins.json")))
-        out.append({"share": share, "dir": d, "scores": sc, "log": log, "twins": tw})
-    return sorted(out, key=lambda r: r["share"])
+        out.append({"share": share, "seed": seed, "dir": d, "scores": sc, "log": log, "twins": tw})
+    return sorted(out, key=lambda r: (r["seed"], r["share"]))
 
 
 def summarize(r, base):
@@ -66,7 +68,7 @@ def summarize(r, base):
     synth = sum(t.get("synth_learned", 0) for t in r["twins"].values())
     real = sum(t.get("learned", 0) for t in r["twins"].values())
     return {
-        "share": r["share"], "observable": len(hits), "caught": len(caught),
+        "share": r["share"], "seed": r["seed"], "wear_deltas_d": [x / 24 for x in dd], "observable": len(hits), "caught": len(caught),
         "by_cls": {k: tuple(v) for k, v in by_cls.items()},
         "wear_delay_d": st.median([h["delay_h"] / 24 for h in wear]) if wear else None,
         "wear_vs_base_d": st.mean(dd) / 24 if dd else 0.0,
@@ -167,9 +169,92 @@ def plot(S):
     print("wrote", path)
 
 
+def pooled(S):
+    """Every seed's runs against that seed's own baseline, pooled per share."""
+    seeds = sorted({s["seed"] for s in S})
+    shares = sorted({s["share"] for s in S})
+    rows = []
+    for sh in shares:
+        g = [s for s in S if s["share"] == sh]
+        d = [x for s in g for x in s["wear_deltas_d"]]
+        rows.append({
+            "share": sh, "seeds": [s["seed"] for s in g],
+            "caught": sum(s["caught"] for s in g), "observable": sum(s["observable"] for s in g),
+            "false": [s["false"] for s in g], "retrains": [s["retrains"] for s in g],
+            "wear_delta_mean": float(np.mean(d)) if d else 0.0, "wear_n": len(d),
+            "wear_sooner": sum(1 for x in d if x < -0.5), "wear_later": sum(1 for x in d if x > 0.5),
+            "err_mean": float(np.mean([np.mean(list(s["err_ratio"].values())) for s in g])),
+            "err_p90": [round(s["err_p90"], 3) for s in g],
+            "missed": [len(s["missed"]) for s in g],
+        })
+    L = [f"Foreman's own synthetic data, seeds {', '.join(map(str, seeds))}: each run against its own seed's baseline, days {START}-364\n",
+         f"{'synthetic':>9} {'caught':>9} {'missed by seed':>15} {'false holds by seed':>20} {'wear vs none':>13} {'sooner/later':>13} {'retrains by seed':>17} {'error':>7} {'worst 10 % by seed':>20}"]
+    for r in rows:
+        L.append(f"{r['share']:>8}% {r['caught']:>4}/{r['observable']:<4} {str(r['missed']):>15} {str(r['false']):>20} {r['wear_delta_mean']:>+11.1f} d {str(r['wear_sooner']) + '/' + str(r['wear_later']) + ' of ' + str(r['wear_n']):>13} {str(r['retrains']):>17} {r['err_mean']:>6.3f}× {str(r['err_p90']):>20}")
+    L.append("\nwear vs none: mean change in days from onset to first hold, same wear events, caught in both runs;")
+    L.append("sooner/later: events caught at least half a day sooner / later.")
+    text = "\n".join(L)
+    with open(os.path.join(OUT, "synth-compare-seeds.txt"), "w") as fh:
+        fh.write(text + "\n")
+    print(text)
+    return rows, seeds
+
+
+def plot_pooled(S, rows, seeds):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "axes.edgecolor": AXIS, "axes.labelcolor": INK2,
+                         "xtick.color": MUTED, "ytick.color": MUTED, "text.color": INK, "axes.titlecolor": INK})
+    shares = [r["share"] for r in rows]
+    col = {sh: (INK2 if sh == 0 else BLUES[min(i - 1, 3)]) for i, sh in enumerate(shares)}
+    fig, ax = plt.subplots(1, 3, figsize=(13, 4.2), facecolor=SURFACE)
+    xs = np.arange(len(shares))
+    marks = {sd: m for sd, m in zip(seeds, ["o", "s", "^", "D", "v"])}
+
+    def panel(a, key, title, unit=""):
+        a.set_facecolor(SURFACE)
+        a.grid(axis="y", color=GRID, lw=0.6)
+        a.set_axisbelow(True)
+        for sp in ("top", "right"):
+            a.spines[sp].set_visible(False)
+        for i, sh in enumerate(shares):
+            vals = [(s["seed"], key(s)) for s in S if s["share"] == sh]
+            a.bar(i, np.mean([v for _, v in vals]), width=0.6, color=col[sh], edgecolor=SURFACE, linewidth=2, alpha=0.35)
+            for sd, v in vals:
+                a.scatter(i, v, color=col[sh], marker=marks[sd], s=40, edgecolors=SURFACE, linewidths=1.5, zorder=3)
+        a.set_xticks(xs, [f"{x} %" for x in shares])
+        a.set_xlabel("share of synthetic samples learned")
+        a.set_title(title, loc="left", fontsize=10)
+
+    panel(ax[0], lambda s: 100 * s["caught"] / s["observable"], "Faults caught (% of those visible)")
+    panel(ax[1], lambda s: s["false"], "Holds no event explains")
+    ax[1].set_yscale("symlog", linthresh=50)
+    panel(ax[2], lambda s: float(np.mean(s["wear_deltas_d"])) if s["wear_deltas_d"] else 0.0, "Wear: days sooner (−) or later (+) than none")
+    ax[2].axhline(0, color=AXIS, lw=1)
+    from matplotlib.lines import Line2D
+    ax[0].legend([Line2D([], [], marker=marks[sd], color=INK2, ls="") for sd in seeds], [f"seed {sd}" for sd in seeds],
+                 frameon=False, fontsize=8, loc="lower left")
+    fig.suptitle(f"Foreman's own synthetic data after day 30 — {len(seeds)} simulated years (bars: mean; marks: each seed)", x=0.01, ha="left", fontsize=11)
+    fig.tight_layout()
+    path = os.path.join(OUT, "synth-compare-seeds.png")
+    fig.savefig(path, dpi=130, facecolor=SURFACE)
+    print("wrote", path)
+
+
 if __name__ == "__main__":
     R = runs()
-    base = next(r for r in R if r["share"] == 0)
-    S = [summarize(r, base) for r in R]
-    report(S)
-    plot(S)
+    S = []
+    for seed in sorted({r["seed"] for r in R}):
+        group = [r for r in R if r["seed"] == seed]
+        base = next((r for r in group if r["share"] == 0), None)
+        if base:
+            S += [summarize(r, base) for r in group]
+    s1 = [s for s in S if s["seed"] == 1]
+    if s1:
+        report(s1)
+        plot(s1)
+    if len({s["seed"] for s in S}) > 1:
+        rows, seeds = pooled(S)
+        plot_pooled(S, rows, seeds)

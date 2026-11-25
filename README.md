@@ -468,7 +468,7 @@ Foreman keeps a digital twin of each machine on a drive, and the twin never stop
 
 **Stuck and noisy transmitters.** A pressure or a trained input that reads exactly the same value for 10 minutes of running is held as stuck: live analog readings move in their last digits. Each twin learns how long each signal normally sits still (a coarse transmitter on a steady tank sits longer) and allows three times that. A residual that stays three times rougher than usual for about a minute is held too: a noisy transmitter, surging, cavitation.
 
-**Foreman's own training data** (`synthetic:`, off by default). Once a twin has run a month, Foreman freezes its models each night and mixes samples made from them into what the twin learns the next day and into the nightly retrain. It makes a twin surer and slower to forget; in a simulated year 10–25 % caught slow wear a little sooner, and 75 % pinned a newly learned recipe and raised hundreds of false holds (`bench/foreman/plant`).
+**Foreman's own training data** (`synthetic:`, off by default). Once a twin has run a month, Foreman freezes its models each night and mixes samples made from them into what the twin learns the next day and into the nightly retrain. It makes a twin surer and slower to forget, not more accurate: over three simulated years it didn't change the catch rate, 25 % held wear a few hours sooner, and 50 % or more could pin a newly learned recipe and raise hundreds of false holds (`bench/foreman/plant`). Leave it off, or 25 % at most.
 
 **Recipes.** Give a twin the PLC tag holding the recipe or product number (`recipe:`) and it keeps a model per recipe, so a product change isn't a fault. A recipe it has seen before picks up what was learned for it; a new one is learned fresh, starting from the last recipe's curves, like a commissioning. Once learned, Foreman compares the two: if the old recipe's model predicts the new one about as well, the recipe doesn't change this machine (a utility pump, a conveyor), and the twin goes back to one model for every recipe.
 
@@ -493,7 +493,7 @@ twins:
     inputs: [cp1-plc/TT-301, cp1-plc/TT-303]   # candidates Foreman may train in
     recipe: cp1-plc/Line_RecipeNo      # optional: a model per recipe
 synthetic:                             # optional, off by default: Foreman's own training data
-  share: 0.2                           # of the samples twins learn (0-0.9; above 0.5 hurts)
+  share: 0.2                           # of the samples twins learn (0-0.9; 0.25 at most)
   after_days: 30                       # starts once a twin has run this long
     # f_base: 60, half_life_h: 168, warmup_s: 600, gate_z: 4, trend_gate: 1
 ```
